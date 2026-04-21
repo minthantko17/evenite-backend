@@ -17,6 +17,14 @@ export class EventAiService {
     this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
   }
 
+  // I am grandpa method, i got child, i got grandchild, now, test me if you can -.-
+  async generateEventFromPrompt(prompt: string): Promise<GeneratedEventDto> {
+      const parsed = await this.callGeminiWithPrompt(prompt);
+      const mapped = this.mapAiResponseToEventDto(parsed);
+      return this.sanitizeAiEventResponse(mapped);
+  } // I think this method will propagate / bubble up without explicit throw
+
+
   // make gemini api call from organizer+system prompt and get JSON event data.
   async callGeminiWithPrompt(prompt: string): Promise<Record<string, any>> {
     const systemInstruction = `
@@ -148,7 +156,9 @@ export class EventAiService {
     dto.title = this.sanitizeBilingualField(dto.title);
     dto.description = this.sanitizeBilingualField(dto.description);
     dto.location = this.sanitizeBilingualField(dto.location);
-    dto.cateringDescription = this.sanitizeBilingualField(dto.cateringDescription);
+    dto.cateringDescription = this.sanitizeBilingualField(
+      dto.cateringDescription,
+    );
     dto.remarks = this.sanitizeBilingualField(dto.remarks);
 
     dto.agenda = this.sanitizeAgendaItems(dto.agenda);
