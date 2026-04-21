@@ -22,11 +22,11 @@ enum EventStatus {
 
 model Event {
   id          String      @id @default(uuid())
-  title       Json        
-  description Json        
+  title       Json?        
+  description Json?        
   category    String[]    
   bannerUrl   String?     
-  location    Json        
+  location    Json?
   mapLink     String?
   isOnline    Boolean     @default(false)
   startAt     DateTime?
