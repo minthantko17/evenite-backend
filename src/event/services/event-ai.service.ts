@@ -5,6 +5,7 @@ import { AiResponseParseException } from '../exceptions/ai-response-parse.except
 import type { GeneratedEventDto } from '../dto/generated-event.dto';
 import { ALLOWED_CATEGORIES, EventCategory } from '../constants/event-category.constant';
 import { AgendaItem } from '../dto/agenda-item.dto';
+import { BilingualField } from '../dto/bilingual-field.dto';
 
 @Injectable()
 export class EventAiService {
@@ -89,7 +90,6 @@ export class EventAiService {
     }
   }
 
-
   mapAiResponseToEventDto(response: Record<string, any>): GeneratedEventDto {
     return {
       title: {
@@ -114,13 +114,15 @@ export class EventAiService {
       },
       agenda:
         Array.isArray(response.agenda) && response.agenda.length > 0
-          ? response.agenda.map((item: any): AgendaItem => ({
-              time: item.time ?? '',
-              activity: {
-                en: item.activity?.en ?? '',
-                th: item.activity?.th ?? '',
-              },
-            }))
+          ? response.agenda.map(
+              (item: any): AgendaItem => ({
+                time: item.time ?? '',
+                activity: {
+                  en: item.activity?.en ?? '',
+                  th: item.activity?.th ?? '',
+                },
+              }),
+            )
           : [],
       category: Array.isArray(response.category)
         ? response.category.filter((c: string) =>
@@ -140,5 +142,112 @@ export class EventAiService {
       contactLineId: response.contactLineId ?? '',
       externalUrl: response.externalUrl ?? '',
     };
+  }
+
+  sanitizeAiEventResponse(dto: GeneratedEventDto): GeneratedEventDto {
+    dto.title = this.sanitizeBilingualField(dto.title);
+    dto.description = this.sanitizeBilingualField(dto.description);
+    dto.location = this.sanitizeBilingualField(dto.location);
+    dto.cateringDescription = this.sanitizeBilingualField(dto.cateringDescription);
+    dto.remarks = this.sanitizeBilingualField(dto.remarks);
+
+    dto.agenda = this.sanitizeAgendaItems(dto.agenda);
+
+    if (!Array.isArray(dto.category) || dto.category.length === 0) {
+      dto.category = [];
+    }
+
+    const { startAt, endAt } = this.sanitizeDateRange(dto.startAt, dto.endAt);
+    dto.startAt = startAt;
+    dto.endAt = endAt;
+
+    if (
+      dto.seatLimit !== undefined &&
+      (!Number.isInteger(dto.seatLimit) || dto.seatLimit <= 0)
+    ) {
+      dto.seatLimit = undefined;
+    }
+
+    if (dto.mapLink && !this.isValidUrl(dto.mapLink)) dto.mapLink = '';
+    if (dto.externalUrl && !this.isValidUrl(dto.externalUrl))
+      dto.externalUrl = '';
+
+    if (dto.contactEmail && !dto.contactEmail.includes('@')) {
+      dto.contactEmail = '';
+    }
+
+    return dto;
+  }
+
+
+  // -- private helpers --
+
+  private sanitizeBilingualField(
+    field: BilingualField | null | undefined,
+  ): BilingualField {
+    if (!field) return { en: '', th: '' };
+    return {
+      en:
+        typeof field.en === 'string' && field.en.trim().length > 0
+          ? field.en
+          : '',
+      th:
+        typeof field.th === 'string' && field.th.trim().length > 0
+          ? field.th
+          : '',
+    };
+  }
+
+  private sanitizeAgendaItems(
+    agenda: AgendaItem[] | null | undefined,
+  ): AgendaItem[] {
+    if (!agenda || !Array.isArray(agenda)) return [];
+    const sanitized = agenda
+      .map(
+        (item): AgendaItem => ({
+          time:
+            typeof item.time === 'string' && item.time.trim().length > 0
+              ? item.time
+              : '',
+          activity: this.sanitizeBilingualField(item.activity),
+        }),
+      )
+      .filter(
+        (item) =>
+          item.time !== '' ||
+          item.activity.en !== '' ||
+          item.activity.th !== '',
+      );
+
+    return sanitized;
+  }
+
+  private sanitizeDateRange(
+    startAt: Date | undefined,
+    endAt: Date | undefined,
+  ): { startAt: Date | undefined; endAt: Date | undefined } {
+    const startValid = startAt instanceof Date && !isNaN(startAt.getTime());
+    const endValid = endAt instanceof Date && !isNaN(endAt.getTime());
+    if (!startValid) {
+      return { startAt: undefined, endAt: undefined };
+    }
+    if (!endValid) {
+      return { startAt, endAt: undefined };
+    }
+    if (startAt >= endAt) {
+      return { startAt, endAt: undefined };
+    }
+
+    return { startAt, endAt };
+  }
+
+  // check by creating URL object, instead of checking with regex
+  private isValidUrl(url: string): boolean {
+    try {
+      new URL(url);
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
