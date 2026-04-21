@@ -11,3 +11,39 @@ datasource db {
   provider = "postgresql"
   url = env("DATABASE_URL")
 }
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  ONGOING
+  CONCLUDED
+  CANCELLED
+}
+
+model Event {
+  id          String      @id @default(uuid())
+  title       Json        
+  description Json        
+  category    String[]    
+  bannerUrl   String?     
+  location    Json        
+  mapLink     String?
+  isOnline    Boolean     @default(false)
+  startAt     DateTime?
+  endAt       DateTime?
+  seatLimit   Int?        
+  status      EventStatus @default(DRAFT)
+  hasCatering     Boolean @default(false)
+  isCateringFree  Boolean @default(false)
+  cateringDescription Json?   
+  agenda  Json?
+  contactName   String?
+  contactEmail  String?
+  contactPhone  String?
+  contactLineId String?
+  externalRegistrationUrl String?
+  remarks Json?  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  publishedAt DateTime?
+}
