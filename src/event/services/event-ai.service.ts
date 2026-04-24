@@ -40,7 +40,7 @@ export class EventAiService {
         - Use [] for array fields
         - Omit datetime fields entirely if not found
         - Use 30 for seatLimit if not found
-      - Convert all dates and times to ISO 8601 format (e.g. 2026-10-31T17:30:00).
+      - Convert all dates to ISO 8601 with Bangkok timezone (e.g. 2026-10-31T17:30:00+07:00)
 
       JSON Structure:
       {
