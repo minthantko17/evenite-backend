@@ -1,11 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { AiGenerationException } from '../exceptions/ai-generation.exception';
-import { AiResponseParseException } from '../exceptions/ai-response-parse.exception';
+
 import type { GeneratedEventDto } from '../dto/generated-event.dto';
+import type { AgendaItem } from '../dto/agenda-item.dto';
+import type { BilingualField } from '../dto/bilingual-field.dto';
+import type { TranslateBilingualFieldsDto } from '../dto/translate-bilingual-fields.dto.ts';
+
+import { AiGenerationException } from '../exceptions/ai-generation.exception';
+
+import { AiTranslationException } from '../exceptions/ai-translation.exception';
+import { AiResponseParseException } from '../exceptions/ai-response-parse.exception';
 import { ALLOWED_CATEGORIES, EventCategory } from '../constants/event-category.constant';
-import { AgendaItem } from '../dto/agenda-item.dto';
-import { BilingualField } from '../dto/bilingual-field.dto';
 
 @Injectable()
 export class EventAiService {
@@ -13,18 +18,20 @@ export class EventAiService {
   private readonly model: any;
 
   constructor() {
-    console.log('GEMINI_API_KEY:', process.env.GEMINI_API_KEY ? 'loaded' : 'MISSING');
+    console.log(
+      'GEMINI_API_KEY:',
+      process.env.GEMINI_API_KEY ? 'loaded' : 'MISSING',
+    );
     this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '');
     this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
   }
 
   // I am grandpa method, i got child, i got grandchild, now, test me if you can -.-
   async generateEventFromPrompt(prompt: string): Promise<GeneratedEventDto> {
-      const parsed = await this.callGeminiWithPrompt(prompt);
-      const mapped = this.mapAiResponseToEventDto(parsed);
-      return this.sanitizeAiEventResponse(mapped);
+    const parsed = await this.callGeminiWithPrompt(prompt);
+    const mapped = this.mapAiResponseToEventDto(parsed);
+    return this.sanitizeAiEventResponse(mapped);
   } // I think this method will propagate / bubble up without explicit throw
-
 
   // make gemini api call from organizer+system prompt and get JSON event data.
   async callGeminiWithPrompt(prompt: string): Promise<Record<string, any>> {
@@ -193,6 +200,100 @@ export class EventAiService {
     return dto;
   }
 
+  // -- translate --
+  async translateEventFields(
+    originalDto: TranslateBilingualFieldsDto,
+  ): Promise<TranslateBilingualFieldsDto> {
+    const translatedJson = await this.callGeminiForTranslation(originalDto);
+    return this.mapTranslationResponseToDto(translatedJson, originalDto);
+  }
+
+  private async callGeminiForTranslation(
+    originalDto: TranslateBilingualFieldsDto,
+  ): Promise<Record<string, any>> {
+    const systemInstruction = `
+    You are an expert English-Thai translator for event data.
+    You will receive a JSON object containing bilingual fields.
+    Each field has "en" (English) and "th" (Thai) values.
+
+    TRANSLATION RULES — apply to every bilingual field:
+    - If only "en" exists (th is empty "") → translate EN to TH, keep EN as is
+    - If only "th" exists (en is empty "") → translate TH to EN, keep TH as is
+    - If both exist (neither is empty) → return both unchanged
+    - If both are empty → return both as ""
+
+    For agenda items, apply the same rules to each item's "activity" field.
+    The "time" field in agenda items should always be returned unchanged.
+
+    Return STRICT JSON only, same structure as input.
+  `;
+
+    const fullPrompt = `${systemInstruction}\n\nFields to translate:\n${JSON.stringify(originalDto, null, 2)}`;
+    let responseText: string;
+
+    try {
+      console.log('Sending prompt to Gemini:', fullPrompt);
+      const result = await this.model.generateContent({
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: fullPrompt }],
+          },
+        ],
+        generationConfig: { responseMimeType: 'application/json' },
+      });
+      console.log('Raw response from Gemini:', result);
+      responseText = result.response.text();
+    } catch(error) {
+      console.error('Gemini raw error:', error);
+      throw new AiTranslationException();
+    }
+
+    try {
+      return JSON.parse(responseText);
+    } catch (error) {
+      throw new AiResponseParseException();
+    }
+  }
+
+  private mapTranslationResponseToDto(
+    response: Record<string, any>,
+    original: TranslateBilingualFieldsDto,
+  ): TranslateBilingualFieldsDto {
+    return {
+      title: {
+        en: response.title?.en ?? original.title.en,
+        th: response.title?.th ?? original.title.th,
+      },
+      description: {
+        en: response.description?.en ?? original.description.en,
+        th: response.description?.th ?? original.description.th,
+      },
+      location: {
+        en: response.location?.en ?? original.location.en,
+        th: response.location?.th ?? original.location.th,
+      },
+      cateringDescription: {
+        en: response.cateringDescription?.en ?? original.cateringDescription.en,
+        th: response.cateringDescription?.th ?? original.cateringDescription.th,
+      },
+      remarks: {
+        en: response.remarks?.en ?? original.remarks.en,
+        th: response.remarks?.th ?? original.remarks.th,
+      },
+      agenda: Array.isArray(response.agenda) && response.agenda.length > 0
+        ? response.agenda.map((item: any, index: number) => ({
+            time: item.time ?? original.agenda[index]?.time ?? '',
+            activity: {
+              en:
+                item.activity?.en ?? original.agenda[index]?.activity?.en ?? '',
+              th:
+                item.activity?.th ?? original.agenda[index]?.activity?.th ?? '',
+            },
+          }))
+        : original.agenda,
+    };
+  }
 
   // -- private helpers --
 

@@ -4,10 +4,10 @@ import { EventValidationService } from './services/event-validation.service';
 import { EventAiService } from './services/event-ai.service';
 import { GeneratedEventDto } from './dto/generated-event.dto';
 import { EventStorageService } from './services/event-storage.service';
+import type { TranslateBilingualFieldsDto } from './dto/translate-bilingual-fields.dto';
 
 @Injectable()
 export class EventService {
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventValidationService: EventValidationService,
@@ -22,5 +22,11 @@ export class EventService {
 
   async uploadBannerToStorage(file: Express.Multer.File): Promise<string> {
     return this.eventStorageService.uploadBannerToStorage(file);
+  }
+
+  async translateEventFields(
+    dto: TranslateBilingualFieldsDto,
+  ): Promise<TranslateBilingualFieldsDto> {
+    return this.eventAiService.translateEventFields(dto);
   }
 }
