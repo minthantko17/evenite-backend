@@ -13,6 +13,7 @@ export class EventAiService {
   private readonly model: any;
 
   constructor() {
+    console.log('GEMINI_API_KEY:', process.env.GEMINI_API_KEY ? 'loaded' : 'MISSING');
     this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '');
     this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
   }
@@ -77,6 +78,7 @@ export class EventAiService {
     let responseText: string;
 
     try {
+      console.log('Sending prompt to Gemini:', fullPrompt);
       const result = await this.model.generateContent({
         contents: [
           {
@@ -86,8 +88,10 @@ export class EventAiService {
         ],
         generationConfig: { responseMimeType: 'application/json' },
       });
+      console.log('Raw response from Gemini:', result);
       responseText = result.response.text();
     } catch (error) {
+      console.error('Gemini raw error:', error);
       throw new AiGenerationException();
     }
 
