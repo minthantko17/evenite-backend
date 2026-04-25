@@ -1,5 +1,6 @@
 import { Controller, Post, Body, UploadedFile, UseInterceptors, HttpCode, HttpStatus } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Event } from '@prisma/client';
 import { EventService } from './event.service';
 import { GenerateFromPromptDto } from './dto/generate-from-prompt.dto';
 import type { GeneratedEventDto } from './dto/generated-event.dto';
@@ -36,13 +37,13 @@ export class EventController {
 
   @Post('save-draft')
   @HttpCode(HttpStatus.CREATED)
-  async saveAsDraft(@Body() dto: SaveDraftDto): Promise<void> {
+  async saveAsDraft(@Body() dto: SaveDraftDto): Promise<Event> {
     return this.eventService.saveEventAsDraft(dto);
   }
 
   @Post('publish')
   @HttpCode(HttpStatus.CREATED)
-  async publish(@Body() dto: PublishEventDto): Promise<void> {
+  async publish(@Body() dto: PublishEventDto): Promise<Event> {
     return this.eventService.publishEvent(dto);
   }
 }

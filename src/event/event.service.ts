@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Event } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventValidationService } from './services/event-validation.service';
 import { EventAiService } from './services/event-ai.service';
@@ -35,11 +36,11 @@ export class EventService {
     return this.eventAiService.translateEventFields(dto);
   }
 
-  async saveEventAsDraft(dto: SaveDraftDto): Promise<void> {
+  async saveEventAsDraft(dto: SaveDraftDto): Promise<Event> {
     return this.eventCrudService.saveEventAsDraft(dto);
   }
 
-  async publishEvent(dto: PublishEventDto): Promise<void> {
+  async publishEvent(dto: PublishEventDto): Promise<Event> {
     return this.eventCrudService.publishEvent(dto);
   }
 

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { Event } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventStorageService } from './event-storage.service';
 import { SaveDraftDto } from '../dto/save-draft.dto';
@@ -15,11 +16,11 @@ export class EventCrudService {
     private readonly eventStorageService: EventStorageService,
   ) {}
 
-  async saveEventAsDraft(dto: SaveDraftDto): Promise<void> {
+  async saveEventAsDraft(dto: SaveDraftDto): Promise<Event> {
     const bannerUrl = this.eventStorageService.resolveBannerUrl(dto.bannerUrl);
-    
+
     try {
-      await this.prisma.event.create({
+      return await this.prisma.event.create({
         data: {
           title: this.toJson(dto.title),
           description: this.toJson(dto.description),
@@ -49,14 +50,13 @@ export class EventCrudService {
     }
   }
 
-  async publishEvent(dto: PublishEventDto): Promise<void> {
+  async publishEvent(dto: PublishEventDto): Promise<Event> {
     this.validatePublishDateRange(dto.startAt, dto.endAt);
-
     const bannerUrl = this.eventStorageService.resolveBannerUrl(dto.bannerUrl);
     const now = new Date();
 
     try {
-      await this.prisma.event.create({
+      return await this.prisma.event.create({
         data: {
           title: this.toJson(dto.title),
           description: this.toJson(dto.description),
