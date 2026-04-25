@@ -77,7 +77,7 @@ export class PublishEventDto {
 
   @IsOptional()
   @IsString()
-  externalRegistrationUrl?: string;
+  externalUrl?: string;
 
   @IsOptional()
   remarks?: BilingualField;

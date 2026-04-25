@@ -20,7 +20,7 @@ export class SaveDraftDto {
   contactEmail?: string;
   contactPhone?: string;
   contactLineId?: string;
-  externalRegistrationUrl?: string;
+  externalUrl?: string;
   remarks?: BilingualField;
   bannerUrl?: string;
 }

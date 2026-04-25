@@ -4,7 +4,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { GeneratedEventDto } from '../dto/generated-event.dto';
 import type { AgendaItem } from '../dto/agenda-item.dto';
 import type { BilingualField } from '../dto/bilingual-field.dto';
-import type { TranslateBilingualFieldsDto } from '../dto/translate-bilingual-fields.dto.ts';
+import type { TranslateBilingualFieldsDto } from '../dto/translate-bilingual-fields.dto';
 
 import { AiGenerationException } from '../exceptions/ai-generation.exception';
 

@@ -41,7 +41,7 @@ model Event {
   contactEmail  String?
   contactPhone  String?
   contactLineId String?
-  externalRegistrationUrl String?
+  externalUrl String?
   remarks Json?  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
