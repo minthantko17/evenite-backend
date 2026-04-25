@@ -1,9 +1,11 @@
-import { Controller, Post, Body, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { Controller, Post, Body, UploadedFile, UseInterceptors, HttpCode, HttpStatus } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { EventService } from './event.service';
 import { GenerateFromPromptDto } from './dto/generate-from-prompt.dto';
 import type { GeneratedEventDto } from './dto/generated-event.dto';
 import type { TranslateBilingualFieldsDto } from './dto/translate-bilingual-fields.dto';
+import { SaveDraftDto } from './dto/save-draft.dto';
+import { PublishEventDto } from './dto/publish-event.dto';
 
 @Controller('events')
 export class EventController {
@@ -30,5 +32,17 @@ export class EventController {
     @Body() dto: TranslateBilingualFieldsDto,
   ): Promise<TranslateBilingualFieldsDto> {
     return this.eventService.translateEventFields(dto);
+  }
+
+  @Post('save-draft')
+  @HttpCode(HttpStatus.CREATED)
+  async saveAsDraft(@Body() dto: SaveDraftDto): Promise<void> {
+    return this.eventService.saveEventAsDraft(dto);
+  }
+
+  @Post('publish')
+  @HttpCode(HttpStatus.CREATED)
+  async publish(@Body() dto: PublishEventDto): Promise<void> {
+    return this.eventService.publishEvent(dto);
   }
 }

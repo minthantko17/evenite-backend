@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { MulterModule } from '@nestjs/platform-express';
 import { EventService } from './event.service';
 import { memoryStorage } from 'multer';
 import { EventController } from './event.controller';
@@ -6,8 +7,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { EventValidationService } from './services/event-validation.service';
 import { EventAiService } from './services/event-ai.service';
 import { EventStorageService } from './services/event-storage.service';
-import { MulterModule } from '@nestjs/platform-express';
-
+import { EventCrudService } from './services/event-crud.service';
 
 @Module({
   imports: [
@@ -25,6 +25,7 @@ import { MulterModule } from '@nestjs/platform-express';
     EventValidationService,
     EventAiService,
     EventStorageService,
+    EventCrudService,
   ],
 })
 export class EventModule {}

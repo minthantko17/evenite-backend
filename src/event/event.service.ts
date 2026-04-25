@@ -2,8 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventValidationService } from './services/event-validation.service';
 import { EventAiService } from './services/event-ai.service';
-import { GeneratedEventDto } from './dto/generated-event.dto';
 import { EventStorageService } from './services/event-storage.service';
+import { EventCrudService } from './services/event-crud.service';
+
+import { GeneratedEventDto } from './dto/generated-event.dto';
+import { SaveDraftDto } from './dto/save-draft.dto';
+import { PublishEventDto } from './dto/publish-event.dto';
 import type { TranslateBilingualFieldsDto } from './dto/translate-bilingual-fields.dto';
 
 @Injectable()
@@ -13,6 +17,7 @@ export class EventService {
     private readonly eventValidationService: EventValidationService,
     private readonly eventAiService: EventAiService,
     private readonly eventStorageService: EventStorageService,
+    private readonly eventCrudService: EventCrudService,
   ) {}
 
   async generateEventFromPrompt(prompt: string): Promise<GeneratedEventDto> {
@@ -29,4 +34,13 @@ export class EventService {
   ): Promise<TranslateBilingualFieldsDto> {
     return this.eventAiService.translateEventFields(dto);
   }
+
+  async saveEventAsDraft(dto: SaveDraftDto): Promise<void> {
+    return this.eventCrudService.saveEventAsDraft(dto);
+  }
+
+  async publishEvent(dto: PublishEventDto): Promise<void> {
+    return this.eventCrudService.publishEvent(dto);
+  }
+
 }
