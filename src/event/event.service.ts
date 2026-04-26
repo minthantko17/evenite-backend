@@ -44,11 +44,11 @@ export class EventService {
   }
 
   async saveEventAsDraft(dto: SaveDraftDto): Promise<Event> {
-    return this.eventCrudService.saveEventAsDraft(dto, dto.eventId);
+    return this.eventCrudService.saveEventAsDraft(dto, dto.id);
   }
 
   async publishEvent(dto: PublishEventDto): Promise<Event> {
-    return this.eventCrudService.publishEvent(dto, dto.eventId);
+    return this.eventCrudService.publishEvent(dto, dto.id);
   }
 
   async getAllEvents(): Promise<Event[]> {

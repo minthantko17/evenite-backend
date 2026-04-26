@@ -10,7 +10,7 @@ import { Type } from "class-transformer";
 export class PublishEventDto {
   @IsOptional()
   @IsUUID()
-  eventId?: string;
+  id?: string;
 
   @IsNotEmpty()
   title!: BilingualField;

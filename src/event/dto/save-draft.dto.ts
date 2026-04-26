@@ -7,7 +7,7 @@ import { EventCategory } from '../constants/event-category.constant';
 export class SaveDraftDto {
   @IsOptional()
   @IsUUID()
-  eventId?: string;
+  id?: string;
 
   @IsOptional()
   title?: BilingualField;
