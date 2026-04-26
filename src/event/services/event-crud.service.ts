@@ -90,6 +90,12 @@ export class EventCrudService {
     }
   }
 
+  async getAllEvents(): Promise<Event[]> {
+    return this.prisma.event.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async getEventById(id: string): Promise<Event> {
     const event = await this.prisma.event.findUnique({
       where: { id },

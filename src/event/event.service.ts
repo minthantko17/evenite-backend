@@ -51,6 +51,10 @@ export class EventService {
     return this.eventCrudService.publishEvent(dto);
   }
 
+  async getAllEvents(): Promise<Event[]> {
+    return this.eventCrudService.getAllEvents();
+  }
+
   async getEventById(id: string): Promise<Event> {
     return this.eventCrudService.getEventById(id);
   }

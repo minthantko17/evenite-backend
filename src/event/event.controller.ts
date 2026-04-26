@@ -59,6 +59,11 @@ export class EventController {
     return this.eventService.publishEvent(dto);
   }
 
+  @Get()
+  async getAllEvnts(): Promise<Event[]> {
+    return this.eventService.getAllEvents();
+  }
+
   @Get(':id')
   async getEvent(@Param('id', ParseUUIDPipe) id: string): Promise<Event> {
     return this.eventService.getEventById(id);
