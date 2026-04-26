@@ -5,6 +5,8 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { EventStorageService } from './event-storage.service';
 import { SaveDraftDto } from '../dto/save-draft.dto';
 import { PublishEventDto } from '../dto/publish-event.dto';
+
+import { NotFoundException } from '@nestjs/common';
 import { SaveEventException } from '../exceptions/save-event.exception';
 import { PublishEventException } from '../exceptions/publish-event.exception';
 import { InvalidDateRangeException } from '../exceptions/invalid-date-range.exception';
@@ -88,6 +90,19 @@ export class EventCrudService {
     }
   }
 
+  async getEventById(id: string): Promise<Event> {
+    const event = await this.prisma.event.findUnique({
+      where: { id },
+    });
+
+    if (!event) {
+      throw new NotFoundException(`Event not found.`);
+    }
+
+    return event;
+  }
+
+  // --- helper methods ---
   validatePublishDateRange(startAt: Date, endAt: Date): void {
     if (startAt >= endAt) {
       throw new InvalidDateRangeException();

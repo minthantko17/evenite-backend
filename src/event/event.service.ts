@@ -50,4 +50,8 @@ export class EventService {
   async publishEvent(dto: PublishEventDto): Promise<Event> {
     return this.eventCrudService.publishEvent(dto);
   }
+
+  async getEventById(id: string): Promise<Event> {
+    return this.eventCrudService.getEventById(id);
+  }
 }

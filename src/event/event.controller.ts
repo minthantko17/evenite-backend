@@ -1,4 +1,8 @@
-import { Controller, Post, Body, UploadedFile, UseInterceptors, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, 
+  Get, Post, Body, 
+  Param, UploadedFile, UseInterceptors, 
+  ParseUUIDPipe, HttpCode, HttpStatus 
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Event } from '@prisma/client';
 import { EventService } from './event.service';
@@ -53,5 +57,10 @@ export class EventController {
   @HttpCode(HttpStatus.CREATED)
   async publish(@Body() dto: PublishEventDto): Promise<Event> {
     return this.eventService.publishEvent(dto);
+  }
+
+  @Get(':id')
+  async getEvent(@Param('id', ParseUUIDPipe) id: string): Promise<Event> {
+    return this.eventService.getEventById(id);
   }
 }
