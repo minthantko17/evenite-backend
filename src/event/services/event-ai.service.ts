@@ -29,8 +29,12 @@ export class EventAiService {
   // I am grandpa method, i got child, i got grandchild, now, test me if you can -.-
   async generateEventFromPrompt(prompt: string): Promise<GeneratedEventDto> {
     const parsed = await this.callGeminiWithPrompt(prompt);
+    console.log("Before mapping: ", parsed);
     const mapped = this.mapAiResponseToEventDto(parsed);
-    return this.sanitizeAiEventResponse(mapped);
+    console.log("After mapping: ", mapped);
+    const sanitized = this.sanitizeAiEventResponse(mapped);
+    console.log("After sanitization: ", sanitized);
+    return sanitized;
   } // I think this method will propagate / bubble up without explicit throw
 
   // make gemini api call from organizer+system prompt and get JSON event data.
@@ -48,7 +52,11 @@ export class EventAiService {
         - Use [] for array fields
         - Omit datetime fields entirely if not found
         - Use 30 for seatLimit if not found
-      - Convert all dates to ISO 8601 with Bangkok timezone (e.g. 2026-10-31T17:30:00+07:00)
+      - The event platform is based in Thailand (UTC+7, Asia/Bangkok)
+      - Assume all times in the input are Bangkok time (UTC+7) unless explicitly stated otherwise
+      - Convert all dates to UTC ISO 8601 format with 'Z' suffix
+      - Example: 8:00 AM Bangkok time (UTC+7) = "2026-10-31T01:00:00.000Z"
+      - NEVER use +07:00 or any other timezone offset
 
       JSON Structure:
       {
@@ -58,8 +66,8 @@ export class EventAiService {
         "location": { "en": "...", "th": "..." },
         "mapLink": "...",
         "isOnline": false,
-        "startAt": "2026-10-31T17:30:00",
-        "endAt": "2026-10-31T17:30:00",
+        "startAt": "2026-10-31T10:30:00.000Z",
+        "endAt": "2026-10-31T14:30:00.000Z",
         "seatLimit": 0,
         "hasCatering": false,
         "isCateringFree": false,
@@ -97,6 +105,7 @@ export class EventAiService {
       });
       console.log('Raw response from Gemini:', result);
       responseText = result.response.text();
+      console.log('Response text from Gemini:', responseText);
     } catch (error) {
       console.error('Gemini raw error:', error);
       throw new AiGenerationException();
