@@ -44,12 +44,19 @@ export class EventStorageService {
     return data.publicUrl;
   }
 
-
   resolveBannerUrl(bannerUrl: string | undefined): string {
     if (!bannerUrl || bannerUrl.trim() === '') {
       return DEFAULT_BANNER_URL;
     }
     return bannerUrl;
+  }
+
+  async deleteBannerFromStorage(bannerUrl: string): Promise<void>{
+    const filePath = this.extractFilePathFromUrl(bannerUrl);
+    if (!filePath){
+      return;
+    }
+    await this.supabase.storage.from(BUCKET_NAME).remove([filePath]);
   }
 
 
@@ -62,5 +69,20 @@ export class EventStorageService {
       'image/webp': '.webp',
     };
     return map[mimetype] ?? '.jpg';
+  }
+
+  private extractFilePathFromUrl(publicUrl: string): string | null {
+    try{
+      const url = new URL(publicUrl);
+      const marker = `/object/public/${BUCKET_NAME}/`;
+      const index = url.pathname.indexOf(marker);
+      if (index === -1) {
+        return null;
+      }
+      // will return only file name
+      return decodeURIComponent(url.pathname.substring(index + marker.length));
+    }catch(error){
+      return null;
+    }
   }
 }

@@ -1,12 +1,17 @@
 import { IsNotEmpty, IsArray, 
     IsBoolean, IsOptional, IsDate, 
-    IsInt, IsString, ValidateIf, Min } from "class-validator";
+    IsInt, IsString, ValidateIf, Min, 
+    IsUUID} from "class-validator";
 import type { BilingualField } from "./bilingual-field.dto";
 import type { AgendaItem } from "./agenda-item.dto";
 import { EventCategory } from "../constants/event-category.constant";
 import { Type } from "class-transformer";
 
 export class PublishEventDto {
+  @IsOptional()
+  @IsUUID()
+  eventId?: string;
+
   @IsNotEmpty()
   title!: BilingualField;
 
@@ -17,7 +22,7 @@ export class PublishEventDto {
   @IsArray()
   category!: EventCategory[];
 
-  @ValidateIf(o => !o.isOnline)
+  @ValidateIf((o) => !o.isOnline)
   @IsNotEmpty()
   location?: BilingualField;
 

@@ -1,10 +1,14 @@
-import { IsOptional, IsBoolean, IsString, IsInt, IsArray, Min } from 'class-validator';
+import { IsOptional, IsBoolean, IsString, IsInt, IsArray, Min, IsUUID } from 'class-validator';
 import { Type } from 'class-transformer';
 import type { BilingualField } from './bilingual-field.dto';
 import type { AgendaItem } from './agenda-item.dto';
 import { EventCategory } from '../constants/event-category.constant';
 
 export class SaveDraftDto {
+  @IsOptional()
+  @IsUUID()
+  eventId?: string;
+
   @IsOptional()
   title?: BilingualField;
 

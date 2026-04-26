@@ -49,13 +49,17 @@ export class EventController {
 
   @Post('save-draft')
   @HttpCode(HttpStatus.CREATED)
-  async saveAsDraft(@Body() dto: SaveDraftDto): Promise<Event> {
+  async saveAsDraft(
+    @Body() dto: SaveDraftDto,
+  ): Promise<Event> {
     return this.eventService.saveEventAsDraft(dto);
   }
 
   @Post('publish')
   @HttpCode(HttpStatus.CREATED)
-  async publish(@Body() dto: PublishEventDto): Promise<Event> {
+  async publish(
+    @Body() dto: PublishEventDto,
+  ): Promise<Event> {
     return this.eventService.publishEvent(dto);
   }
 
