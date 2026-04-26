@@ -19,6 +19,14 @@ export class EventController {
     return this.eventService.generateEventFromPrompt(dto.prompt);
   }
 
+  @Post('generate/image')
+  @UseInterceptors(FileInterceptor('image'))
+  async generateFromImage(
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<GeneratedEventDto> {
+    return this.eventService.generateEventFromImage(file);
+  }
+
   @Post('banner')
   @UseInterceptors(FileInterceptor('banner'))
   async uploadBannerToStorage(

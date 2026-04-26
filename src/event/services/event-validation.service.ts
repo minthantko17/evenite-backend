@@ -17,6 +17,16 @@ export class EventValidationService {
     }
   }
 
+  validateImageFile(file: Express.Multer.File): void {
+    if (!ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
+      throw new InvalidImageException('Unsupported image format');
+    }
+
+    if (file.size > MAX_IMAGE_SIZE) {
+      throw new InvalidImageException('File size must not exceed 5MB.');
+    }
+  }
+
   validateBannerFile(file: Express.Multer.File): void {
     if (!ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
       throw new InvalidImageException('Unsupported image format');

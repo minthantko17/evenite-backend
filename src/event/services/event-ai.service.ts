@@ -26,14 +26,15 @@ export class EventAiService {
     this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
   }
 
+  // --- generate from prompt ---
   // I am grandpa method, i got child, i got grandchild, now, test me if you can -.-
   async generateEventFromPrompt(prompt: string): Promise<GeneratedEventDto> {
     const parsed = await this.callGeminiWithPrompt(prompt);
-    console.log("Before mapping: ", parsed);
+    console.log('Before mapping: ', parsed);
     const mapped = this.mapAiResponseToEventDto(parsed);
-    console.log("After mapping: ", mapped);
+    console.log('After mapping: ', mapped);
     const sanitized = this.sanitizeAiEventResponse(mapped);
-    console.log("After sanitization: ", sanitized);
+    console.log('After sanitization: ', sanitized);
     return sanitized;
   } // I think this method will propagate / bubble up without explicit throw
 
@@ -209,7 +210,111 @@ export class EventAiService {
     return dto;
   }
 
-  // -- translate --
+
+  // --- generate from image ---
+  async generateEventFromImage(
+    file: Express.Multer.File,
+  ): Promise<GeneratedEventDto> {
+    const parsed = await this.callGeminiWithImage(file);
+    console.log("Before mapping: ", parsed);
+    const mapped = this.mapAiResponseToEventDto(parsed);
+    console.log('Mapped AI response before sanitization:', mapped);
+    const sanitized = this.sanitizeAiEventResponse(mapped);
+    console.log('Sanitized AI response:', sanitized);
+    return sanitized;
+  }
+
+  // M-XXX
+  async callGeminiWithImage(
+    file: Express.Multer.File,
+  ): Promise<Record<string, any>> {
+    const systemInstruction = `
+      You are an expert event data extractor.
+      Extract event details from the provided image and return a JSON object.
+
+      CRITICAL INSTRUCTIONS:
+      - Output STRICT JSON only.
+      - For text fields, provide BOTH English ("en") and Thai ("th") translations.
+      - If a specific piece of info is missing:
+        - Use "" for string fields
+        - Use false for boolean fields
+        - Use [] for array fields
+        - Omit datetime fields entirely if not found
+        - Use 30 for seatLimit if not found
+      - The event platform is based in Thailand (UTC+7, Asia/Bangkok)
+      - Assume all times in the input are Bangkok time (UTC+7) unless explicitly stated otherwise
+      - Convert all dates to UTC ISO 8601 format with 'Z' suffix
+      - Example: 8:00 AM Bangkok time (UTC+7) = "2026-10-31T01:00:00.000Z"
+      - NEVER use +07:00 or any other timezone offset
+
+      JSON Structure:
+      {
+        "title": { "en": "...", "th": "..." },
+        "description": { "en": "...", "th": "..." },
+        "category": ["SEMINAR", "WORKSHOP", ...],
+        "location": { "en": "...", "th": "..." },
+        "mapLink": "...",
+        "isOnline": false,
+        "startAt": "2026-10-31T10:30:00.000Z",
+        "endAt": "2026-10-31T14:30:00.000Z",
+        "seatLimit": 0,
+        "hasCatering": false,
+        "isCateringFree": false,
+        "cateringDescription": { "en": "...", "th": "..." },
+        "agenda": [
+          { "time": "09:00", "activity": { "en": "...", "th": "..." } }
+        ],
+        "contactName": "...",
+        "contactEmail": "...",
+        "contactPhone": "...",
+        "contactLineId": "...",
+        "externalUrl": "...",
+        "remarks": { "en": "...", "th": "..." }
+      }
+
+      Allowed categories: SEMINAR, WORKSHOP, LECTURE, CONFERENCE, HACKATHON,
+      COMPETITION, CLUB_ACTIVITY, ORIENTATION, VOLUNTEER, TRIP, SPORT,
+      CULTURAL, FESTIVAL, NETWORKING, CAREER_FAIR, PARTY, INTERNSHIP, OTHER.
+      Omit startAt and endAt fields entirely if they cannot be extracted.
+    `;
+
+    const base64Image = file.buffer.toString('base64');
+    let responseText: string;
+
+    try {
+      const result = await this.model.generateContent({
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              { text: systemInstruction },
+              {
+                inlineData: {
+                  mimeType: file.mimetype,
+                  data: base64Image,
+                },
+              },
+            ],
+          },
+        ],
+        generationConfig: { responseMimeType: 'application/json' },
+      });
+      console.log('Raw response from Gemini:', result);
+      responseText = result.response.text();
+      console.log('Response text from Gemini:', responseText);
+    } catch (error) {
+      console.error('Gemini raw error:', error);
+      throw new AiGenerationException();
+    }
+
+    try {
+      return JSON.parse(responseText);
+    } catch {
+      throw new AiResponseParseException();
+    }
+  }
+
+  // --- translate ---
   async translateEventFields(
     originalDto: TranslateBilingualFieldsDto,
   ): Promise<TranslateBilingualFieldsDto> {
@@ -253,7 +358,7 @@ export class EventAiService {
       });
       console.log('Raw response from Gemini:', result);
       responseText = result.response.text();
-    } catch(error) {
+    } catch (error) {
       console.error('Gemini raw error:', error);
       throw new AiTranslationException();
     }
@@ -290,17 +395,22 @@ export class EventAiService {
         en: response.remarks?.en ?? original.remarks.en,
         th: response.remarks?.th ?? original.remarks.th,
       },
-      agenda: Array.isArray(response.agenda) && response.agenda.length > 0
-        ? response.agenda.map((item: any, index: number) => ({
-            time: item.time ?? original.agenda[index]?.time ?? '',
-            activity: {
-              en:
-                item.activity?.en ?? original.agenda[index]?.activity?.en ?? '',
-              th:
-                item.activity?.th ?? original.agenda[index]?.activity?.th ?? '',
-            },
-          }))
-        : original.agenda,
+      agenda:
+        Array.isArray(response.agenda) && response.agenda.length > 0
+          ? response.agenda.map((item: any, index: number) => ({
+              time: item.time ?? original.agenda[index]?.time ?? '',
+              activity: {
+                en:
+                  item.activity?.en ??
+                  original.agenda[index]?.activity?.en ??
+                  '',
+                th:
+                  item.activity?.th ??
+                  original.agenda[index]?.activity?.th ??
+                  '',
+              },
+            }))
+          : original.agenda,
     };
   }
 

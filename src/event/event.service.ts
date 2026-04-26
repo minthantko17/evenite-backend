@@ -26,6 +26,13 @@ export class EventService {
     return this.eventAiService.generateEventFromPrompt(prompt);
   }
 
+  async generateEventFromImage(
+    file: Express.Multer.File,
+  ): Promise<GeneratedEventDto> {
+    this.eventValidationService.validateImageFile(file);
+    return this.eventAiService.generateEventFromImage(file);
+  }
+
   async uploadBannerToStorage(file: Express.Multer.File): Promise<string> {
     return this.eventStorageService.uploadBannerToStorage(file);
   }
@@ -43,5 +50,4 @@ export class EventService {
   async publishEvent(dto: PublishEventDto): Promise<Event> {
     return this.eventCrudService.publishEvent(dto);
   }
-
 }
