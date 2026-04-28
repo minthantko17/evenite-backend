@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import { EventValidationService } from './event-validation.service';
 
 import type { GeneratedEventDto } from '../dto/generated-event.dto';
@@ -15,8 +15,8 @@ import { ALLOWED_CATEGORIES, EventCategory } from '../constants/event-category.c
 
 @Injectable()
 export class EventAiService {
-  private readonly genAI: GoogleGenerativeAI;
-  private readonly model: any;
+  private readonly ai: GoogleGenAI;
+  private model: string = 'gemini-2.5-flash';
 
   constructor(
     private readonly eventValidationService: EventValidationService
@@ -25,8 +25,7 @@ export class EventAiService {
       'GEMINI_API_KEY:',
       process.env.GEMINI_API_KEY ? 'loaded' : 'MISSING',
     );
-    this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '');
-    this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    this.ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY ?? '' });
   }
 
   // --- generate from prompt ---
@@ -99,17 +98,18 @@ export class EventAiService {
 
     try {
       console.log('Sending prompt to Gemini:', fullPrompt);
-      const result = await this.model.generateContent({
+      const result = await this.ai.models.generateContent({
+        model: this.model,
         contents: [
           {
             role: 'user',
             parts: [{ text: fullPrompt }],
           },
         ],
-        generationConfig: { responseMimeType: 'application/json' },
+        config: { responseMimeType: 'application/json' },
       });
       console.log('Raw response from Gemini:', result);
-      responseText = result.response.text();
+      responseText = result.text ?? '';
       console.log('Response text from Gemini:', responseText);
     } catch (error) {
       console.error('Gemini raw error:', error);
@@ -287,7 +287,8 @@ export class EventAiService {
     let responseText: string;
 
     try {
-      const result = await this.model.generateContent({
+      const result = await this.ai.models.generateContent({
+        model: this.model,
         contents: [
           {
             role: 'user',
@@ -302,10 +303,10 @@ export class EventAiService {
             ],
           },
         ],
-        generationConfig: { responseMimeType: 'application/json' },
+        config: { responseMimeType: 'application/json' },
       });
       console.log('Raw response from Gemini:', result);
-      responseText = result.response.text();
+      responseText = result.text ?? '';
       console.log('Response text from Gemini:', responseText);
     } catch (error) {
       console.error('Gemini raw error:', error);
@@ -352,17 +353,18 @@ export class EventAiService {
 
     try {
       console.log('Sending prompt to Gemini:', fullPrompt);
-      const result = await this.model.generateContent({
+      const result = await this.ai.models.generateContent({
+        model: this.model,
         contents: [
           {
             role: 'user',
             parts: [{ text: fullPrompt }],
           },
         ],
-        generationConfig: { responseMimeType: 'application/json' },
+        config: { responseMimeType: 'application/json' },
       });
       console.log('Raw response from Gemini:', result);
-      responseText = result.response.text();
+      responseText = result.text ?? '';
     } catch (error) {
       console.error('Gemini raw error:', error);
       throw new AiTranslationException();
