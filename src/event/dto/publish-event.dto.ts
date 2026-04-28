@@ -1,11 +1,12 @@
-import { IsNotEmpty, IsArray, 
-    IsBoolean, IsOptional, IsDate, 
-    IsInt, IsString, ValidateIf, Min, 
-    IsUUID} from "class-validator";
-import type { BilingualField } from "./bilingual-field.dto";
-import type { AgendaItem } from "./agenda-item.dto";
-import { EventCategory } from "../constants/event-category.constant";
-import { Type } from "class-transformer";
+import {
+  IsNotEmpty, IsArray, IsBoolean, IsOptional,
+  IsDate, IsInt, IsString, ValidateIf, Min,
+  IsUUID, IsUrl, IsEmail, IsEnum,
+} from 'class-validator';
+import type { BilingualField } from './bilingual-field.dto';
+import type { AgendaItem } from './agenda-item.dto';
+import { EventCategory, ALLOWED_CATEGORIES } from '../constants/event-category.constant';
+import { Type } from 'class-transformer';
 
 export class PublishEventDto {
   @IsOptional()
@@ -20,6 +21,7 @@ export class PublishEventDto {
 
   @IsNotEmpty()
   @IsArray()
+  @IsEnum(ALLOWED_CATEGORIES, { each: true })
   category!: EventCategory[];
 
   @ValidateIf((o) => !o.isOnline)
@@ -27,7 +29,7 @@ export class PublishEventDto {
   location?: BilingualField;
 
   @IsOptional()
-  @IsString()
+  @IsUrl()
   mapLink?: string;
 
   @IsOptional()
@@ -69,7 +71,7 @@ export class PublishEventDto {
   contactName?: string;
 
   @IsOptional()
-  @IsString()
+  @IsEmail()
   contactEmail?: string;
 
   @IsOptional()
@@ -81,7 +83,7 @@ export class PublishEventDto {
   contactLineId?: string;
 
   @IsOptional()
-  @IsString()
+  @IsUrl()
   externalUrl?: string;
 
   @IsOptional()

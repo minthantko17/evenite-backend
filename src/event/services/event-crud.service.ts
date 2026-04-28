@@ -9,6 +9,9 @@ import { SaveEventException } from '../exceptions/save-event.exception';
 import { PublishEventException } from '../exceptions/publish-event.exception';
 import { InvalidDateRangeException } from '../exceptions/invalid-date-range.exception';
 import { DEFAULT_BANNER_URL } from '../constants/event-category.constant';
+import { AgendaItem } from '../dto/agenda-item.dto';
+
+import type { BilingualField } from '../dto/bilingual-field.dto';
 
 @Injectable()
 export class EventCrudService {
@@ -17,93 +20,89 @@ export class EventCrudService {
     private readonly eventStorageService: EventStorageService,
   ) {}
 
-  async saveEventAsDraft(
-    dto: SaveDraftDto, 
-    eventId?: string
-): Promise<Event> {
-    const bannerUrl = this.eventStorageService.resolveBannerUrl(dto.bannerUrl);
-    const eventData = {
-      title: this.toJson(dto.title),
-      description: this.toJson(dto.description),
-      category: dto.category ?? [],
-      location: this.toJson(dto.location),
-      mapLink: dto.mapLink,
-      isOnline: dto.isOnline ?? false,
-      startAt: dto.startAt,
-      endAt: dto.endAt,
-      seatLimit: dto.seatLimit,
-      hasCatering: dto.hasCatering ?? false,
-      isCateringFree: dto.isCateringFree ?? false,
-      cateringDescription: this.toJson(dto.cateringDescription),
-      agenda: this.toJson(dto.agenda),
-      contactName: dto.contactName,
-      contactEmail: dto.contactEmail,
-      contactPhone: dto.contactPhone,
-      contactLineId: dto.contactLineId,
-      externalUrl: dto.externalUrl,
-      remarks: this.toJson(dto.remarks),
-      bannerUrl,
+  async saveEventAsDraft(dto: SaveDraftDto, eventId?: string): Promise<Event> {
+    const normalizedEventData = this.normalizeEventData(dto);
+    const jsonEventData = {
+      title: this.toJson(normalizedEventData.title),
+      description: this.toJson(normalizedEventData.description),
+      category: normalizedEventData.category,
+      location: this.toJson(normalizedEventData.location),
+      mapLink: normalizedEventData.mapLink,
+      isOnline: normalizedEventData.isOnline,
+      startAt: normalizedEventData.startAt,
+      endAt: normalizedEventData.endAt,
+      seatLimit: normalizedEventData.seatLimit,
+      hasCatering: normalizedEventData.hasCatering,
+      isCateringFree: normalizedEventData.isCateringFree,
+      cateringDescription: this.toJson(normalizedEventData.cateringDescription),
+      agenda: this.toJson(normalizedEventData.agenda),
+      contactName: normalizedEventData.contactName,
+      contactEmail: normalizedEventData.contactEmail,
+      contactPhone: normalizedEventData.contactPhone,
+      contactLineId: normalizedEventData.contactLineId,
+      externalUrl: normalizedEventData.externalUrl,
+      remarks: this.toJson(normalizedEventData.remarks),
+      bannerUrl: normalizedEventData.bannerUrl,
       status: EventStatus.DRAFT,
     };
     try {
       if (eventId) {
-        await this.handleBannerOrphanCleanup(eventId, bannerUrl);
+        await this.handleBannerOrphanCleanup(eventId, jsonEventData.bannerUrl);
         return await this.prisma.event.update({
           where: { id: eventId },
-          data: eventData,
+          data: jsonEventData,
         });
       }
       return await this.prisma.event.create({
-        data: eventData,
+        data: jsonEventData,
       });
-    } catch(error) {
+    } catch (error) {
       if (error instanceof NotFoundException) throw error;
       throw new SaveEventException();
     }
   }
 
-  async publishEvent(
-    dto: PublishEventDto, 
-    eventId?: string
-  ): Promise<Event> {
+  async publishEvent(dto: PublishEventDto, eventId?: string): Promise<Event> {
     this.validatePublishDateRange(dto.startAt, dto.endAt);
-    const bannerUrl = this.eventStorageService.resolveBannerUrl(dto.bannerUrl);
+    const normalizedEventData = this.normalizeEventData(dto);
     const now = new Date();
 
-    const eventData = {
-      title: this.toJson(dto.title),
-      description: this.toJson(dto.description),
-      category: dto.category,
-      location: this.toJson(dto.location),
-      mapLink: dto.mapLink,
-      isOnline: dto.isOnline ?? false,
-      startAt: dto.startAt,
-      endAt: dto.endAt,
-      seatLimit: dto.seatLimit,
-      hasCatering: dto.hasCatering ?? false,
-      isCateringFree: dto.isCateringFree ?? false,
-      cateringDescription: this.toJson(dto.cateringDescription),
-      agenda: this.toJson(dto.agenda),
-      contactName: dto.contactName,
-      contactEmail: dto.contactEmail,
-      contactPhone: dto.contactPhone,
-      contactLineId: dto.contactLineId,
-      externalUrl: dto.externalUrl,
-      remarks: this.toJson(dto.remarks),
-      bannerUrl,
+    const jsonEventData = {
+      title: this.toJson(normalizedEventData.title),
+      description: this.toJson(normalizedEventData.description),
+      category: normalizedEventData.category,
+      location: this.toJson(normalizedEventData.location),
+      mapLink: normalizedEventData.mapLink,
+      isOnline: normalizedEventData.isOnline,
+      startAt: normalizedEventData.startAt,
+      endAt: normalizedEventData.endAt,
+      seatLimit: normalizedEventData.seatLimit,
+      hasCatering: normalizedEventData.hasCatering,
+      isCateringFree: normalizedEventData.isCateringFree,
+      cateringDescription: this.toJson(normalizedEventData.cateringDescription),
+      agenda: this.toJson(normalizedEventData.agenda),
+      contactName: normalizedEventData.contactName,
+      contactEmail: normalizedEventData.contactEmail,
+      contactPhone: normalizedEventData.contactPhone,
+      contactLineId: normalizedEventData.contactLineId,
+      externalUrl: normalizedEventData.externalUrl,
+      remarks: this.toJson(normalizedEventData.remarks),
+      bannerUrl: normalizedEventData.bannerUrl,
       status: EventStatus.PUBLISHED,
       publishedAt: now,
     };
 
     try {
       if (eventId) {
-        await this.handleBannerOrphanCleanup(eventId, bannerUrl);
+        await this.handleBannerOrphanCleanup(eventId, jsonEventData.bannerUrl);
         return await this.prisma.event.update({
           where: { id: eventId },
-          data: eventData,
+          data: jsonEventData,
         });
       }
-      return await this.prisma.event.create({ data: eventData });
+      return await this.prisma.event.create({
+        data: jsonEventData,
+      });
     } catch (error) {
       if (error instanceof InvalidDateRangeException) throw error;
       if (error instanceof NotFoundException) throw error;
@@ -130,6 +129,58 @@ export class EventCrudService {
   }
 
   // --- helper methods ---
+  normalizeEventData(dto: SaveDraftDto | PublishEventDto) {
+    return {
+      title: this.normalizeBilingualField(dto.title),
+      description: this.normalizeBilingualField(dto.description),
+      category: dto.category ?? [],
+      location: this.normalizeBilingualField(dto.location),
+      mapLink: dto.mapLink ?? '',
+      isOnline: dto.isOnline ?? false,
+      startAt: dto.startAt,
+      endAt: dto.endAt,
+      seatLimit: dto.seatLimit,
+      hasCatering: dto.hasCatering ?? false,
+      isCateringFree: dto.isCateringFree ?? false,
+      cateringDescription: this.normalizeBilingualField(dto.cateringDescription),
+      agenda: this.normalizeAgendaItems(dto.agenda),
+      contactName: dto.contactName ?? '',
+      contactEmail: dto.contactEmail ?? '',
+      contactPhone: dto.contactPhone ?? '',
+      contactLineId: dto.contactLineId ?? '',
+      externalUrl: dto.externalUrl ?? '',
+      remarks: this.normalizeBilingualField(dto.remarks),
+      bannerUrl: this.eventStorageService.resolveBannerUrl(dto.bannerUrl),
+    };
+  }
+
+  normalizeBilingualField(
+    field: BilingualField | null | undefined,
+  ): BilingualField {
+    if (!field) return { en: '', th: '' };
+    return {
+      en: typeof field.en === 'string' ? field.en.trim() : '',
+      th: typeof field.th === 'string' ? field.th.trim() : '',
+    };
+  }
+
+  normalizeAgendaItems(agenda: AgendaItem[] | null | undefined): AgendaItem[] {
+    if (!agenda || !Array.isArray(agenda)) return [];
+    return agenda
+      .map(
+        (item): AgendaItem => ({
+          time: typeof item.time === 'string' ? item.time.trim() : '',
+          activity: this.normalizeBilingualField(item.activity),
+        }),
+      )
+      .filter(
+        (item) =>
+          item.time.trim() !== '' ||
+          item.activity.en.trim() !== '' ||
+          item.activity.th.trim() !== '',
+      );
+  }
+
   validatePublishDateRange(startAt: Date, endAt: Date): void {
     if (startAt >= endAt) {
       throw new InvalidDateRangeException();
