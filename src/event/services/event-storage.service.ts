@@ -1,0 +1,88 @@
+import { Injectable } from '@nestjs/common';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { v4 as uuidv4 } from 'uuid';
+import { BannerUploadException } from '../exceptions/banner-upload.exception';
+import { EventValidationService } from './event-validation.service';
+import { DEFAULT_BANNER_URL } from '../constants/event-category.constant';
+
+const BUCKET_NAME = 'banners';
+
+@Injectable()
+export class EventStorageService {
+  private readonly supabase: SupabaseClient;
+
+  constructor(
+    private readonly eventValidationService: EventValidationService,
+  ) {
+    this.supabase = createClient(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_KEY!,
+    );
+  }
+
+  async uploadBannerToStorage(file: Express.Multer.File): Promise<string> {
+    this.eventValidationService.validateBannerFile(file);
+
+    const ext = this.getFileExtension(file.mimetype);
+    const fileName = `${uuidv4()}${ext}`;
+
+    const { error } = await this.supabase.storage
+      .from(BUCKET_NAME)
+      .upload(fileName, file.buffer, {
+        contentType: file.mimetype,
+        upsert: false,
+      });
+
+    if (error) {
+      throw new BannerUploadException();
+    }
+
+    const { data } = this.supabase.storage
+      .from(BUCKET_NAME)
+      .getPublicUrl(fileName);
+
+    return data.publicUrl;
+  }
+
+  resolveBannerUrl(bannerUrl: string | undefined): string {
+    if (!bannerUrl || bannerUrl.trim() === '') {
+      return DEFAULT_BANNER_URL;
+    }
+    return bannerUrl;
+  }
+
+  async deleteBannerFromStorage(bannerUrl: string): Promise<void>{
+    const filePath = this.extractFilePathFromUrl(bannerUrl);
+    if (!filePath){
+      return;
+    }
+    await this.supabase.storage.from(BUCKET_NAME).remove([filePath]);
+  }
+
+
+  // helper
+  private getFileExtension(mimetype: string): string {
+    const map: Record<string, string> = {
+      'image/jpeg': '.jpg',
+      'image/jpg': '.jpg',
+      'image/png': '.png',
+      'image/webp': '.webp',
+    };
+    return map[mimetype] ?? '.jpg';
+  }
+
+  private extractFilePathFromUrl(publicUrl: string): string | null {
+    try{
+      const url = new URL(publicUrl);
+      const marker = `/object/public/${BUCKET_NAME}/`;
+      const index = url.pathname.indexOf(marker);
+      if (index === -1) {
+        return null;
+      }
+      // will return only file name
+      return decodeURIComponent(url.pathname.substring(index + marker.length));
+    }catch(error){
+      return null;
+    }
+  }
+}
