@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InvalidPromptException } from '../exceptions/invalid-prompt.exception';
 import { InvalidImageException } from '../exceptions/invalid-image.exception';
 import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_SIZE } from '../constants/event-category.constant';
+import { InvalidDateRangeException } from '../exceptions/invalid-date-range.exception';
 
 @Injectable()
 export class EventValidationService {
@@ -34,6 +35,12 @@ export class EventValidationService {
 
     if (file.size > MAX_IMAGE_SIZE) {
       throw new InvalidImageException('File size must not exceed 5MB.');
+    }
+  }
+
+  validatePublishDateRange(startAt: Date, endAt: Date): void {
+    if (startAt >= endAt) {
+      throw new InvalidDateRangeException();
     }
   }
 }

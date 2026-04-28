@@ -1,14 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { GoogleGenAI } from '@google/genai';
 import { EventValidationService } from './event-validation.service';
+import { EventDataUtils } from '../utils/event-data.utils';
 
 import type { GeneratedEventDto } from '../dto/generated-event.dto';
 import type { AgendaItem } from '../dto/agenda-item.dto';
-import type { BilingualField } from '../dto/bilingual-field.dto';
 import type { TranslateBilingualFieldsDto } from '../dto/translate-bilingual-fields.dto';
 
 import { AiGenerationException } from '../exceptions/ai-generation.exception';
-
 import { AiTranslationException } from '../exceptions/ai-translation.exception';
 import { AiResponseParseException } from '../exceptions/ai-response-parse.exception';
 import { ALLOWED_CATEGORIES, EventCategory } from '../constants/event-category.constant';
@@ -19,12 +18,9 @@ export class EventAiService {
   private model: string = 'gemini-2.5-flash';
 
   constructor(
-    private readonly eventValidationService: EventValidationService
+    private readonly eventValidationService: EventValidationService,
+    private readonly utils: EventDataUtils,
   ) {
-    console.log(
-      'GEMINI_API_KEY:',
-      process.env.GEMINI_API_KEY ? 'loaded' : 'MISSING',
-    );
     this.ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY ?? '' });
   }
 
@@ -178,21 +174,21 @@ export class EventAiService {
   }
 
   sanitizeAiEventResponse(dto: GeneratedEventDto): GeneratedEventDto {
-    dto.title = this.sanitizeBilingualField(dto.title);
-    dto.description = this.sanitizeBilingualField(dto.description);
-    dto.location = this.sanitizeBilingualField(dto.location);
-    dto.cateringDescription = this.sanitizeBilingualField(
+    dto.title = this.utils.sanitizeBilingualField(dto.title);
+    dto.description = this.utils.sanitizeBilingualField(dto.description);
+    dto.location = this.utils.sanitizeBilingualField(dto.location);
+    dto.cateringDescription = this.utils.sanitizeBilingualField(
       dto.cateringDescription,
     );
-    dto.remarks = this.sanitizeBilingualField(dto.remarks);
+    dto.remarks = this.utils.sanitizeBilingualField(dto.remarks);
 
-    dto.agenda = this.sanitizeAgendaItems(dto.agenda);
+    dto.agenda = this.utils.sanitizeAgendaItems(dto.agenda);
 
     if (!Array.isArray(dto.category) || dto.category.length === 0) {
       dto.category = [];
     }
 
-    const { startAt, endAt } = this.sanitizeDateRange(dto.startAt, dto.endAt);
+    const { startAt, endAt } = this.utils.sanitizeDateRange(dto.startAt, dto.endAt);
     dto.startAt = startAt;
     dto.endAt = endAt;
 
@@ -203,8 +199,8 @@ export class EventAiService {
       dto.seatLimit = undefined;
     }
 
-    if (dto.mapLink && !this.isValidUrl(dto.mapLink)) dto.mapLink = '';
-    if (dto.externalUrl && !this.isValidUrl(dto.externalUrl))
+    if (dto.mapLink && !this.utils.isValidUrl(dto.mapLink)) dto.mapLink = '';
+    if (dto.externalUrl && !this.utils.isValidUrl(dto.externalUrl))
       dto.externalUrl = '';
 
     if (dto.contactEmail && !dto.contactEmail.includes('@')) {
@@ -229,7 +225,6 @@ export class EventAiService {
     return sanitized;
   }
 
-  // M-XXX
   async callGeminiWithImage(
     file: Express.Multer.File,
   ): Promise<Record<string, any>> {
@@ -319,6 +314,7 @@ export class EventAiService {
       throw new AiResponseParseException();
     }
   }
+
 
   // --- translate ---
   async translateEventFields(
@@ -421,74 +417,4 @@ export class EventAiService {
     };
   }
 
-  // -- private helpers --
-
-  private sanitizeBilingualField(
-    field: BilingualField | null | undefined,
-  ): BilingualField {
-    if (!field) return { en: '', th: '' };
-    return {
-      en:
-        typeof field.en === 'string' && field.en.trim().length > 0
-          ? field.en
-          : '',
-      th:
-        typeof field.th === 'string' && field.th.trim().length > 0
-          ? field.th
-          : '',
-    };
-  }
-
-  private sanitizeAgendaItems(
-    agenda: AgendaItem[] | null | undefined,
-  ): AgendaItem[] {
-    if (!agenda || !Array.isArray(agenda)) return [];
-    const sanitized = agenda
-      .map(
-        (item): AgendaItem => ({
-          time:
-            typeof item.time === 'string' && item.time.trim().length > 0
-              ? item.time
-              : '',
-          activity: this.sanitizeBilingualField(item.activity),
-        }),
-      )
-      .filter(
-        (item) =>
-          item.time !== '' ||
-          item.activity.en !== '' ||
-          item.activity.th !== '',
-      );
-
-    return sanitized;
-  }
-
-  private sanitizeDateRange(
-    startAt: Date | undefined,
-    endAt: Date | undefined,
-  ): { startAt: Date | undefined; endAt: Date | undefined } {
-    const startValid = startAt instanceof Date && !isNaN(startAt.getTime());
-    const endValid = endAt instanceof Date && !isNaN(endAt.getTime());
-    if (!startValid) {
-      return { startAt: undefined, endAt: undefined };
-    }
-    if (!endValid) {
-      return { startAt, endAt: undefined };
-    }
-    if (startAt >= endAt) {
-      return { startAt, endAt: undefined };
-    }
-
-    return { startAt, endAt };
-  }
-
-  // check by creating URL object, instead of checking with regex
-  private isValidUrl(url: string): boolean {
-    try {
-      new URL(url);
-      return true;
-    } catch {
-      return false;
-    }
-  }
 }

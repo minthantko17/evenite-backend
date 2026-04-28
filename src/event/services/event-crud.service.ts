@@ -2,6 +2,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, Event, EventStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventStorageService } from './event-storage.service';
+import { EventValidationService } from './event-validation.service';
+import { EventDataUtils } from '../utils/event-data.utils';
 import { SaveDraftDto } from '../dto/save-draft.dto';
 import { PublishEventDto } from '../dto/publish-event.dto';
 
@@ -9,15 +11,14 @@ import { SaveEventException } from '../exceptions/save-event.exception';
 import { PublishEventException } from '../exceptions/publish-event.exception';
 import { InvalidDateRangeException } from '../exceptions/invalid-date-range.exception';
 import { DEFAULT_BANNER_URL } from '../constants/event-category.constant';
-import { AgendaItem } from '../dto/agenda-item.dto';
-
-import type { BilingualField } from '../dto/bilingual-field.dto';
 
 @Injectable()
 export class EventCrudService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventStorageService: EventStorageService,
+    private readonly utils: EventDataUtils,
+    private readonly eventValidationService: EventValidationService,
   ) {}
 
   async saveEventAsDraft(dto: SaveDraftDto, eventId?: string): Promise<Event> {
@@ -63,7 +64,7 @@ export class EventCrudService {
   }
 
   async publishEvent(dto: PublishEventDto, eventId?: string): Promise<Event> {
-    this.validatePublishDateRange(dto.startAt, dto.endAt);
+    this.eventValidationService.validatePublishDateRange(dto.startAt, dto.endAt);
     const normalizedEventData = this.normalizeEventData(dto);
     const now = new Date();
 
@@ -131,10 +132,10 @@ export class EventCrudService {
   // --- helper methods ---
   normalizeEventData(dto: SaveDraftDto | PublishEventDto) {
     return {
-      title: this.normalizeBilingualField(dto.title),
-      description: this.normalizeBilingualField(dto.description),
+      title: this.utils.sanitizeBilingualField(dto.title),
+      description: this.utils.sanitizeBilingualField(dto.description),
       category: dto.category ?? [],
-      location: this.normalizeBilingualField(dto.location),
+      location: this.utils.sanitizeBilingualField(dto.location),
       mapLink: dto.mapLink ?? '',
       isOnline: dto.isOnline ?? false,
       startAt: dto.startAt,
@@ -142,49 +143,16 @@ export class EventCrudService {
       seatLimit: dto.seatLimit,
       hasCatering: dto.hasCatering ?? false,
       isCateringFree: dto.isCateringFree ?? false,
-      cateringDescription: this.normalizeBilingualField(dto.cateringDescription),
-      agenda: this.normalizeAgendaItems(dto.agenda),
+      cateringDescription: this.utils.sanitizeBilingualField(dto.cateringDescription),
+      agenda: this.utils.sanitizeAgendaItems(dto.agenda),
       contactName: dto.contactName ?? '',
       contactEmail: dto.contactEmail ?? '',
       contactPhone: dto.contactPhone ?? '',
       contactLineId: dto.contactLineId ?? '',
       externalUrl: dto.externalUrl ?? '',
-      remarks: this.normalizeBilingualField(dto.remarks),
+      remarks: this.utils.sanitizeBilingualField(dto.remarks),
       bannerUrl: this.eventStorageService.resolveBannerUrl(dto.bannerUrl),
     };
-  }
-
-  normalizeBilingualField(
-    field: BilingualField | null | undefined,
-  ): BilingualField {
-    if (!field) return { en: '', th: '' };
-    return {
-      en: typeof field.en === 'string' ? field.en.trim() : '',
-      th: typeof field.th === 'string' ? field.th.trim() : '',
-    };
-  }
-
-  normalizeAgendaItems(agenda: AgendaItem[] | null | undefined): AgendaItem[] {
-    if (!agenda || !Array.isArray(agenda)) return [];
-    return agenda
-      .map(
-        (item): AgendaItem => ({
-          time: typeof item.time === 'string' ? item.time.trim() : '',
-          activity: this.normalizeBilingualField(item.activity),
-        }),
-      )
-      .filter(
-        (item) =>
-          item.time.trim() !== '' ||
-          item.activity.en.trim() !== '' ||
-          item.activity.th.trim() !== '',
-      );
-  }
-
-  validatePublishDateRange(startAt: Date, endAt: Date): void {
-    if (startAt >= endAt) {
-      throw new InvalidDateRangeException();
-    }
   }
 
   private toJson(value: any): Prisma.InputJsonValue | undefined {

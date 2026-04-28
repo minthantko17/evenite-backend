@@ -8,6 +8,7 @@ import { EventValidationService } from './services/event-validation.service';
 import { EventAiService } from './services/event-ai.service';
 import { EventStorageService } from './services/event-storage.service';
 import { EventCrudService } from './services/event-crud.service';
+import { EventDataUtils } from './utils/event-data.utils';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { EventCrudService } from './services/event-crud.service';
     EventAiService,
     EventStorageService,
     EventCrudService,
+    EventDataUtils,
   ],
 })
 export class EventModule {}
