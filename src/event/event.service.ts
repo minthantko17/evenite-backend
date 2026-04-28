@@ -22,14 +22,12 @@ export class EventService {
   ) {}
 
   async generateEventFromPrompt(prompt: string): Promise<GeneratedEventDto> {
-    this.eventValidationService.validatePromptText(prompt);
     return this.eventAiService.generateEventFromPrompt(prompt);
   }
 
   async generateEventFromImage(
     file: Express.Multer.File,
   ): Promise<GeneratedEventDto> {
-    this.eventValidationService.validateImageFile(file);
     return this.eventAiService.generateEventFromImage(file);
   }
 

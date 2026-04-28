@@ -30,9 +30,9 @@ export class PublishEventDto {
   @IsString()
   mapLink?: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsBoolean()
-  isOnline!: boolean;
+  isOnline?: boolean;
 
   @IsNotEmpty()
   @Type(() => Date)
@@ -49,13 +49,13 @@ export class PublishEventDto {
   @Min(1)
   seatLimit?: number;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsBoolean()
-  hasCatering!: boolean;
+  hasCatering?: boolean;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsBoolean()
-  isCateringFree!: boolean;
+  isCateringFree?: boolean;
 
   @IsOptional()
   cateringDescription?: BilingualField;

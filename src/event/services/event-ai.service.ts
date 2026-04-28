@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { EventValidationService } from './event-validation.service';
 
 import type { GeneratedEventDto } from '../dto/generated-event.dto';
 import type { AgendaItem } from '../dto/agenda-item.dto';
@@ -17,7 +18,9 @@ export class EventAiService {
   private readonly genAI: GoogleGenerativeAI;
   private readonly model: any;
 
-  constructor() {
+  constructor(
+    private readonly eventValidationService: EventValidationService
+  ) {
     console.log(
       'GEMINI_API_KEY:',
       process.env.GEMINI_API_KEY ? 'loaded' : 'MISSING',
@@ -29,6 +32,7 @@ export class EventAiService {
   // --- generate from prompt ---
   // I am grandpa method, i got child, i got grandchild, now, test me if you can -.-
   async generateEventFromPrompt(prompt: string): Promise<GeneratedEventDto> {
+    this.eventValidationService.validatePromptText(prompt);
     const parsed = await this.callGeminiWithPrompt(prompt);
     console.log('Before mapping: ', parsed);
     const mapped = this.mapAiResponseToEventDto(parsed);
@@ -215,6 +219,7 @@ export class EventAiService {
   async generateEventFromImage(
     file: Express.Multer.File,
   ): Promise<GeneratedEventDto> {
+    this.eventValidationService.validateImageFile(file);
     const parsed = await this.callGeminiWithImage(file);
     console.log("Before mapping: ", parsed);
     const mapped = this.mapAiResponseToEventDto(parsed);
