@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { GoogleGenAI } from '@google/genai';
 import { EventValidationService } from './event-validation.service';
 import { EventDataUtils } from '../utils/event-data.utils';
@@ -14,6 +14,7 @@ import { ALLOWED_CATEGORIES, EventCategory } from '../constants/event-category.c
 
 @Injectable()
 export class EventAiService {
+  private readonly logger = new Logger(EventAiService.name);
   private readonly ai: GoogleGenAI;
   private model: string = 'gemini-2.5-flash';
 
@@ -29,11 +30,10 @@ export class EventAiService {
   async generateEventFromPrompt(prompt: string): Promise<GeneratedEventDto> {
     this.eventValidationService.validatePromptText(prompt);
     const parsed = await this.callGeminiWithPrompt(prompt);
-    console.log('Before mapping: ', parsed);
     const mapped = this.mapAiResponseToEventDto(parsed);
-    console.log('After mapping: ', mapped);
+    this.logger.log('After mapping: ', mapped);
     const sanitized = this.sanitizeAiEventResponse(mapped);
-    console.log('After sanitization: ', sanitized);
+    this.logger.log('After sanitization: ', sanitized);
     return sanitized;
   } // I think this method will propagate / bubble up without explicit throw
 
@@ -93,7 +93,7 @@ export class EventAiService {
     let responseText: string;
 
     try {
-      console.log('Sending prompt to Gemini:', fullPrompt);
+      this.logger.log('Sending prompt to Gemini:', fullPrompt);
       const result = await this.ai.models.generateContent({
         model: this.model,
         contents: [
@@ -104,11 +104,11 @@ export class EventAiService {
         ],
         config: { responseMimeType: 'application/json' },
       });
-      console.log('Raw response from Gemini:', result);
-      responseText = result.text ?? '';
-      console.log('Response text from Gemini:', responseText);
+      this.logger.log('Raw response from Gemini:', result);
+      responseText = result?.text ?? '';
+      this.logger.log('Response text from Gemini:', responseText);
     } catch (error) {
-      console.error('Gemini raw error:', error);
+      this.logger.error('Gemini raw error:', error);
       throw new AiGenerationException();
     }
 
@@ -217,11 +217,11 @@ export class EventAiService {
   ): Promise<GeneratedEventDto> {
     this.eventValidationService.validateImageFile(file);
     const parsed = await this.callGeminiWithImage(file);
-    console.log("Before mapping: ", parsed);
+    this.logger.log("Before mapping: ", parsed);
     const mapped = this.mapAiResponseToEventDto(parsed);
-    console.log('Mapped AI response before sanitization:', mapped);
+    this.logger.log('Mapped AI response before sanitization:', mapped);
     const sanitized = this.sanitizeAiEventResponse(mapped);
-    console.log('Sanitized AI response:', sanitized);
+    this.logger.log('Sanitized AI response:', sanitized);
     return sanitized;
   }
 
@@ -300,11 +300,11 @@ export class EventAiService {
         ],
         config: { responseMimeType: 'application/json' },
       });
-      console.log('Raw response from Gemini:', result);
-      responseText = result.text ?? '';
-      console.log('Response text from Gemini:', responseText);
+      this.logger.log('Raw response from Gemini:', result);
+      responseText = result?.text ?? '';
+      this.logger.log('Response text from Gemini:', responseText);
     } catch (error) {
-      console.error('Gemini raw error:', error);
+      this.logger.error('Gemini raw error:', error);
       throw new AiGenerationException();
     }
 
@@ -348,7 +348,7 @@ export class EventAiService {
     let responseText: string;
 
     try {
-      console.log('Sending prompt to Gemini:', fullPrompt);
+      this.logger.log('Sending prompt to Gemini:', fullPrompt);
       const result = await this.ai.models.generateContent({
         model: this.model,
         contents: [
@@ -359,10 +359,10 @@ export class EventAiService {
         ],
         config: { responseMimeType: 'application/json' },
       });
-      console.log('Raw response from Gemini:', result);
-      responseText = result.text ?? '';
+      this.logger.log('Raw response from Gemini:', result);
+      responseText = result?.text ?? '';
     } catch (error) {
-      console.error('Gemini raw error:', error);
+      this.logger.error('Gemini raw error:', error);
       throw new AiTranslationException();
     }
 
