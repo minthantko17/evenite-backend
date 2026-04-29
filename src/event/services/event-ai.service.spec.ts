@@ -193,7 +193,6 @@ describe('EventAiService - callGeminiWithImage', () => {
     jest.clearAllMocks();
   });
 
-  // UT-M038-01
   it('UT-M038-01: should return parsed JSON object when Gemini returns valid response with all fields', async () => {
     mockGenerateContent.mockResolvedValueOnce({
       text: JSON.stringify(allFieldPresentGeminiResponse),
@@ -205,7 +204,6 @@ describe('EventAiService - callGeminiWithImage', () => {
     expect(result).toEqual(allFieldPresentGeminiResponse);
   });
 
-  // UT-M038-02
   it('UT-M038-02: should return parsed JSON with default values when Gemini returns response with missing optional fields', async () => {
     mockGenerateContent.mockResolvedValueOnce({
       text: JSON.stringify(someFieldMissingGeminiResponse),
@@ -213,6 +211,7 @@ describe('EventAiService - callGeminiWithImage', () => {
     const result = await service.callGeminiWithImage(
       valid_some_field_missing_image_file,
     );
+    // console.log('Parsed Gemini Response with Missing Fields:', result);
 
     expect(result).toEqual(someFieldMissingGeminiResponse);
     expect(result.description).toEqual({ en: '', th: '' });
@@ -222,7 +221,6 @@ describe('EventAiService - callGeminiWithImage', () => {
     expect(result.agenda).toEqual([]);
   });
 
-  // UT-M038-03
   it('UT-M038-03: should throw AiGenerationException when Gemini API call fails', async () => {
     mockGenerateContent.mockRejectedValueOnce(
       new Error('API connection failed'),
@@ -241,7 +239,6 @@ describe('EventAiService - callGeminiWithImage', () => {
     );
   });
 
-  // UT-M038-04
   it('UT-M038-04: should throw AiResponseParseException when Gemini returns malformed JSON', async () => {
     mockGenerateContent.mockResolvedValueOnce({
       text: 'this is not { valid } json !!!',
@@ -298,7 +295,6 @@ describe('EventAiService - callGeminiForTranslation', () => {
     expect(result.agenda[0].activity.en).toBe('Opening Ceremony');
   });
 
-  // UT-M016-03 
   it('UT-M016-03: should return both fields unchanged when both en and th exist', async () => {
     mockGenerateContent.mockResolvedValueOnce({
       text: JSON.stringify(bothExistDto),
@@ -312,7 +308,6 @@ describe('EventAiService - callGeminiForTranslation', () => {
     expect(result.title.th).toBe('การประชุมเทค');
   });
 
-  // UT-M016-04
   it('UT-M016-04: should return both fields empty when both en and th are empty', async () => {
     // ARRANGE — Gemini returns both empty
     mockGenerateContent.mockResolvedValueOnce({
@@ -327,7 +322,6 @@ describe('EventAiService - callGeminiForTranslation', () => {
     expect(result.title.th).toBe('');
   });
 
-  // UT-M016-05
   it('UT-M016-05: should throw AiTranslationException when Gemini API call fails', async () => {
     mockGenerateContent.mockRejectedValueOnce(
       new Error('API connection failed'),
@@ -346,7 +340,6 @@ describe('EventAiService - callGeminiForTranslation', () => {
     );
   });
 
-  // UT-M016-06
   it('UT-M016-06: should throw AiResponseParseException when Gemini returns malformed JSON', async () => {
     mockGenerateContent.mockResolvedValueOnce({
       text: 'not valid json {{{',
