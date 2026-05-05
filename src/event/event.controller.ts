@@ -64,7 +64,7 @@ export class EventController {
   }
 
   @Get()
-  async getAllEvnts(): Promise<Event[]> {
+  async getAllEvents(): Promise<Event[]> {
     return this.eventService.getAllEvents();
   }
 
