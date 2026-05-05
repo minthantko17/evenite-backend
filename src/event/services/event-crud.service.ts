@@ -22,33 +22,33 @@ export class EventCrudService {
   ) {}
 
   async saveEventAsDraft(dto: SaveDraftDto, eventId?: string): Promise<Event> {
-    const normalizedEventData = this.normalizeEventData(dto);
+    const sanitizedEventData = this.sanitizeEventData(dto);
     const jsonEventData = {
-      title: this.toJson(normalizedEventData.title),
-      description: this.toJson(normalizedEventData.description),
-      category: normalizedEventData.category,
-      location: this.toJson(normalizedEventData.location),
-      mapLink: normalizedEventData.mapLink,
-      isOnline: normalizedEventData.isOnline,
-      startAt: normalizedEventData.startAt,
-      endAt: normalizedEventData.endAt,
-      seatLimit: normalizedEventData.seatLimit,
-      hasCatering: normalizedEventData.hasCatering,
-      isCateringFree: normalizedEventData.isCateringFree,
-      cateringDescription: this.toJson(normalizedEventData.cateringDescription),
-      agenda: this.toJson(normalizedEventData.agenda),
-      contactName: normalizedEventData.contactName,
-      contactEmail: normalizedEventData.contactEmail,
-      contactPhone: normalizedEventData.contactPhone,
-      contactLineId: normalizedEventData.contactLineId,
-      externalUrl: normalizedEventData.externalUrl,
-      remarks: this.toJson(normalizedEventData.remarks),
-      bannerUrl: normalizedEventData.bannerUrl,
+      title: this.toJson(sanitizedEventData.title),
+      description: this.toJson(sanitizedEventData.description),
+      category: sanitizedEventData.category,
+      location: this.toJson(sanitizedEventData.location),
+      mapLink: sanitizedEventData.mapLink,
+      isOnline: sanitizedEventData.isOnline,
+      startAt: sanitizedEventData.startAt,
+      endAt: sanitizedEventData.endAt,
+      seatLimit: sanitizedEventData.seatLimit,
+      hasCatering: sanitizedEventData.hasCatering,
+      isCateringFree: sanitizedEventData.isCateringFree,
+      cateringDescription: this.toJson(sanitizedEventData.cateringDescription),
+      agenda: this.toJson(sanitizedEventData.agenda),
+      contactName: sanitizedEventData.contactName,
+      contactEmail: sanitizedEventData.contactEmail,
+      contactPhone: sanitizedEventData.contactPhone,
+      contactLineId: sanitizedEventData.contactLineId,
+      externalUrl: sanitizedEventData.externalUrl,
+      remarks: this.toJson(sanitizedEventData.remarks),
+      bannerUrl: sanitizedEventData.bannerUrl,
       status: EventStatus.DRAFT,
     };
     try {
       if (eventId) {
-        await this.handleBannerOrphanCleanup(eventId, jsonEventData.bannerUrl);
+        await this.deleteOrphanBannerIfReplaced(eventId, jsonEventData.bannerUrl);
         return await this.prisma.event.update({
           where: { id: eventId },
           data: jsonEventData,
@@ -65,37 +65,37 @@ export class EventCrudService {
 
   async publishEvent(dto: PublishEventDto, eventId?: string): Promise<Event> {
     this.eventValidationService.validatePublishDateRange(dto.startAt, dto.endAt);
-    const normalizedEventData = this.normalizeEventData(dto);
+    const sanitizedEventData = this.sanitizeEventData(dto);
     const now = new Date();
 
     const jsonEventData = {
-      title: this.toJson(normalizedEventData.title),
-      description: this.toJson(normalizedEventData.description),
-      category: normalizedEventData.category,
-      location: this.toJson(normalizedEventData.location),
-      mapLink: normalizedEventData.mapLink,
-      isOnline: normalizedEventData.isOnline,
-      startAt: normalizedEventData.startAt,
-      endAt: normalizedEventData.endAt,
-      seatLimit: normalizedEventData.seatLimit,
-      hasCatering: normalizedEventData.hasCatering,
-      isCateringFree: normalizedEventData.isCateringFree,
-      cateringDescription: this.toJson(normalizedEventData.cateringDescription),
-      agenda: this.toJson(normalizedEventData.agenda),
-      contactName: normalizedEventData.contactName,
-      contactEmail: normalizedEventData.contactEmail,
-      contactPhone: normalizedEventData.contactPhone,
-      contactLineId: normalizedEventData.contactLineId,
-      externalUrl: normalizedEventData.externalUrl,
-      remarks: this.toJson(normalizedEventData.remarks),
-      bannerUrl: normalizedEventData.bannerUrl,
+      title: this.toJson(sanitizedEventData.title),
+      description: this.toJson(sanitizedEventData.description),
+      category: sanitizedEventData.category,
+      location: this.toJson(sanitizedEventData.location),
+      mapLink: sanitizedEventData.mapLink,
+      isOnline: sanitizedEventData.isOnline,
+      startAt: sanitizedEventData.startAt,
+      endAt: sanitizedEventData.endAt,
+      seatLimit: sanitizedEventData.seatLimit,
+      hasCatering: sanitizedEventData.hasCatering,
+      isCateringFree: sanitizedEventData.isCateringFree,
+      cateringDescription: this.toJson(sanitizedEventData.cateringDescription),
+      agenda: this.toJson(sanitizedEventData.agenda),
+      contactName: sanitizedEventData.contactName,
+      contactEmail: sanitizedEventData.contactEmail,
+      contactPhone: sanitizedEventData.contactPhone,
+      contactLineId: sanitizedEventData.contactLineId,
+      externalUrl: sanitizedEventData.externalUrl,
+      remarks: this.toJson(sanitizedEventData.remarks),
+      bannerUrl: sanitizedEventData.bannerUrl,
       status: EventStatus.PUBLISHED,
       publishedAt: now,
     };
 
     try {
       if (eventId) {
-        await this.handleBannerOrphanCleanup(eventId, jsonEventData.bannerUrl);
+        await this.deleteOrphanBannerIfReplaced(eventId, jsonEventData.bannerUrl);
         return await this.prisma.event.update({
           where: { id: eventId },
           data: jsonEventData,
@@ -130,7 +130,7 @@ export class EventCrudService {
   }
 
   // --- helper methods ---
-  normalizeEventData(dto: SaveDraftDto | PublishEventDto) {
+  sanitizeEventData(dto: SaveDraftDto | PublishEventDto) {
     return {
       title: this.utils.sanitizeBilingualField(dto.title),
       description: this.utils.sanitizeBilingualField(dto.description),
@@ -160,7 +160,7 @@ export class EventCrudService {
     return value as Prisma.InputJsonValue;
   }
 
-  private async handleBannerOrphanCleanup(
+  private async deleteOrphanBannerIfReplaced(
     eventId: string,
     newBannerUrl: string,
   ): Promise<void> {
