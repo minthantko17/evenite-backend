@@ -7,6 +7,7 @@ import { BannerUploadException } from '../exceptions/banner-upload.exception';
 import { InvalidImageException } from '../exceptions/invalid-image.exception';
 import * as fs from 'fs';
 import * as path from 'path';
+import { v4 as uuidv4 } from 'uuid';
 
 
 jest.mock('@supabase/supabase-js', () => ({
@@ -81,7 +82,8 @@ const invalid_file = createMockFile(
 const large_jpg_file = createMockFile(
   fs.readFileSync(path.join(fixturesPath, 'small_image_jpg.jpg')),
   'image/jpeg',
-  'large_image.jpeg'
+  'large_image.jpeg',
+  5 * 1024 * 1024 + 1
 );
 
 
@@ -104,7 +106,8 @@ describe('EventStorageService - uploadBannerToStorage', () => {
 
 
   it('UT-M015-01: should upload JPEG file successfully and return public URL', async () => {
-    const expectedUrl = 'https://supabase.co/storage/v1/object/public/banners/uuid.jpg';
+    const mockUuid = uuidv4();
+    const expectedUrl = `https://supabase.co/storage/v1/object/public/banners/${mockUuid}.jpg`;
     // supabase return as no-error if success
     mockStorageFrom.upload.mockResolvedValueOnce({ error: null });
     mockStorageFrom.getPublicUrl.mockReturnValueOnce({ data: { publicUrl: expectedUrl } });
@@ -122,7 +125,8 @@ describe('EventStorageService - uploadBannerToStorage', () => {
   });
 
   it('UT-M015-02: should upload PNG file successfully and return public URL', async () => {
-    const expectedUrl = 'https://supabase.co/storage/v1/object/public/banners/uuid.png';
+    const mockUuid = uuidv4();
+    const expectedUrl = `https://supabase.co/storage/v1/object/public/banners/${mockUuid}.png`;
     mockStorageFrom.upload.mockResolvedValueOnce({ error: null });
     mockStorageFrom.getPublicUrl.mockReturnValueOnce({ data: { publicUrl: expectedUrl } });
 
@@ -137,7 +141,8 @@ describe('EventStorageService - uploadBannerToStorage', () => {
   });
 
   it('UT-M015-03: should upload WEBP file successfully and return public URL', async () => {
-    const expectedUrl = 'https://supabase.co/storage/v1/object/public/banners/uuid.webp';
+    const mockUuid = uuidv4();
+    const expectedUrl = `https://supabase.co/storage/v1/object/public/banners/${mockUuid}.webp`;
     mockStorageFrom.upload.mockResolvedValueOnce({ error: null });
     mockStorageFrom.getPublicUrl.mockReturnValueOnce({ data: { publicUrl: expectedUrl } });
 
@@ -188,7 +193,7 @@ describe('EventStorageService - uploadBannerToStorage', () => {
   });
 
   it('UT-M015-06: should throw BannerUploadException when Supabase upload fails', async () => {
-    // validation passes — jest.fn() does nothing by default
+    // mock as validation passes will be same as jest.fn() does nothing by default
     // Supabase returns error object as { error: {...} } without throwing
     mockStorageFrom.upload.mockResolvedValueOnce({
       error: { message: 'Storage bucket not found' },
