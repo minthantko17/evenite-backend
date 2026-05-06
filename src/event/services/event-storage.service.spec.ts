@@ -72,14 +72,13 @@ const small_webp_file = createMockFile(
   'small_webp.webp',
 );
 
-const invalid_file = createMockFile(
-  fs.readFileSync(path.join(fixturesPath, 'christmas-party.gif')),
+const invalid_format_file = createMockFile(
+  fs.readFileSync(path.join(fixturesPath, 'christmas_party.gif')),
   'image/gif',
-  'christmas-party.gif',
+  'christmas_party.gif',
 );
 
-// real buffer but override size to simulate >5MB — no need to store actual 6MB file
-const large_jpg_file = createMockFile(
+const large_image_file = createMockFile(
   fs.readFileSync(path.join(fixturesPath, 'small_image_jpg.jpg')),
   'image/jpeg',
   'large_image.jpeg',
@@ -161,14 +160,14 @@ describe('EventStorageService - uploadBannerToStorage', () => {
       throw new InvalidImageException('Unsupported image format');
     });
     await expect(
-      service.uploadBannerToStorage(invalid_file)
+      service.uploadBannerToStorage(invalid_format_file)
     ).rejects.toThrow(InvalidImageException);
 
     mockValidationService.validateBannerFile.mockImplementationOnce(() => {
       throw new InvalidImageException('Unsupported image format');
     });
     await expect(
-      service.uploadBannerToStorage(invalid_file)
+      service.uploadBannerToStorage(invalid_format_file)
     ).rejects.toThrow('Unsupported image format');
 
     expect(mockStorageFrom.upload).not.toHaveBeenCalled();
@@ -179,14 +178,14 @@ describe('EventStorageService - uploadBannerToStorage', () => {
       throw new InvalidImageException('File size must not exceed 5MB.');
     });
     await expect(
-      service.uploadBannerToStorage(large_jpg_file)
+      service.uploadBannerToStorage(large_image_file)
     ).rejects.toThrow(InvalidImageException);
 
     mockValidationService.validateBannerFile.mockImplementationOnce(() => {
       throw new InvalidImageException('File size must not exceed 5MB.');
     });
     await expect(
-      service.uploadBannerToStorage(large_jpg_file)
+      service.uploadBannerToStorage(large_image_file)
     ).rejects.toThrow('File size must not exceed 5MB.');
 
     expect(mockStorageFrom.upload).not.toHaveBeenCalled();
