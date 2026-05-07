@@ -7,6 +7,8 @@ import { AiGenerationException } from '../exceptions/ai-generation.exception';
 import { AiResponseParseException } from '../exceptions/ai-response-parse.exception';
 import { AiTranslationException } from '../exceptions/ai-translation.exception';
 import { TranslateBilingualFieldsDto } from '../dto/translate-bilingual-fields.dto';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const mockGenerateContent = jest.fn();
 let service: EventAiService;
@@ -32,32 +34,37 @@ const mockUtils = {
   isValidUrl: jest.fn(() => true),
 };
 
-// Mock Data
-const valid_all_field_present_image_file: Express.Multer.File = {
-  buffer: Buffer.from('mock-image-bytes'),
-  mimetype: 'image/jpeg',
-  originalname: 'valid_image.jpeg',
-  size: 1024,
-  fieldname: 'image',
-  encoding: '7bit',
-  destination: '',
-  filename: '',
-  path: '',
-  stream: null as any,
-};
+const fixturesPath = path.join(__dirname, '../../../test/fixtures/images');
 
-const valid_some_field_missing_image_file: Express.Multer.File = {
-  buffer: Buffer.from('mock-image-bytes'),
-  mimetype: 'image/jpeg',
-  originalname: 'valid_some_field_missing_image_file.jpeg',
-  size: 1024,
-  fieldname: 'image',
+const createMockImageFile = (
+  buffer: Buffer,
+  mimetype: string,
+  originalname: string,
+  size?: number,
+): Express.Multer.File => ({
+  buffer,
+  mimetype,
+  originalname,
+  size: size ?? buffer.length,
+  fieldname: 'file',
   encoding: '7bit',
   destination: '',
   filename: '',
   path: '',
   stream: null as any,
-};
+});
+
+const valid_all_field_present_image_file: Express.Multer.File = createMockImageFile(
+  fs.readFileSync(path.join(fixturesPath, 'small_image_jpg.jpg')),
+  'image/jpeg',
+  'small_image_jpg.jpg',
+);
+
+const valid_some_field_missing_image_file: Express.Multer.File = createMockImageFile(
+  fs.readFileSync(path.join(fixturesPath, 'small_image_png.png')),
+  'image/png',
+  'small_image_png.png',
+);
 
 const onlyEnDto: TranslateBilingualFieldsDto = {
   title: { en: 'Tech Conference', th: '' },
@@ -108,47 +115,178 @@ const errorDto: TranslateBilingualFieldsDto = {
 
 // Mock Gemini Responses
 const allFieldPresentGeminiResponse = {
-  title: { en: 'CAMT Halloween Night', th: 'คืนฮาโลวีน CAMT' },
-  description: { en: 'Join us for fun', th: 'มาร่วมสนุก' },
-  category: ['PARTY'],
-  location: { en: 'CAMT Building', th: 'อาคาร CAMT' },
-  mapLink: 'https://maps.google.com/example',
+  title: {
+    en: 'SEED x CMU Trip to Chiang Rai',
+    th: 'ทริปเชียงราย SEED x CMU',
+  },
+  description: {
+    en: 'Join SEED and Chiang Mai University on a meaningful trip to Chiang Rai. Explore local culture, visit social enterprises, and contribute to community development.',
+    th: 'ร่วมเดินทางกับ SEED และมหาวิทยาลัยเชียงใหม่ ไปยังจังหวัดเชียงราย เรียนรู้วัฒนธรรมท้องถิ่น เยี่ยมชมองค์กรเพื่อสังคม และร่วมพัฒนาชุมชน',
+  },
+  category: ['COMMUNITY', 'LEARNING', 'CULTURE'],
+  location: {
+    en: 'Chiang Rai Province, Thailand',
+    th: 'จังหวัดเชียงราย ประเทศไทย',
+  },
+  mapLink: 'https://maps.app.goo.gl/8uX8z9kLw7fZp5z36',
   isOnline: false,
-  startAt: '2026-10-31T10:30:00.000Z',
-  endAt: '2026-10-31T14:30:00.000Z',
-  seatLimit: 60,
+  startAt: '2025-06-07T00:00:00.000Z',
+  endAt: '2025-06-08T11:00:00.000Z',
+  seatLimit: 40,
   hasCatering: true,
-  isCateringFree: true,
-  cateringDescription: { en: 'Free snacks', th: 'ของว่างฟรี' },
+  isCateringFree: false,
+  cateringDescription: {
+    en: '3 meals, snacks, and drinking water provided. Vegetarian options available.',
+    th: 'มีอาหาร 3 มื้อ ของว่าง และน้ำดื่ม พร้อมตัวเลือกอาหารมังสวิรัติ',
+  },
   agenda: [
-    { time: '10:30', activity: { en: 'Registration', th: 'ลงทะเบียน' } },
+    {
+      time: '07:00',
+      activity: {
+        en: 'Meeting at CMU Main Entrance',
+        th: 'พบกันที่ทางเข้าหลัก มช.',
+      },
+    },
+    {
+      time: '07:30',
+      activity: { en: 'Departure to Chiang Rai', th: 'ออกเดินทางไปเชียงราย' },
+    },
+    {
+      time: '11:00',
+      activity: {
+        en: 'Visit Doi Tung Development Project',
+        th: 'เยี่ยมชมโครงการพัฒนาดอยตุง',
+      },
+    },
+    { time: '12:30', activity: { en: 'Lunch', th: 'รับประทานอาหารกลางวัน' } },
+    {
+      time: '14:00',
+      activity: {
+        en: 'Community Service Activity',
+        th: 'กิจกรรมจิตอาสาในชุมชน',
+      },
+    },
+    {
+      time: '17:30',
+      activity: {
+        en: 'Check-in & Free Time',
+        th: 'เช็คอินและพักผ่อนตามอัธยาศัย',
+      },
+    },
+    {
+      time: '19:00',
+      activity: {
+        en: 'Dinner & Sharing Circle',
+        th: 'รับประทานอาหารเย็นและแลกเปลี่ยนประสบการณ์',
+      },
+    },
+    { time: '07:00', activity: { en: 'Breakfast', th: 'รับประทานอาหารเช้า' } },
+    {
+      time: '08:00',
+      activity: {
+        en: 'Visit Social Enterprise / Local Market',
+        th: 'เยี่ยมชมกิจการเพื่อสังคมหรือตลาดท้องถิ่น',
+      },
+    },
+    {
+      time: '11:30',
+      activity: {
+        en: 'Reflection & Group Discussion',
+        th: 'สะท้อนการเรียนรู้และอภิปรายกลุ่ม',
+      },
+    },
+    { time: '12:30', activity: { en: 'Lunch', th: 'รับประทานอาหารกลางวัน' } },
+    {
+      time: '14:00',
+      activity: {
+        en: 'Visit Wat Rong Khun (White Temple)',
+        th: 'เยี่ยมชมวัดร่องขุ่น',
+      },
+    },
+    {
+      time: '16:30',
+      activity: { en: 'Departure to Chiang Mai', th: 'เดินทางกลับเชียงใหม่' },
+    },
+    {
+      time: '18:00',
+      activity: { en: 'Arrive at CMU', th: 'เดินทางถึงมหาวิทยาลัยเชียงใหม่' },
+    },
   ],
-  contactName: 'Jane',
-  contactEmail: 'jane@cmu.ac.th',
-  contactPhone: '0987654321',
-  contactLineId: 'jane.cmu',
-  externalUrl: 'https://forms.gle/example',
-  remarks: { en: 'Wear costume', th: 'แต่งชุดแฟนซี' },
+  contactName: 'Kantaya (Nana)',
+  contactEmail: 'seed.cmu@gmail.com',
+  contactPhone: '0961234567',
+  contactLineId: '@seedcmu',
+  externalUrl: 'https://www.seedcmu.com',
+  remarks: {
+    en: 'Open to all CMU students. Please register in advance by 30 May 2025.',
+    th: 'เปิดรับนักศึกษามหาวิทยาลัยเชียงใหม่ทุกคน กรุณาลงทะเบียนล่วงหน้าภายในวันที่ 30 พฤษภาคม 2568',
+  },
 };
 
 const someFieldMissingGeminiResponse = {
-  title: { en: 'CAMT Halloween Night', th: 'คืนฮาโลวีน CAMT' },
-  description: { en: '', th: '' },
-  category: [],
-  location: { en: '', th: '' },
+  title: {
+    en: 'Loy Krathong Workshop',
+    th: 'เวิร์กช็อปลอยกระทง',
+  },
+  description: {
+    en: 'Create your own Krathong at our workshop! Let your creativity flow with us.',
+    th: 'สร้างกระทงของคุณเองที่เวิร์คช็อปของเรา! ปล่อยให้ความคิดสร้างสรรค์ของคุณไหลลื่นไปกับเรา',
+  },
+  category: ['WORKSHOP'],
+  location: {
+    en: 'VIP Room 1, Office of the University, CMU',
+    th: 'ห้อง VIP 1 สำนักงานมหาวิทยาลัย มหาวิทยาลัยเชียงใหม่',
+  },
   mapLink: '',
   isOnline: false,
+  startAt: '2024-11-15T02:00:00.000Z',
+  endAt: '2024-11-15T05:00:00.000Z',
   seatLimit: 30,
   hasCatering: false,
   isCateringFree: false,
-  cateringDescription: { en: '', th: '' },
-  agenda: [],
+  cateringDescription: {
+    en: '',
+    th: '',
+  },
+  agenda: [
+    {
+      time: '09:00',
+      activity: {
+        en: 'Registration',
+        th: 'ลงทะเบียน',
+      },
+    },
+    {
+      time: '09:30',
+      activity: {
+        en: 'Opening Ceremony',
+        th: 'พิธีเปิด',
+      },
+    },
+    {
+      time: '09:45',
+      activity: {
+        en: 'Krathong Workshop',
+        th: 'เวิร์กช็อปทำกระทง',
+      },
+    },
+    {
+      time: '12:00',
+      activity: {
+        en: 'Evaluation',
+        th: 'ประเมินผล',
+      },
+    },
+  ],
   contactName: '',
-  contactEmail: '',
-  contactPhone: '',
+  contactEmail: 'irdcmu@cmu.ac.th',
+  contactPhone: '053-943661',
   contactLineId: '',
   externalUrl: '',
-  remarks: { en: '', th: '' },
+  remarks: {
+    en: 'Please register by 14 November 2024, 04:00 PM.',
+    th: 'กรุณาลงทะเบียนภายในวันที่ 14 พฤศจิกายน 2567 เวลา 16:00 น.',
+  },
 };
 
 const translatedToThResponse = {
@@ -193,7 +331,7 @@ describe('EventAiService - callGeminiWithImage', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M038-01: should return parsed JSON object when Gemini returns valid response with all fields', async () => {
+  it('UT-M023-01: should return parsed JSON object when Gemini returns valid response with all fields', async () => {
     mockGenerateContent.mockResolvedValueOnce({
       text: JSON.stringify(allFieldPresentGeminiResponse),
     });
@@ -204,7 +342,7 @@ describe('EventAiService - callGeminiWithImage', () => {
     expect(result).toEqual(allFieldPresentGeminiResponse);
   });
 
-  it('UT-M038-02: should return parsed JSON with default values when Gemini returns response with missing optional fields', async () => {
+  it('UT-M023-02: should return parsed JSON with default values when Gemini returns response with missing optional fields', async () => {
     mockGenerateContent.mockResolvedValueOnce({
       text: JSON.stringify(someFieldMissingGeminiResponse),
     });
@@ -214,14 +352,19 @@ describe('EventAiService - callGeminiWithImage', () => {
     // console.log('Parsed Gemini Response with Missing Fields:', result);
 
     expect(result).toEqual(someFieldMissingGeminiResponse);
-    expect(result.description).toEqual({ en: '', th: '' });
-    expect(result.category).toEqual([]);
+    expect(result.title).toEqual({
+      en: 'Loy Krathong Workshop',
+      th: 'เวิร์กช็อปลอยกระทง',
+    });
+    expect(result.mapLink).toBe("");
+    expect(result.category).toEqual(["WORKSHOP"]);
     expect(result.seatLimit).toBe(30);
     expect(result.hasCatering).toBe(false);
-    expect(result.agenda).toEqual([]);
   });
 
-  it('UT-M038-03: should throw AiGenerationException when Gemini API call fails', async () => {
+  // TODO: update test UT-M023-03 and UT-M023-04 to align as un-reporducible issue test plan.
+  // (bad comment detected xD)
+  it('UT-M023-03: should throw AiGenerationException when Gemini API call fails', async () => {
     mockGenerateContent.mockRejectedValueOnce(
       new Error('API connection failed'),
     );
@@ -239,7 +382,7 @@ describe('EventAiService - callGeminiWithImage', () => {
     );
   });
 
-  it('UT-M038-04: should throw AiResponseParseException when Gemini returns malformed JSON', async () => {
+  it('UT-M023-04: should throw AiResponseParseException when Gemini returns malformed JSON', async () => {
     mockGenerateContent.mockResolvedValueOnce({
       text: 'this is not { valid } json !!!',
     });
@@ -257,6 +400,7 @@ describe('EventAiService - callGeminiWithImage', () => {
     );
   });
 });
+
 
 describe('EventAiService - callGeminiForTranslation', () => {
   beforeEach(async () => {
