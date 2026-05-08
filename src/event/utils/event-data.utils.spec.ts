@@ -250,3 +250,118 @@ describe('EventDataUtils - sanitizeAgendaItems', () => {
     expect(utils.sanitizeAgendaItems('not an array' as any)).toEqual([]);
   });
 });
+
+describe('EventDataUtils - sanitizeDateRange', () => {
+  let utils: EventDataUtils;
+
+  beforeEach(() => {
+    utils = new EventDataUtils();
+  });
+
+  it('UT-M008-01: should return both unchanged when startAt is strictly before endAt', () => {
+    const startAt = new Date('2026-10-31T09:00:00.000Z');
+    const endAt = new Date('2026-10-31T12:00:00.000Z');
+    expect(utils.sanitizeDateRange(startAt, endAt)).toEqual({ startAt, endAt });
+  });
+
+  it('UT-M008-02: should return startAt unchanged and endAt undefined when both are same date and time', () => {
+    const startAt = new Date('2026-10-31T09:00:00.000Z');
+    const endAt = new Date('2026-10-31T09:00:00.000Z');
+    expect(utils.sanitizeDateRange(startAt, endAt)).toEqual({
+      startAt,
+      endAt: undefined,
+    });
+  });
+
+  it('UT-M008-03: should return startAt unchanged and endAt undefined when startAt is after endAt', () => {
+    const startAt = new Date('2026-10-31T12:00:00.000Z');
+    const endAt = new Date('2026-10-31T09:00:00.000Z');
+    expect(utils.sanitizeDateRange(startAt, endAt)).toEqual({
+      startAt,
+      endAt: undefined,
+    });
+  });
+
+  it('UT-M008-04: should treat date-only input as valid and return both Date objects when startAt is before endAt', () => {
+    const startAt = new Date('2026-10-31');
+    const endAt = new Date('2026-11-01');
+    console.log('startAt:', startAt, 'endAt:', endAt);
+    expect(utils.sanitizeDateRange(startAt, endAt)).toEqual({ startAt, endAt });
+  });
+
+  it('UT-M008-05: should return startAt and endAt undefined when date only input and same date', () => {
+    const startAt = new Date('2026-10-31');
+    const endAt = new Date('2026-10-31');
+    expect(utils.sanitizeDateRange(startAt, endAt)).toEqual({
+      startAt,
+      endAt: undefined,
+    });
+  });
+
+  it('UT-M008-06: should return both undefined when startAt is invalid Date and endAt is valid', () => {
+    const startAt = new Date('invalid');
+    const endAt = new Date('2026-10-31T12:00:00.000Z');
+    expect(utils.sanitizeDateRange(startAt, endAt)).toEqual({
+      startAt: undefined,
+      endAt: undefined,
+    });
+  });
+
+  it('UT-M008-07: should return both undefined when startAt is undefined and endAt is valid', () => {
+    const endAt = new Date('2026-10-31T12:00:00.000Z');
+    expect(utils.sanitizeDateRange(undefined, endAt)).toEqual({
+      startAt: undefined,
+      endAt: undefined,
+    });
+  });
+
+  it('UT-M008-08: should return both undefined when startAt is a string and endAt is valid', () => {
+    const endAt = new Date('2026-10-31T12:00:00.000Z');
+    expect(utils.sanitizeDateRange('Upcoming Monday' as any, endAt)).toEqual({
+      startAt: undefined,
+      endAt: undefined,
+    });
+  });
+
+  it('UT-M008-09: should return startAt unchanged and endAt undefined when startAt is valid and endAt is invalid Date', () => {
+    const startAt = new Date('2026-10-31T09:00:00.000Z');
+    const endAt = new Date('invalid value');
+    expect(utils.sanitizeDateRange(startAt, endAt)).toEqual({
+      startAt,
+      endAt: undefined,
+    });
+  });
+
+  it('UT-M008-10: should return startAt unchanged and endAt undefined when startAt is valid and endAt is undefined', () => {
+    const startAt = new Date('2026-10-31T09:00:00.000Z');
+    expect(utils.sanitizeDateRange(startAt, undefined)).toEqual({
+      startAt,
+      endAt: undefined,
+    });
+  });
+
+  it('UT-M008-11: should return both undefined when both are undefined', () => {
+    expect(utils.sanitizeDateRange(undefined, undefined)).toEqual({
+      startAt: undefined,
+      endAt: undefined,
+    });
+  });
+
+  it('UT-M008-12: should return both undefined when both are invalid Dates', () => {
+    const startAt = new Date('invalid value');
+    const endAt = new Date('invalid value');
+    expect(utils.sanitizeDateRange(startAt, endAt)).toEqual({
+      startAt: undefined,
+      endAt: undefined,
+    });
+  });
+
+  it('UT-M008-13: should return both unchanged when input is timezone offset format', () => {
+    const startAt = new Date('2026-10-31T09:00:00+07:00');
+    const endAt = new Date('2026-10-31T12:00:00+07:00');
+    expect(utils.sanitizeDateRange(startAt, endAt)).toEqual({
+      startAt,
+      endAt,
+    });
+  });
+});
