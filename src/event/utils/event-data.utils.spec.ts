@@ -1,4 +1,5 @@
 import { EventDataUtils } from '../utils/event-data.utils';
+import type { AgendaItem } from '../dto/agenda-item.dto';
 
 describe('EventDataUtils - sanitizeBilingualField', () => {
   let utils: EventDataUtils;
@@ -87,5 +88,165 @@ describe('EventDataUtils - sanitizeBilingualField', () => {
     expect(
       utils.sanitizeBilingualField({ th: '  เวิร์กช็อป CAMT  ' } as any),
     ).toEqual({ en: '', th: 'เวิร์กช็อป CAMT' });
+  });
+});
+
+describe('EventDataUtils - sanitizeAgendaItems', () => {
+  let utils: EventDataUtils;
+
+  beforeEach(() => {
+    utils = new EventDataUtils();
+  });
+
+  it('UT-M007-01: should keep item and return trimmed values when time and both activity languages are valid', () => {
+    expect(
+      utils.sanitizeAgendaItems([
+        {
+          time: '  09:00  ',
+          activity: { en: '  Opening Ceremony  ', th: '  พิธีเปิด  ' },
+        },
+      ]),
+    ).toEqual([
+      { time: '09:00', activity: { en: 'Opening Ceremony', th: 'พิธีเปิด' } },
+    ]);
+  });
+
+  it('UT-M007-02: should keep item when time is valid and only en activity has data', () => {
+    expect(
+      utils.sanitizeAgendaItems([
+        { time: '09:00', activity: { en: 'Opening Ceremony', th: '' } },
+      ]),
+    ).toEqual([
+      { time: '09:00', activity: { en: 'Opening Ceremony', th: '' } },
+    ]);
+  });
+
+  it('UT-M007-03: should keep item when time is valid and only th activity has data', () => {
+    expect(
+      utils.sanitizeAgendaItems([
+        { time: '09:00', activity: { en: '', th: 'พิธีเปิด' } },
+      ]),
+    ).toEqual([{ time: '09:00', activity: { en: '', th: 'พิธีเปิด' } }]);
+  });
+
+  it('UT-M007-04: should keep item when time is valid and both activity languages are empty', () => {
+    expect(
+      utils.sanitizeAgendaItems([
+        { time: '09:00', activity: { en: '', th: '' } },
+      ]),
+    ).toEqual([{ time: '09:00', activity: { en: '', th: '' } }]);
+  });
+
+  it('UT-M007-05: should keep item with default activity when time is valid and activity field is missing', () => {
+    expect(
+        utils.sanitizeAgendaItems([{ time: '09:00' }] as any)
+    ).toEqual([
+      { time: '09:00', activity: { en: '', th: '' } },
+    ]);
+  });
+
+  it('UT-M007-06: should keep item when time is empty and both activity languages are valid', () => {
+    expect(
+      utils.sanitizeAgendaItems([
+        { time: '', activity: { en: 'Opening Ceremony', th: 'พิธีเปิด' } },
+      ]),
+    ).toEqual([
+      { time: '', activity: { en: 'Opening Ceremony', th: 'พิธีเปิด' } },
+    ]);
+  });
+
+  it('UT-M007-07: should keep item when time is undefined and only en activity has data', () => {
+    expect(
+      utils.sanitizeAgendaItems([
+        { time: undefined as any, activity: { en: 'Opening Ceremony', th: '' } },
+      ]),
+    ).toEqual([{ time: '', activity: { en: 'Opening Ceremony', th: '' } }]);
+  });
+
+  it('UT-M007-08: should keep item and trim time to "" when time is whitespace and activity is valid', () => {
+    expect(
+      utils.sanitizeAgendaItems([
+        { time: '   ', activity: { en: 'Opening Ceremony', th: 'พิธีเปิด' } },
+      ]),
+    ).toEqual([
+      { time: '', activity: { en: 'Opening Ceremony', th: 'พิธีเปิด' } },
+    ]);
+  });
+
+  it('UT-M007-09: should keep item and set time to "" when time is null and activity is valid', () => {
+    const input = [
+      { time: null, activity: { en: 'Opening Ceremony', th: 'พิธีเปิด' } },
+    ] as any;
+    expect(utils.sanitizeAgendaItems(input)).toEqual([
+      { time: '', activity: { en: 'Opening Ceremony', th: 'พิธีเปิด' } },
+    ]);
+  });
+
+  it('UT-M007-10: should keep item and set time to "" when time is a number and activity is valid', () => {
+    const input = [
+      { time: 900, activity: { en: 'Opening Ceremony', th: 'พิธีเปิด' } },
+    ] as any;
+    expect(utils.sanitizeAgendaItems(input)).toEqual([
+      { time: '', activity: { en: 'Opening Ceremony', th: 'พิธีเปิด' } },
+    ]);
+  });
+
+  it('UT-M007-11: should keep item when time is free text and activity is valid', () => {
+    expect(
+      utils.sanitizeAgendaItems([
+        {
+          time: 'Morning Session',
+          activity: { en: 'Opening Ceremony', th: 'พิธีเปิด' },
+        },
+      ]),
+    ).toEqual([
+      {
+        time: 'Morning Session',
+        activity: { en: 'Opening Ceremony', th: 'พิธีเปิด' },
+      },
+    ]);
+  });
+
+  it('UT-M007-12: should keep item and set time to "" when time field is missing and activity is valid', () => {
+    expect(
+      utils.sanitizeAgendaItems([
+        { activity: { en: 'Opening Ceremony', th: 'พิธีเปิด' } },
+      ] as any),
+    ).toEqual([
+      { time: '', activity: { en: 'Opening Ceremony', th: 'พิธีเปิด' } },
+    ]);
+  });
+
+  it('UT-M007-13: should filter out item when both time and activity are empty', () => {
+    expect(
+      utils.sanitizeAgendaItems([{ time: '', activity: { en: '', th: '' } }]),
+    ).toEqual([]);
+  });
+
+  it('UT-M007-14: should return only valid item when one item is valid and another is all empty', () => {
+    expect(
+      utils.sanitizeAgendaItems([
+        { time: '09:00', activity: { en: 'Opening Ceremony', th: 'พิธีเปิด' } },
+        { time: '', activity: { en: '', th: '' } },
+      ]),
+    ).toEqual([
+      { time: '09:00', activity: { en: 'Opening Ceremony', th: 'พิธีเปิด' } },
+    ]);
+  });
+
+  it('UT-M007-15: should return [] for empty array', () => {
+    expect(utils.sanitizeAgendaItems([])).toEqual([]);
+  });
+
+  it('UT-M007-16: should return [] for null input', () => {
+    expect(utils.sanitizeAgendaItems(null)).toEqual([]);
+  });
+
+  it('UT-M007-17: should return [] for undefined input', () => {
+    expect(utils.sanitizeAgendaItems(undefined)).toEqual([]);
+  });
+
+  it('UT-M007-18: should return [] for non-array input', () => {
+    expect(utils.sanitizeAgendaItems('not an array' as any)).toEqual([]);
   });
 });
