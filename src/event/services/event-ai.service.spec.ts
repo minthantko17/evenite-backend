@@ -67,31 +67,56 @@ const valid_some_field_missing_image_file: Express.Multer.File = createMockImage
 );
 
 const onlyEnDto: TranslateBilingualFieldsDto = {
-  title: { en: 'Tech Conference', th: '' },
-  description: { en: 'A great event', th: '' },
-  location: { en: 'Bangkok', th: '' },
-  cateringDescription: { en: 'Buffet', th: '' },
-  remarks: { en: 'Bring ID', th: '' },
-  agenda: [{ time: '09:00', activity: { en: 'Opening Ceremony', th: '' } }],
+  title: { en: 'CAMT Study Trip to Bangkok', th: '' },
+  description: {
+    en: 'A study trip for CAMT students to visit tech companies in Bangkok',
+    th: '',
+  },
+  location: { en: 'Bangkok, Thailand', th: '' },
+  cateringDescription: { en: 'Lunch provided on day 1', th: '' },
+  remarks: { en: 'Bring your student ID card', th: '' },
+  agenda: [
+    { time: '07:00', activity: { en: 'Depart from CMU', th: '' } },
+    { time: '13:00', activity: { en: 'Visit SCB Tech X', th: '' } },
+  ],
 };
 
 const onlyThDto: TranslateBilingualFieldsDto = {
-  title: { en: '', th: 'การประชุมเทค' },
-  description: { en: '', th: 'งานที่ยอดเยี่ยม' },
-  location: { en: '', th: 'กรุงเทพ' },
-  cateringDescription: { en: '', th: 'บุฟเฟ่ต์' },
-  remarks: { en: '', th: 'นำบัตรประชาชน' },
-  agenda: [{ time: '09:00', activity: { en: '', th: 'พิธีเปิด' } }],
+  title: { en: '', th: 'งานกีฬาสี มหาวิทยาลัยเชียงใหม่' },
+  description: {
+    en: '',
+    th: 'งานกีฬาสีประจำปีของมหาวิทยาลัยเชียงใหม่ พบกับการแข่งขันกีฬาหลากหลายประเภท',
+  },
+  location: { en: '', th: 'สนามกีฬากลาง มหาวิทยาลัยเชียงใหม่' },
+  cateringDescription: { en: '', th: 'มีอาหารและเครื่องดื่มจำหน่ายภายในงาน' },
+  remarks: { en: '', th: 'สวมเสื้อสีประจำคณะ' },
+  agenda: [
+    { time: '08:00', activity: { en: '', th: 'พิธีเปิดงานกีฬาสี' } },
+    { time: '09:00', activity: { en: '', th: 'การแข่งขันกีฬา' } },
+  ],
 };
 
 const bothExistDto: TranslateBilingualFieldsDto = {
-  title: { en: 'Tech Conference', th: 'การประชุมเทค' },
-  description: { en: 'A great event', th: 'งานที่ยอดเยี่ยม' },
-  location: { en: 'Bangkok', th: 'กรุงเทพ' },
-  cateringDescription: { en: 'Buffet', th: 'บุฟเฟ่ต์' },
-  remarks: { en: 'Bring ID', th: 'นำบัตรประชาชน' },
+  title: { en: 'CAMT Halloween Night 2026', th: 'คืนฮาโลวีน CAMT 2026' },
+  description: {
+    en: 'Annual Halloween party for CAMT students',
+    th: 'งานปาร์ตี้ฮาโลวีนประจำปีสำหรับนักศึกษา CAMT',
+  },
+  location: {
+    en: 'CAMT Building, Chiang Mai University',
+    th: 'อาคาร CAMT มหาวิทยาลัยเชียงใหม่',
+  },
+  cateringDescription: {
+    en: 'Free snacks and drinks',
+    th: 'ของว่างและเครื่องดื่มฟรี',
+  },
+  remarks: { en: 'Costume is encouraged', th: 'แนะนำให้แต่งชุดแฟนซี' },
   agenda: [
-    { time: '09:00', activity: { en: 'Opening Ceremony', th: 'พิธีเปิด' } },
+    { time: '18:00', activity: { en: 'Registration', th: 'ลงทะเบียน' } },
+    {
+      time: '19:00',
+      activity: { en: 'Halloween Costume Contest', th: 'ประกวดชุดแฟนซี' },
+    },
   ],
 };
 
@@ -105,9 +130,9 @@ const bothEmptyDto: TranslateBilingualFieldsDto = {
 };
 
 const errorDto: TranslateBilingualFieldsDto = {
-  title: { en: 'Tech Conference', th: '' },
-  description: { en: '', th: '' },
-  location: { en: '', th: '' },
+  title: { en: 'CAMT Study Trip to Bangkok', th: '' },
+  description: { en: 'A study trip for CAMT students', th: '' },
+  location: { en: 'Bangkok, Thailand', th: '' },
   cateringDescription: { en: '', th: '' },
   remarks: { en: '', th: '' },
   agenda: [],
@@ -290,24 +315,80 @@ const someFieldMissingGeminiResponse = {
 };
 
 const translatedToThResponse = {
-  title: { en: 'Tech Conference', th: 'การประชุมเทค' },
-  description: { en: 'A great event', th: 'งานที่ยอดเยี่ยม' },
-  location: { en: 'Bangkok', th: 'กรุงเทพ' },
-  cateringDescription: { en: 'Buffet', th: 'บุฟเฟ่ต์' },
-  remarks: { en: 'Bring ID', th: 'นำบัตรประชาชน' },
+  title: {
+    en: 'CAMT Study Trip to Bangkok',
+    th: 'ทัศนศึกษา CAMT ที่กรุงเทพฯ',
+  },
+  description: {
+    en: 'A study trip for CAMT students to visit tech companies in Bangkok',
+    th: 'ทริปทัศนศึกษาสำหรับนักศึกษา CAMT เพื่อเยี่ยมชมบริษัทเทคโนโลยีในกรุงเทพฯ',
+  },
+  location: {
+    en: 'Bangkok, Thailand',
+    th: 'กรุงเทพฯ ประเทศไทย',
+  },
+  cateringDescription: {
+    en: 'Lunch provided on day 1',
+    th: 'มีอาหารกลางวันจัดให้ในวันที่ 1',
+  },
+  remarks: {
+    en: 'Bring your student ID card',
+    th: 'นำบัตรประจำตัวนักศึกษามาด้วย',
+  },
   agenda: [
-    { time: '09:00', activity: { en: 'Opening Ceremony', th: 'พิธีเปิด' } },
+    {
+      time: '07:00',
+      activity: {
+        en: 'Depart from CMU',
+        th: 'ออกเดินทางจาก มช.',
+      },
+    },
+    {
+      time: '13:00',
+      activity: {
+        en: 'Visit SCB Tech X',
+        th: 'เยี่ยมชม SCB Tech X',
+      },
+    },
   ],
 };
 
 const translatedToEnResponse = {
-  title: { en: 'Tech Conference', th: 'การประชุมเทค' },
-  description: { en: 'A great event', th: 'งานที่ยอดเยี่ยม' },
-  location: { en: 'Bangkok', th: 'กรุงเทพ' },
-  cateringDescription: { en: 'Buffet', th: 'บุฟเฟ่ต์' },
-  remarks: { en: 'Bring ID', th: 'นำบัตรประชาชน' },
+  title: {
+    en: 'Chiang Mai University Sports Day',
+    th: 'งานกีฬาสี มหาวิทยาลัยเชียงใหม่',
+  },
+  description: {
+    en: 'Annual sports day of Chiang Mai University. Experience various sports competitions.',
+    th: 'งานกีฬาสีประจำปีของมหาวิทยาลัยเชียงใหม่ พบกับการแข่งขันกีฬาหลากหลายประเภท',
+  },
+  location: {
+    en: 'Chiang Mai University Main Stadium',
+    th: 'สนามกีฬากลาง มหาวิทยาลัยเชียงใหม่',
+  },
+  cateringDescription: {
+    en: 'Food and beverages available for sale at the event.',
+    th: 'มีอาหารและเครื่องดื่มจำหน่ายภายในงาน',
+  },
+  remarks: {
+    en: 'Wear faculty-specific color shirts.',
+    th: 'สวมเสื้อสีประจำคณะ',
+  },
   agenda: [
-    { time: '09:00', activity: { en: 'Opening Ceremony', th: 'พิธีเปิด' } },
+    {
+      time: '08:00',
+      activity: {
+        en: 'Sports Day Opening Ceremony',
+        th: 'พิธีเปิดงานกีฬาสี',
+      },
+    },
+    {
+      time: '09:00',
+      activity: {
+        en: 'Sports Competitions',
+        th: 'การแข่งขันกีฬา',
+      },
+    },
   ],
 };
 
@@ -417,29 +498,29 @@ describe('EventAiService - callGeminiForTranslation', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M016-01: should return parsed JSON with th translated when only en exists', async () => {
+  it('UT-M011-01: should return parsed JSON with th translated when only en exists', async () => {
     mockGenerateContent.mockResolvedValueOnce({
       text: JSON.stringify(translatedToThResponse),
     });
     const result = await (service as any).callGeminiForTranslation(onlyEnDto);
 
     expect(result).toEqual(translatedToThResponse);
-    expect(result.title.th).toBe('การประชุมเทค');
-    expect(result.agenda[0].activity.th).toBe('พิธีเปิด');
+    expect(result.title.th).toBe('ทัศนศึกษา CAMT ที่กรุงเทพฯ');
+    expect(result.agenda[0].activity.th).toBe('ออกเดินทางจาก มช.');
   });
 
-  it('UT-M016-02: should return parsed JSON with en translated when only th exists', async () => {
+  it('UT-M011-02: should return parsed JSON with en translated when only th exists', async () => {
     mockGenerateContent.mockResolvedValueOnce({
       text: JSON.stringify(translatedToEnResponse),
     });
     const result = await (service as any).callGeminiForTranslation(onlyThDto);
 
     expect(result).toEqual(translatedToEnResponse);
-    expect(result.title.en).toBe('Tech Conference');
-    expect(result.agenda[0].activity.en).toBe('Opening Ceremony');
+    expect(result.title.en).toBe('Chiang Mai University Sports Day');
+    expect(result.agenda[0].activity.en).toBe('Sports Day Opening Ceremony');
   });
 
-  it('UT-M016-03: should return both fields unchanged when both en and th exist', async () => {
+  it('UT-M011-03: should return both fields unchanged when both en and th exist', async () => {
     mockGenerateContent.mockResolvedValueOnce({
       text: JSON.stringify(bothExistDto),
     });
@@ -448,11 +529,11 @@ describe('EventAiService - callGeminiForTranslation', () => {
     );
 
     expect(result).toEqual(bothExistDto);
-    expect(result.title.en).toBe('Tech Conference');
-    expect(result.title.th).toBe('การประชุมเทค');
+    expect(result.title.en).toBe('CAMT Halloween Night 2026');
+    expect(result.title.th).toBe('คืนฮาโลวีน CAMT 2026');
   });
 
-  it('UT-M016-04: should return both fields empty when both en and th are empty', async () => {
+  it('UT-M011-04: should return both fields empty when both en and th are empty', async () => {
     // ARRANGE — Gemini returns both empty
     mockGenerateContent.mockResolvedValueOnce({
       text: JSON.stringify(bothEmptyDto),
@@ -466,7 +547,8 @@ describe('EventAiService - callGeminiForTranslation', () => {
     expect(result.title.th).toBe('');
   });
 
-  it('UT-M016-05: should throw AiTranslationException when Gemini API call fails', async () => {
+  // TODO: need to adjust this, since current tests are not able to reproduce error scenario
+  it('UT-M011-05: should throw AiTranslationException when Gemini API call fails', async () => {
     mockGenerateContent.mockRejectedValueOnce(
       new Error('API connection failed'),
     );
@@ -484,7 +566,7 @@ describe('EventAiService - callGeminiForTranslation', () => {
     );
   });
 
-  it('UT-M016-06: should throw AiResponseParseException when Gemini returns malformed JSON', async () => {
+  it('UT-M011-06: should throw AiResponseParseException when Gemini returns malformed JSON', async () => {
     mockGenerateContent.mockResolvedValueOnce({
       text: 'not valid json {{{',
     });
