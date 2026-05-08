@@ -365,3 +365,63 @@ describe('EventDataUtils - sanitizeDateRange', () => {
     });
   });
 });
+
+describe('EventDataUtils - isValidUrl', () => {
+  let utils: EventDataUtils;
+
+  beforeEach(() => {
+    utils = new EventDataUtils();
+  });
+
+  it('UT-M009-01: should return true for valid https URL', () => {
+    expect(utils.isValidUrl('https://www.cmu.ac.th')).toBe(true);
+  });
+
+  it('UT-M009-02: should return true for valid http URL', () => {
+    expect(utils.isValidUrl('http://www.cmu.ac.th')).toBe(true);
+  });
+
+  it('UT-M009-03: should return true for valid URL with path and query params', () => {
+    expect(
+      utils.isValidUrl('https://maps.google.com/maps?q=chiang+mai+university'),
+    ).toBe(true);
+  });
+
+  it('UT-M009-04: should return true for valid Google Maps URL', () => {
+    expect(
+        utils.isValidUrl('https://maps.app.goo.gl/6JUdAiaKkPuUUHEm9'))
+    .toBe(true);
+  });
+
+  it('UT-M009-05: should return true for valid URL with port number', () => {
+    expect(utils.isValidUrl('https://www.cmu.ac.th:8080')).toBe(true);
+  });
+
+  it('UT-M009-06: should return false for empty string', () => {
+    expect(utils.isValidUrl('')).toBe(false);
+  });
+
+  it('UT-M009-07: should return false for plain text with no protocol', () => {
+    expect(utils.isValidUrl('this is not a url')).toBe(false);
+  });
+
+  it('UT-M009-08: should return false for missing protocol (without https://)', () => {
+    expect(utils.isValidUrl('www.cmu.ac.th')).toBe(false);
+  });
+
+  it('UT-M009-09: should return false for domain only with no protocol (without https://www.)', () => {
+    expect(utils.isValidUrl('google.com')).toBe(false);
+  });
+
+  it('UT-M009-10: should return false for only protocol with no domain', () => {
+    expect(utils.isValidUrl('https://')).toBe(false);
+  });
+
+  it('UT-M009-11: should return false for null input', () => {
+    expect(utils.isValidUrl(null as any)).toBe(false);
+  });
+
+  it('UT-M009-12: should return false for undefined input', () => {
+    expect(utils.isValidUrl(undefined as any)).toBe(false);
+  });
+});
