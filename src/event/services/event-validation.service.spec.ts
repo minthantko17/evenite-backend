@@ -1,5 +1,66 @@
 import { EventValidationService } from './event-validation.service';
 import { InvalidPromptException } from '../exceptions/invalid-prompt.exception';
+import { InvalidImageException } from '../exceptions/invalid-image.exception';
+import * as fs from 'fs';
+import * as path from 'path';
+
+const fixturesPath = path.join(__dirname, '../../../test/fixtures/images');
+
+const createMockFile = (
+  buffer: Buffer,
+  mimetype: string,
+  originalname: string,
+  size?: number,
+): Express.Multer.File => ({
+  buffer,
+  mimetype,
+  originalname,
+  size: size ?? buffer.length,
+  fieldname: 'file',
+  encoding: '7bit',
+  destination: '',
+  filename: '',
+  path: '',
+  stream: null as any,
+});
+
+// mock data files
+const small_jpg_file = createMockFile(
+    fs.readFileSync(path.join(fixturesPath, 'small_image_jpg.jpg')),
+    'image/jpeg',
+    'small_image_jpg.jpg',
+);
+
+const small_png_file = createMockFile(
+    fs.readFileSync(path.join(fixturesPath, 'small_image_png.png')),
+    'image/png',
+    'small_image_png.png',
+);
+
+const small_webp_file = createMockFile(
+    fs.readFileSync(path.join(fixturesPath, 'small_image_webp.webp')),
+    'image/webp',
+    'small_image_webp.webp',
+);
+
+const gif_file = createMockFile(
+    fs.readFileSync(path.join(fixturesPath, 'christmas_party.gif')),
+    'image/gif',
+    'christmas_party.gif',
+);
+
+const exact_5mb_file = createMockFile(
+    fs.readFileSync(path.join(fixturesPath, 'small_image_jpg.jpg')),
+    'image/jpeg',
+    'small_image_jpg.jpg',
+    5 * 1024 * 1024,
+)
+
+const large_image_file = createMockFile(
+    fs.readFileSync(path.join(fixturesPath, 'large_image.jpg')),
+    'image/jpeg',
+    'large_image.jpg',
+);
 
 describe('EventValidationService - validatePromptText', () => {
   let service: EventValidationService;
@@ -67,5 +128,39 @@ describe('EventValidationService - validatePromptText', () => {
     expect(() => service.validatePromptText('@#$%^&*!')).toThrow(
       'Invalid Input',
     );
+  });
+});
+
+describe('EventValidationService - validateImageFile', () => {
+  let service: EventValidationService;
+
+  beforeEach(() => {
+    service = new EventValidationService();
+  });
+
+  it('UT-M013-01: should not throw for valid JPEG file', () => {
+    expect(() => service.validateImageFile(small_jpg_file)).not.toThrow();
+  });
+
+  it('UT-M013-02: should not throw for valid PNG file', () => {
+    expect(() => service.validateImageFile(small_png_file)).not.toThrow();
+  });
+
+  it('UT-M013-03: should not throw for valid WEBP file', () => {
+    expect(() => service.validateImageFile(small_webp_file)).not.toThrow();
+  });
+
+  it('UT-M013-05: should not throw for file size exactly 5MB', () => {
+    expect(() => service.validateImageFile(exact_5mb_file)).not.toThrow();
+  });
+
+  it('UT-M013-04: should throw InvalidImageException for unsupported format GIF', () => {
+    expect(() => service.validateImageFile(gif_file)).toThrow(InvalidImageException);
+    expect(() => service.validateImageFile(gif_file)).toThrow('Unsupported image format');
+  });
+
+  it('UT-M013-06: should throw InvalidImageException for file exceeding 5MB', () => {
+    expect(() => service.validateImageFile(large_image_file)).toThrow(InvalidImageException);
+    expect(() => service.validateImageFile(large_image_file)).toThrow('File size must not exceed 5MB.');
   });
 });
