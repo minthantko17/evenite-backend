@@ -1,6 +1,7 @@
 import { EventValidationService } from './event-validation.service';
 import { InvalidPromptException } from '../exceptions/invalid-prompt.exception';
 import { InvalidImageException } from '../exceptions/invalid-image.exception';
+import { InvalidDateRangeException } from '../exceptions/invalid-date-range.exception';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -61,6 +62,7 @@ const large_image_file = createMockFile(
     'image/jpeg',
     'large_image.jpg',
 );
+
 
 describe('EventValidationService - validatePromptText', () => {
   let service: EventValidationService;
@@ -162,5 +164,43 @@ describe('EventValidationService - validateImageFile', () => {
   it('UT-M013-06: should throw InvalidImageException for file exceeding 5MB', () => {
     expect(() => service.validateImageFile(large_image_file)).toThrow(InvalidImageException);
     expect(() => service.validateImageFile(large_image_file)).toThrow('File size must not exceed 5MB.');
+  });
+});
+
+describe('EventValidationService - validatePublishDateRange', () => {
+  let service: EventValidationService;
+
+  beforeEach(() => {
+    service = new EventValidationService();
+  });
+
+  it('UT-M018-01: should not throw when startAt is before endAt', () => {
+    const startAt = new Date('2026-10-31T09:00:00.000Z');
+    const endAt = new Date('2026-10-31T12:00:00.000Z');
+    expect(() =>
+      service.validatePublishDateRange(startAt, endAt),
+    ).not.toThrow();
+  });
+
+  it('UT-M018-02: should throw InvalidDateRangeException when startAt equals endAt', () => {
+    const startAt = new Date('2026-10-31T09:00:00.000Z');
+    const endAt = new Date('2026-10-31T09:00:00.000Z');
+    expect(() => service.validatePublishDateRange(startAt, endAt)).toThrow(
+      InvalidDateRangeException,
+    );
+    expect(() => service.validatePublishDateRange(startAt, endAt)).toThrow(
+      'Start date must be before end date.',
+    );
+  });
+
+  it('UT-M018-03: should throw InvalidDateRangeException when startAt is after endAt', () => {
+    const startAt = new Date('2026-10-31T12:00:00.000Z');
+    const endAt = new Date('2026-10-31T09:00:00.000Z');
+    expect(() => service.validatePublishDateRange(startAt, endAt)).toThrow(
+      InvalidDateRangeException,
+    );
+    expect(() => service.validatePublishDateRange(startAt, endAt)).toThrow(
+      'Start date must be before end date.',
+    );
   });
 });
