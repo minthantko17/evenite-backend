@@ -253,3 +253,42 @@ describe('EventStorageService - resolveBannerUrl', () => {
     expect(service.resolveBannerUrl(null as any)).toBe(DEFAULT_BANNER_URL);
   });
 });
+
+describe('EventStorageService - deleteBannerFromStorage', () => {
+  let service: EventStorageService;
+
+  beforeEach(async () => {
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        EventStorageService,
+        { provide: EventValidationService, useValue: mockValidationService },
+      ],
+    }).compile();
+
+    service = module.get<EventStorageService>(EventStorageService);
+    jest.clearAllMocks();
+  });
+
+  it('UT-M020-01: should call remove with correct file path when valid Supabase URL is given', async () => {
+    const mockUuid = uuidv4();
+    const bannerUrl = `${MOCK_SUPABASE_BASE_URL}/${mockUuid}.jpg`;
+
+    await service.deleteBannerFromStorage(bannerUrl);
+
+    expect(mockStorageFrom.remove).toHaveBeenCalledWith([`${mockUuid}.jpg`]);
+    expect(mockStorageFrom.remove).toHaveBeenCalledTimes(1);
+  });
+
+  it('UT-M020-02: should not call remove when input is not a valid URL', async () => {
+    await service.deleteBannerFromStorage('not a url');
+
+    expect(mockStorageFrom.remove).not.toHaveBeenCalled();
+  });
+
+  it('UT-M020-03: should not call remove when URL does not match Supabase storage pattern', async () => {
+    await service.deleteBannerFromStorage('https://www.cmu.ac.th/files/image.jpg');
+
+    expect(mockStorageFrom.remove).not.toHaveBeenCalled();
+  });
+});
