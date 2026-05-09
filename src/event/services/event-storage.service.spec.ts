@@ -5,6 +5,7 @@ import { EventStorageService } from './event-storage.service';
 import { EventValidationService } from './event-validation.service';
 import { BannerUploadException } from '../exceptions/banner-upload.exception';
 import { InvalidImageException } from '../exceptions/invalid-image.exception';
+import { DEFAULT_BANNER_URL } from '../constants/event-category.constant';
 import * as fs from 'fs';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
@@ -211,5 +212,45 @@ describe('EventStorageService - uploadBannerToStorage', () => {
 
     expect(mockValidationService.validateBannerFile).toHaveBeenCalledWith(small_jpg_file);
     expect(mockStorageFrom.getPublicUrl).not.toHaveBeenCalled();
+  });
+});
+
+describe('EventStorageService - resolveBannerUrl', () => {
+  let service: EventStorageService;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        EventStorageService,
+        { provide: EventValidationService, useValue: mockValidationService },
+      ],
+    }).compile();
+
+    service = module.get<EventStorageService>(EventStorageService);
+    jest.clearAllMocks();
+  });
+
+  it('UT-M016-01: should return provided URL when valid URL is given', () => {
+    expect(
+      service.resolveBannerUrl(
+        'https://supabase.co/storage/v1/object/public/banners/uuid.jpg',
+      ),
+    ).toBe('https://supabase.co/storage/v1/object/public/banners/uuid.jpg');
+  });
+
+  it('UT-M016-02: should return DEFAULT_BANNER_URL when input is undefined', () => {
+    expect(service.resolveBannerUrl(undefined)).toBe(DEFAULT_BANNER_URL);
+  });
+
+  it('UT-M016-03: should return DEFAULT_BANNER_URL when input is empty string', () => {
+    expect(service.resolveBannerUrl('')).toBe(DEFAULT_BANNER_URL);
+  });
+
+  it('UT-M016-04: should return DEFAULT_BANNER_URL when input is whitespace only', () => {
+    expect(service.resolveBannerUrl('   ')).toBe(DEFAULT_BANNER_URL);
+  });
+
+  it('UT-M016-05: should return DEFAULT_BANNER_URL when input is null', () => {
+    expect(service.resolveBannerUrl(null as any)).toBe(DEFAULT_BANNER_URL);
   });
 });
