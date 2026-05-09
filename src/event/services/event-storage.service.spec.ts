@@ -21,6 +21,10 @@ const mockStorageFrom = {
   remove: jest.fn(),
 };
 
+const mockValidationService = {
+  validateBannerFile: jest.fn(),
+};
+
 // got error without beforeAll because of hoisting issue.
 beforeAll(() => {
   (createClient as jest.Mock).mockReturnValue({
@@ -30,11 +34,8 @@ beforeAll(() => {
   });
 });
 
-const mockValidationService = {
-  validateBannerFile: jest.fn(),
-};
-
 const fixturesPath = path.join(__dirname, '../../../test/fixtures/images');
+const MOCK_SUPABASE_BASE_URL = 'https://mockproject.supabase.co/storage/v1/object/public/banners';
 
 const createMockFile = (
   buffer: Buffer,
@@ -107,7 +108,7 @@ describe('EventStorageService - uploadBannerToStorage', () => {
 
   it('UT-M015-01: should upload JPEG file successfully and return public URL', async () => {
     const mockUuid = uuidv4();
-    const expectedUrl = `https://supabase.co/storage/v1/object/public/banners/${mockUuid}.jpg`;
+    const expectedUrl = `${MOCK_SUPABASE_BASE_URL}/${mockUuid}.jpg`;
     // supabase return as no-error if success
     mockStorageFrom.upload.mockResolvedValueOnce({ error: null });
     mockStorageFrom.getPublicUrl.mockReturnValueOnce({ data: { publicUrl: expectedUrl } });
@@ -126,7 +127,7 @@ describe('EventStorageService - uploadBannerToStorage', () => {
 
   it('UT-M015-02: should upload PNG file successfully and return public URL', async () => {
     const mockUuid = uuidv4();
-    const expectedUrl = `https://supabase.co/storage/v1/object/public/banners/${mockUuid}.png`;
+    const expectedUrl = `${MOCK_SUPABASE_BASE_URL}/${mockUuid}.png`;
     mockStorageFrom.upload.mockResolvedValueOnce({ error: null });
     mockStorageFrom.getPublicUrl.mockReturnValueOnce({ data: { publicUrl: expectedUrl } });
 
@@ -142,7 +143,7 @@ describe('EventStorageService - uploadBannerToStorage', () => {
 
   it('UT-M015-03: should upload WEBP file successfully and return public URL', async () => {
     const mockUuid = uuidv4();
-    const expectedUrl = `https://supabase.co/storage/v1/object/public/banners/${mockUuid}.webp`;
+    const expectedUrl = `${MOCK_SUPABASE_BASE_URL}/${mockUuid}.webp`;
     mockStorageFrom.upload.mockResolvedValueOnce({ error: null });
     mockStorageFrom.getPublicUrl.mockReturnValueOnce({ data: { publicUrl: expectedUrl } });
 
@@ -231,11 +232,9 @@ describe('EventStorageService - resolveBannerUrl', () => {
   });
 
   it('UT-M016-01: should return provided URL when valid URL is given', () => {
-    expect(
-      service.resolveBannerUrl(
-        'https://supabase.co/storage/v1/object/public/banners/uuid.jpg',
-      ),
-    ).toBe('https://supabase.co/storage/v1/object/public/banners/uuid.jpg');
+    const mockUuid = uuidv4();
+    const validUrl = `${MOCK_SUPABASE_BASE_URL}/${mockUuid}.jpg`;
+    expect(service.resolveBannerUrl(validUrl)).toBe(validUrl);
   });
 
   it('UT-M016-02: should return DEFAULT_BANNER_URL when input is undefined', () => {
