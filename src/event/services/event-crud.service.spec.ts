@@ -726,3 +726,89 @@ describe('EventCrudService - publishEvent', () => {
     ).rejects.toThrow('Failed to publish event. Please try again.');
   });
 });
+
+describe('EventCrudService - deleteOrphanBannerIfReplaced', () => {
+  let service: EventCrudService;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        EventCrudService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: EventStorageService, useValue: mockStorageService },
+        { provide: EventValidationService, useValue: mockValidationService },
+        { provide: EventDataUtils, useValue: mockUtils },
+      ],
+    }).compile();
+
+    service = module.get<EventCrudService>(EventCrudService);
+    jest.clearAllMocks();
+  });
+
+  const existingEventId = uuidv4();
+  const nonExistingEventId = 'non-existent-id';
+  const oldBannerUrl =
+    `https://mockproject.supabase.co/storage/v1/object/public/banners/${uuidv4()}.jpg`;
+  const newBannerUrl =
+    `https://mockproject.supabase.co/storage/v1/object/public/banners/${uuidv4()}.jpg`;
+
+  it('UT-M019-01: should call deleteBannerFromStorage when old and new bannerUrl differ and old is not default', async () => {
+    mockPrisma.event.findUnique.mockResolvedValueOnce({
+      bannerUrl: oldBannerUrl,
+    });
+    await (service as any).deleteOrphanBannerIfReplaced(
+      existingEventId,
+      newBannerUrl,
+    );
+
+    expect(mockStorageService.deleteBannerFromStorage).toHaveBeenCalledWith(
+      oldBannerUrl,
+    );
+    expect(mockStorageService.deleteBannerFromStorage).toHaveBeenCalledTimes(1);
+  });
+
+  it('UT-M019-02: should not call deleteBannerFromStorage when old and new bannerUrl are the same', async () => {
+    mockPrisma.event.findUnique.mockResolvedValueOnce({
+      bannerUrl: newBannerUrl,
+    });
+
+    await (service as any).deleteOrphanBannerIfReplaced(
+      existingEventId,
+      newBannerUrl,
+    );
+
+    expect(mockStorageService.deleteBannerFromStorage).not.toHaveBeenCalled();
+  });
+
+  it('UT-M019-03: should not call deleteBannerFromStorage when old bannerUrl is DEFAULT_BANNER_URL', async () => {
+    mockPrisma.event.findUnique.mockResolvedValueOnce({
+      bannerUrl: DEFAULT_BANNER_URL,
+    });
+
+    await (service as any).deleteOrphanBannerIfReplaced(
+      existingEventId,
+      newBannerUrl,
+    );
+
+    expect(mockStorageService.deleteBannerFromStorage).not.toHaveBeenCalled();
+  });
+
+  it('UT-M019-04: should throw NotFoundException when event not found', async () => {
+    mockPrisma.event.findUnique.mockResolvedValueOnce(null);
+
+    await expect(
+      (service as any).deleteOrphanBannerIfReplaced(
+        nonExistingEventId,
+        newBannerUrl,
+      ),
+    ).rejects.toThrow(NotFoundException);
+
+    mockPrisma.event.findUnique.mockResolvedValueOnce(null);
+    await expect(
+      (service as any).deleteOrphanBannerIfReplaced(
+        nonExistingEventId,
+        newBannerUrl,
+      ),
+    ).rejects.toThrow('Event not found.');
+  });
+});
