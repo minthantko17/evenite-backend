@@ -9,6 +9,7 @@ import { AiTranslationException } from '../exceptions/ai-translation.exception';
 import { TranslateBilingualFieldsDto } from '../dto/translate-bilingual-fields.dto';
 import * as fs from 'fs';
 import * as path from 'path';
+import { start } from 'repl';
 
 const mockGenerateContent = jest.fn();
 
@@ -147,7 +148,7 @@ const allFieldPresentGeminiResponse = {
     en: 'Join SEED and Chiang Mai University on a meaningful trip to Chiang Rai. Explore local culture, visit social enterprises, and contribute to community development.',
     th: 'ร่วมเดินทางกับ SEED และมหาวิทยาลัยเชียงใหม่ ไปยังจังหวัดเชียงราย เรียนรู้วัฒนธรรมท้องถิ่น เยี่ยมชมองค์กรเพื่อสังคม และร่วมพัฒนาชุมชน',
   },
-  category: ['COMMUNITY', 'LEARNING', 'CULTURE'],
+  category: ['TRIP', 'VOLUNTEER', 'CULTURAL'],
   location: {
     en: 'Chiang Rai Province, Thailand',
     th: 'จังหวัดเชียงราย ประเทศไทย',
@@ -671,5 +672,179 @@ describe('EventAiService - callGeminiForTranslation', () => {
     ).rejects.toThrow(
       'There was an error processing the AI response. Please try again.',
     );
+  });
+});
+
+describe('EventAiService - mapAiResponseToEventDto', () => {
+  let service: EventAiService;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        EventAiService,
+        { provide: EventValidationService, useValue: mockValidationService },
+        { provide: EventDataUtils, useValue: mockUtils },
+      ],
+    }).compile();
+
+    service = module.get<EventAiService>(EventAiService);
+    jest.clearAllMocks();
+  });
+
+  it('UT-M004-01: should correctly map all fields when full valid response is provided', () => {
+    const result = service.mapAiResponseToEventDto(
+      allFieldPresentGeminiResponse,
+    );
+
+    expect(result.title).toEqual({
+      en: 'SEED x CMU Trip to Chiang Rai',
+      th: 'ทริปเชียงราย SEED x CMU',
+    });
+    expect(result.description.en).toBe(
+      'Join SEED and Chiang Mai University on a meaningful trip to Chiang Rai. Explore local culture, visit social enterprises, and contribute to community development.',
+    );
+    expect(result.category).toEqual(['TRIP', 'VOLUNTEER', 'CULTURAL']);
+    expect(result.isOnline).toBe(false);
+    expect(result.hasCatering).toBe(true);
+    expect(result.isCateringFree).toBe(false);
+    expect(result.seatLimit).toBe(40);
+    expect(result.startAt).toEqual(new Date('2025-06-07T00:00:00.000Z'));
+    expect(result.endAt).toEqual(new Date('2025-06-08T11:00:00.000Z'));
+    expect(result.contactName).toBe('Kantaya (Nana)');
+    expect(result.contactEmail).toBe('seed.cmu@gmail.com');
+    expect(result.agenda).toHaveLength(14);
+  });
+
+  it('UT-M004-02: should correctly map with defaults applied for missing fields when partial response is provided', () => {
+    const result = service.mapAiResponseToEventDto(
+      someFieldMissingGeminiResponse,
+    );
+
+    expect(result.title).toEqual({
+      en: 'Loy Krathong Workshop',
+      th: 'เวิร์กช็อปลอยกระทง',
+    });
+    expect(result.category).toEqual(['WORKSHOP']);
+    expect(result.mapLink).toBe('');
+    expect(result.isOnline).toBe(false);
+    expect(result.seatLimit).toBe(30);
+    expect(result.hasCatering).toBe(false);
+    expect(result.isCateringFree).toBe(false);
+    expect(result.cateringDescription).toEqual({ en: '', th: '' });
+    expect(result.contactName).toBe('');
+    expect(result.contactEmail).toBe('irdcmu@cmu.ac.th');
+    expect(result.contactLineId).toBe('');
+    expect(result.externalUrl).toBe('');
+    expect(result.agenda).toHaveLength(4);
+    expect(result.startAt).toEqual(new Date('2024-11-15T02:00:00.000Z'));
+    expect(result.endAt).toEqual(new Date('2024-11-15T05:00:00.000Z'));
+  });
+
+  it('UT-M004-03: should apply all defaults when response has no fields', () => {
+    const result = service.mapAiResponseToEventDto({});
+
+    expect(result.title).toEqual({ en: '', th: '' });
+    expect(result.description).toEqual({ en: '', th: '' });
+    expect(result.location).toEqual({ en: '', th: '' });
+    expect(result.cateringDescription).toEqual({ en: '', th: '' });
+    expect(result.remarks).toEqual({ en: '', th: '' });
+    expect(result.category).toEqual([]);
+    expect(result.agenda).toEqual([]);
+    expect(result.isOnline).toBe(false);
+    expect(result.hasCatering).toBe(false);
+    expect(result.isCateringFree).toBe(false);
+    expect(result.mapLink).toBe('');
+    expect(result.contactName).toBe('');
+    expect(result.contactEmail).toBe('');
+    expect(result.contactPhone).toBe('');
+    expect(result.contactLineId).toBe('');
+    expect(result.externalUrl).toBe('');
+    expect(result.startAt).toBeUndefined();
+    expect(result.endAt).toBeUndefined();
+    expect(result.seatLimit).toBeUndefined();
+  });
+
+  it('UT-M004-04: should default bilingual fields to "" when en or th is missing', () => {
+    const result = service.mapAiResponseToEventDto({
+      title: { en: 'CAMT Workshop' },
+      description: { th: 'งานเวิร์กช็อป' },
+    });
+
+    expect(result.title).toEqual({ en: 'CAMT Workshop', th: '' });
+    expect(result.description).toEqual({ en: '', th: 'งานเวิร์กช็อป' });
+  });
+
+  it('UT-M004-05: should map valid agenda array to AgendaItem[]', () => {
+    const result = service.mapAiResponseToEventDto({
+      agenda: [
+        { time: '09:00', activity: { en: 'Opening', th: 'เปิดงาน' } },
+        { time: '10:00', activity: { en: 'Workshop', th: 'เวิร์กช็อป' } },
+      ],
+    });
+
+    expect(result.agenda).toEqual([
+      { time: '09:00', activity: { en: 'Opening', th: 'เปิดงาน' } },
+      { time: '10:00', activity: { en: 'Workshop', th: 'เวิร์กช็อป' } },
+    ]);
+  });
+
+  it('UT-M004-06: should return empty agenda when agenda is empty array', () => {
+    const result = service.mapAiResponseToEventDto({ agenda: [] });
+    expect(result.agenda).toEqual([]);
+  });
+
+  it('UT-M004-07: should return empty agenda when agenda is not an array', () => {
+    const result = service.mapAiResponseToEventDto({
+      agenda: 'Opening Ceremony will start at 9:00 AM',
+    });
+    expect(result.agenda).toEqual([]);
+  });
+
+  it('UT-M004-08: should filter out invalid categories and keep only allowed ones', () => {
+    const result = service.mapAiResponseToEventDto({
+      category: ['WORKSHOP', 'INVALID_CATEGORY', 'PARTY'],
+    });
+    expect(result.category).toEqual(['WORKSHOP', 'PARTY']);
+  });
+
+  it('UT-M004-09: should return empty category when category is not an array', () => {
+    const result = service.mapAiResponseToEventDto({ category: 'WORKSHOP' });
+    expect(result.category).toEqual([]);
+  });
+
+  it('UT-M004-10: should convert valid startAt and endAt strings to Date objects', () => {
+    const result = service.mapAiResponseToEventDto({
+      startAt: '2026-10-31T10:30:00.000Z',
+      endAt: '2026-10-31T14:30:00.000Z',
+    });
+
+    expect(result.startAt).toEqual(new Date('2026-10-31T10:30:00.000Z'));
+    expect(result.endAt).toEqual(new Date('2026-10-31T14:30:00.000Z'));
+  });
+
+  it('UT-M004-11: should set startAt and endAt to undefined when missing', () => {
+    const result = service.mapAiResponseToEventDto({});
+
+    expect(result.startAt).toBeUndefined();
+    expect(result.endAt).toBeUndefined();
+  });
+
+  it('UT-M004-12: should return undefined when startAt and endAt are undefined', () => {
+    const result = service.mapAiResponseToEventDto({
+      startAt: undefined,
+      endAt: undefined,
+    });
+    expect(result.startAt).toBeUndefined();
+    expect(result.endAt).toBeUndefined();
+  });
+
+  it('UT-M004-13: should map seatLimit correctly when valid integer is provided', () => {
+    const result = service.mapAiResponseToEventDto({ seatLimit: 40 });
+    expect(result.seatLimit).toBe(40);
+  });
+
+  it('UT-M004-14: should set seatLimit to undefined when missing', () => {
+    const result = service.mapAiResponseToEventDto({});
+    expect(result.seatLimit).toBeUndefined();
   });
 });
