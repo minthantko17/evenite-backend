@@ -7,6 +7,7 @@ import { AiGenerationException } from '../exceptions/ai-generation.exception';
 import { AiResponseParseException } from '../exceptions/ai-response-parse.exception';
 import { AiTranslationException } from '../exceptions/ai-translation.exception';
 import { TranslateBilingualFieldsDto } from '../dto/translate-bilingual-fields.dto';
+import type { GeneratedEventDto } from '../dto/generated-event.dto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { start } from 'repl';
@@ -31,7 +32,7 @@ const mockUtils = {
   sanitizeBilingualField: jest.fn((f) => f ?? { en: '', th: '' }),
   sanitizeAgendaItems: jest.fn((a) => a ?? []),
   sanitizeDateRange: jest.fn((s, e) => ({ startAt: s, endAt: e })),
-  isValidUrl: jest.fn(() => true),
+  isValidUrl: jest.fn((url: string) => true),
 };
 
 const fixturesPath = path.join(__dirname, '../../../test/fixtures/images');
@@ -52,6 +53,28 @@ const createMockImageFile = (
   filename: '',
   path: '',
   stream: null as any,
+});
+
+const createMockGeneratedEventDto = (): GeneratedEventDto => ({
+  title: { en: 'CAMT Workshop', th: 'เวิร์กช็อป CAMT' },
+  description: { en: 'A workshop', th: 'เวิร์กช็อป' },
+  location: { en: 'CAMT Building', th: 'อาคาร CAMT' },
+  cateringDescription: { en: '', th: '' },
+  remarks: { en: '', th: '' },
+  agenda: [],
+  category: ['WORKSHOP'],
+  isOnline: false,
+  hasCatering: false,
+  isCateringFree: false,
+  mapLink: 'https://maps.google.com',
+  externalUrl: 'https://forms.gle/example',
+  seatLimit: 30,
+  contactName: 'Jane',
+  contactEmail: 'jane@cmu.ac.th',
+  contactPhone: '0987654321',
+  contactLineId: 'jane.cmu',
+  startAt: new Date('2026-10-31T09:00:00.000Z'),
+  endAt: new Date('2026-10-31T12:00:00.000Z'),
 });
 
 const valid_all_field_present_image_file: Express.Multer.File = createMockImageFile(
@@ -846,5 +869,111 @@ describe('EventAiService - mapAiResponseToEventDto', () => {
   it('UT-M004-14: should set seatLimit to undefined when missing', () => {
     const result = service.mapAiResponseToEventDto({});
     expect(result.seatLimit).toBeUndefined();
+  });
+});
+
+describe('EventAiService - sanitizeAiEventResponse', () => {
+  let service: EventAiService;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        EventAiService,
+        { provide: EventValidationService, useValue: mockValidationService },
+        { provide: EventDataUtils, useValue: mockUtils },
+      ],
+    }).compile();
+
+    service = module.get<EventAiService>(EventAiService);
+    jest.clearAllMocks();
+  });
+
+  it('UT-M005-01: should return sanitized dto when all fields are valid', () => {
+    mockUtils.isValidUrl.mockReturnValue(true);
+    const mockGeneratedEventDto = createMockGeneratedEventDto();
+    const result = service.sanitizeAiEventResponse(mockGeneratedEventDto);
+
+    expect(result.seatLimit).toBe(30);
+    expect(result.mapLink).toBe('https://maps.google.com');
+    expect(result.externalUrl).toBe('https://forms.gle/example');
+    expect(result.contactEmail).toBe('jane@cmu.ac.th');
+    expect(result.category).toEqual(['WORKSHOP']);
+  });
+
+  it('UT-M005-02: should set seatLimit to undefined when seatLimit is 0', () => {
+    const mockGeneratedEventDto = createMockGeneratedEventDto();
+    mockGeneratedEventDto.seatLimit = 0;
+    const result = service.sanitizeAiEventResponse(mockGeneratedEventDto);
+    expect(result.seatLimit).toBeUndefined();
+  });
+
+  it('UT-M005-03: should set seatLimit to undefined when seatLimit is negative', () => {
+    const mockGeneratedEventDto = createMockGeneratedEventDto();
+    mockGeneratedEventDto.seatLimit = -1;
+    const result = service.sanitizeAiEventResponse(mockGeneratedEventDto);
+    expect(result.seatLimit).toBeUndefined();
+  });
+
+  it('UT-M005-04: should set seatLimit to undefined when seatLimit is a floating-point number', () => {
+    const mockGeneratedEventDto = createMockGeneratedEventDto();
+    mockGeneratedEventDto.seatLimit = 30.5;
+    const result = service.sanitizeAiEventResponse(mockGeneratedEventDto);
+    expect(result.seatLimit).toBeUndefined();
+  });
+
+  it('UT-M005-05: should set mapLink to "" when mapLink is invalid URL', () => {
+    mockUtils.isValidUrl.mockImplementation((url: string) => {
+      if (url === 'this-is-not-a-url') return false;
+      return true;
+    });
+    const mockGeneratedEventDto = createMockGeneratedEventDto();
+    mockGeneratedEventDto.mapLink = 'this-is-not-a-url';
+    const result = service.sanitizeAiEventResponse(mockGeneratedEventDto);
+    expect(result.mapLink).toBe('');
+  });
+
+  it('UT-M005-06: should set externalUrl to "" when externalUrl is invalid URL', () => {
+    mockUtils.isValidUrl.mockImplementation((url: string) => {
+      if (url === 'this-is-not-a-url') return false;
+      return true;
+    });
+    const mockGeneratedEventDto = createMockGeneratedEventDto();
+    mockGeneratedEventDto.externalUrl = 'this-is-not-a-url';
+    const result = service.sanitizeAiEventResponse(mockGeneratedEventDto);
+    expect(result.externalUrl).toBe('');
+  });
+
+  it('UT-M005-07: should set contactEmail to "" when contactEmail does not contain @', () => {
+    const mockGeneratedEventDto = createMockGeneratedEventDto();
+    mockGeneratedEventDto.contactEmail = 'invalidemail';
+    const result = service.sanitizeAiEventResponse(mockGeneratedEventDto);
+    expect(result.contactEmail).toBe('');
+  });
+
+  it('UT-M005-08: should set category to [] when category is empty', () => {
+    const mockGeneratedEventDto = createMockGeneratedEventDto();
+    mockGeneratedEventDto.category = [];
+    const result = service.sanitizeAiEventResponse(mockGeneratedEventDto);
+    expect(result.category).toEqual([]);
+  });
+
+  it('UT-M005-09: should keep seatLimit when valid integer greater than 0', () => {
+    const mockGeneratedEventDto = createMockGeneratedEventDto();
+    mockGeneratedEventDto.seatLimit = 50;
+    const result = service.sanitizeAiEventResponse(mockGeneratedEventDto);
+    expect(result.seatLimit).toBe(50);
+  });
+
+  it('UT-M005-10: should keep mapLink when valid URL', () => {
+    mockUtils.isValidUrl.mockReturnValue(true);
+    const mockGeneratedEventDto = createMockGeneratedEventDto();
+    const result = service.sanitizeAiEventResponse(mockGeneratedEventDto);
+    expect(result.mapLink).toBe('https://maps.google.com');
+  });
+
+  it('UT-M005-11: should keep contactEmail when valid email containing @', () => {
+    const mockGeneratedEventDto = createMockGeneratedEventDto();
+    const result = service.sanitizeAiEventResponse(mockGeneratedEventDto);
+    expect(result.contactEmail).toBe('jane@cmu.ac.th');
   });
 });
