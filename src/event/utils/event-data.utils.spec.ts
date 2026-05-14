@@ -285,7 +285,7 @@ describe('EventDataUtils - sanitizeDateRange', () => {
   it('UT-M008-04: should treat date-only input as valid and return both Date objects when startAt is before endAt', () => {
     const startAt = new Date('2026-10-31');
     const endAt = new Date('2026-11-01');
-    console.log('startAt:', startAt, 'endAt:', endAt);
+    // console.log('startAt:', startAt, 'endAt:', endAt);
     expect(utils.sanitizeDateRange(startAt, endAt)).toEqual({ startAt, endAt });
   });
 

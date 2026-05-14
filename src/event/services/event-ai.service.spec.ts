@@ -977,3 +977,121 @@ describe('EventAiService - sanitizeAiEventResponse', () => {
     expect(result.contactEmail).toBe('jane@cmu.ac.th');
   });
 });
+
+describe('EventAiService - mapTranslationResponseToDto', () => {
+  let service: EventAiService;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        EventAiService,
+        { provide: EventValidationService, useValue: mockValidationService },
+        { provide: EventDataUtils, useValue: mockUtils },
+      ],
+    }).compile();
+
+    service = module.get<EventAiService>(EventAiService);
+    jest.clearAllMocks();
+  });
+
+  it('UT-M012-01: should correctly map all translated fields from response', () => {
+    const result = (service as any).mapTranslationResponseToDto(
+      translatedToThResponse,
+      onlyEnDto,
+    );
+
+    expect(result.title).toEqual({
+      en: 'CAMT Study Trip to Bangkok',
+      th: 'ทัศนศึกษา CAMT ที่กรุงเทพฯ',
+    });
+    expect(result.description).toEqual({
+      en: 'A study trip for CAMT students to visit tech companies in Bangkok',
+      th: 'ทริปทัศนศึกษาสำหรับนักศึกษา CAMT เพื่อเยี่ยมชมบริษัทเทคโนโลยีในกรุงเทพฯ',
+    });
+    expect(result.location).toEqual({
+      en: 'Bangkok, Thailand',
+      th: 'กรุงเทพฯ ประเทศไทย',
+    });
+    expect(result.agenda[0]).toEqual({
+      time: '07:00',
+      activity: { en: 'Depart from CMU', th: 'ออกเดินทางจาก มช.' },
+    });
+  });
+
+  it('UT-M012-02: should fall back to original values when response fields are missing', () => {
+    const result = (service as any).mapTranslationResponseToDto(
+      {
+        title: {
+          en: 'CAMT Study Trip to Bangkok',
+          th: 'ทัศนศึกษา CAMT ที่กรุงเทพฯ',
+        },
+      },
+      onlyEnDto,
+    );
+
+    expect(result.title).toEqual({
+      en: 'CAMT Study Trip to Bangkok',
+      th: 'ทัศนศึกษา CAMT ที่กรุงเทพฯ',
+    });
+    expect(result.description).toEqual({
+      en: 'A study trip for CAMT students to visit tech companies in Bangkok',
+      th: '',
+    });
+    expect(result.location).toEqual({ en: 'Bangkok, Thailand', th: '' });
+    expect(result.remarks).toEqual({
+      en: 'Bring your student ID card',
+      th: '',
+    });
+  });
+
+  it('UT-M012-03: should map agenda correctly with time preserved from response', () => {
+    const result = (service as any).mapTranslationResponseToDto(
+      translatedToThResponse,
+      onlyEnDto,
+    );
+
+    expect(result.agenda[0].time).toBe('07:00');
+    expect(result.agenda[0].activity).toEqual({
+      en: 'Depart from CMU',
+      th: 'ออกเดินทางจาก มช.',
+    });
+    expect(result.agenda[1].time).toBe('13:00');
+    expect(result.agenda[1].activity).toEqual({
+      en: 'Visit SCB Tech X',
+      th: 'เยี่ยมชม SCB Tech X',
+    });
+  });
+
+  it('UT-M012-04: should return original agenda when response agenda is empty array', () => {
+    // const temp = {...translatedToEnResponse, agenda: []};
+    // console.log('Reult of gemini: ', temp);
+    const result = (service as any).mapTranslationResponseToDto(
+      { ...translatedToEnResponse, agenda: [] },
+      onlyThDto,
+    );
+    // console.log('Result when response agenda is empty array:', result);
+    // console.log('Original DTO agenda:', onlyThDto.agenda);
+
+    expect(result.agenda).toEqual(onlyThDto.agenda);
+  });
+
+  it('UT-M012-05: should return original agenda when response agenda is not an array', () => {
+    const result = (service as any).mapTranslationResponseToDto(
+      { ...translatedToEnResponse, agenda: 'not an array' },
+      onlyThDto,
+    );
+
+    expect(result.agenda).toEqual(onlyThDto.agenda);
+  });
+
+  it('UT-M012-06: should fall back to all original values when response is empty', () => {
+    const result = (service as any).mapTranslationResponseToDto({}, onlyEnDto);
+
+    expect(result.title).toEqual(onlyEnDto.title);
+    expect(result.description).toEqual(onlyEnDto.description);
+    expect(result.location).toEqual(onlyEnDto.location);
+    expect(result.cateringDescription).toEqual(onlyEnDto.cateringDescription);
+    expect(result.remarks).toEqual(onlyEnDto.remarks);
+    expect(result.agenda).toEqual(onlyEnDto.agenda);
+  });
+});
