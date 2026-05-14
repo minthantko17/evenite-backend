@@ -11,7 +11,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 const mockGenerateContent = jest.fn();
-let service: EventAiService;
 
 jest.mock('@google/genai', () => ({
   GoogleGenAI: jest.fn().mockImplementation(() => ({
@@ -393,7 +392,96 @@ const translatedToEnResponse = {
 };
 
 // Test Suite
+describe('EventAiService - callGeminiWithPrompt', () => {
+  let service: EventAiService;
+
+  beforeEach(async () => {
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        EventAiService,
+        { provide: EventValidationService, useValue: mockValidationService },
+        { provide: EventDataUtils, useValue: mockUtils },
+      ],
+    }).compile();
+
+    service = module.get<EventAiService>(EventAiService);
+    jest.clearAllMocks();
+  });
+
+  it('UT-M002-01: should return parsed JSON when Gemini returns valid response with all fields', async () => {
+    mockGenerateContent.mockResolvedValueOnce({
+      text: JSON.stringify(allFieldPresentGeminiResponse),
+    });
+
+    const result = await service.callGeminiWithPrompt(
+      'SEED x CMU Trip to Chiang Rai, 7-8 June 2025, depart 7AM from CMU, visit Doi Tung, community service, 40 seats, contact seed.cmu@gmail.com',
+    );
+
+    expect(result).toEqual(allFieldPresentGeminiResponse);
+  });
+
+  it('UT-M002-02: should return parsed JSON with default values when Gemini returns response with missing optional fields', async () => {
+    mockGenerateContent.mockResolvedValueOnce({
+      text: JSON.stringify(someFieldMissingGeminiResponse),
+    });
+
+    const result = await service.callGeminiWithPrompt(
+      'Loy Krathong Workshop, 15 November 2024, VIP Room 1 CMU',
+    );
+
+    expect(result).toEqual(someFieldMissingGeminiResponse);
+    expect(result.title).toEqual({
+      en: 'Loy Krathong Workshop',
+      th: 'เวิร์กช็อปลอยกระทง',
+    });
+    expect(result.mapLink).toBe('');
+    expect(result.category).toEqual(['WORKSHOP']);
+    expect(result.seatLimit).toBe(30);
+    expect(result.hasCatering).toBe(false);
+  });
+
+  // TODO: update UT-M002-03 and UT-M002-04 to align with un-reproducible issue test plan
+  it('UT-M002-03: should throw AiGenerationException when Gemini API call fails', async () => {
+    mockGenerateContent.mockRejectedValueOnce(
+      new Error('API connection failed'),
+    );
+    await expect(
+      service.callGeminiWithPrompt('SEED x CMU Trip to Chiang Rai'),
+    ).rejects.toThrow(AiGenerationException);
+
+    mockGenerateContent.mockRejectedValueOnce(
+      new Error('API connection failed'),
+    );
+    await expect(
+      service.callGeminiWithPrompt('SEED x CMU Trip to Chiang Rai'),
+    ).rejects.toThrow(
+      'There was an error in creating an event, try creating manually.',
+    );
+  });
+
+  it('UT-M002-04: should throw AiResponseParseException when Gemini returns malformed JSON', async () => {
+    mockGenerateContent.mockResolvedValueOnce({
+      text: 'this is not { valid } json !!!',
+    });
+    await expect(
+      service.callGeminiWithPrompt('SEED x CMU Trip to Chiang Rai'),
+    ).rejects.toThrow(AiResponseParseException);
+
+    mockGenerateContent.mockResolvedValueOnce({
+      text: 'this is not { valid } json !!!',
+    });
+    await expect(
+      service.callGeminiWithPrompt('SEED x CMU Trip to Chiang Rai'),
+    ).rejects.toThrow(
+      'There was an error processing the AI response. Please try again.',
+    );
+  });
+});
+
 describe('EventAiService - callGeminiWithImage', () => {
+  let service: EventAiService;
+
   beforeEach(async () => {
     jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
     const module: TestingModule = await Test.createTestingModule({
@@ -482,8 +570,9 @@ describe('EventAiService - callGeminiWithImage', () => {
   });
 });
 
-
 describe('EventAiService - callGeminiForTranslation', () => {
+  let service: EventAiService;
+
   beforeEach(async () => {
     jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
     const module: TestingModule = await Test.createTestingModule({
