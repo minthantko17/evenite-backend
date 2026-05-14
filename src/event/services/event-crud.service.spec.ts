@@ -9,6 +9,9 @@ import { NotFoundException } from '@nestjs/common';
 import { SaveDraftDto } from '../dto/save-draft.dto';
 import { SaveEventException } from '../exceptions/save-event.exception';
 import { v4 as uuidv4 } from 'uuid';
+import { PublishEventDto } from '../dto/publish-event.dto';
+import { PublishEventException } from '../exceptions/publish-event.exception';
+import { InvalidDateRangeException } from '../exceptions/invalid-date-range.exception';
 
 const mockPrisma = {
   event: {
@@ -184,6 +187,66 @@ const createMockSportsDayEvent = () => ({
   endAt: new Date('2026-03-15T10:00:00.000Z'),
   bannerUrl:
     'https://mockproject.supabase.co/storage/v1/object/public/banners/uuid.jpg',
+});
+
+const createMockRoVCompetitionEvent = () => ({
+  title: { en: 'RoV Game Competition 2026', th: 'การแข่งขัน RoV 2026' },
+  description: {
+    en: 'Annual RoV mobile game competition hosted by CAMT, open to all CMU students',
+    th: 'การแข่งขันเกม RoV บนมือถือประจำปี จัดโดย CAMT เปิดรับนักศึกษา มช. ทุกคน',
+  },
+  location: { en: 'CAMT Building, Room 109', th: 'อาคาร CAMT ห้อง 109' },
+  cateringDescription: {
+    en: 'Snacks and drinks provided',
+    th: 'มีของว่างและเครื่องดื่มบริการ',
+  },
+  remarks: {
+    en: 'Bring your own mobile device and charger',
+    th: 'นำมือถือและสายชาร์จมาเอง',
+  },
+  agenda: [
+    {
+      time: '09:00',
+      activity: {
+        en: 'Registration and Device Check',
+        th: 'ลงทะเบียนและตรวจอุปกรณ์',
+      },
+    },
+    {
+      time: '10:00',
+      activity: { en: 'Group Stage Matches', th: 'รอบแบ่งกลุ่ม' },
+    },
+    {
+      time: '13:00',
+      activity: { en: 'Lunch Break', th: 'พักรับประทานอาหารกลางวัน' },
+    },
+    {
+      time: '14:00',
+      activity: { en: 'Semifinal Matches', th: 'รอบรองชนะเลิศ' },
+    },
+    {
+      time: '16:00',
+      activity: {
+        en: 'Grand Final and Award Ceremony',
+        th: 'รอบชิงชนะเลิศและพิธีมอบรางวัล',
+      },
+    },
+  ],
+  category: ['COMPETITION', 'CLUB_ACTIVITY'],
+  isOnline: false,
+  hasCatering: true,
+  isCateringFree: true,
+  mapLink: 'https://maps.app.goo.gl/camtbuilding',
+  externalUrl: 'https://reg.camt.cmu.ac.th/rov2026',
+  seatLimit: 64,
+  contactName: 'CAMT Game Club',
+  contactEmail: 'gameclub@camt.cmu.ac.th',
+  contactPhone: '053-942464',
+  contactLineId: '@camtgameclub',
+  startAt: new Date('2026-05-15T02:00:00.000Z'),
+  endAt: new Date('2026-05-15T11:00:00.000Z'),
+  bannerUrl:
+    'https://mockproject.supabase.co/storage/v1/object/public/banners/rov-uuid.jpg',
 });
 
 // testing
@@ -496,5 +559,170 @@ describe('EventCrudService - saveEventAsDraft', () => {
     await expect(
       service.saveEventAsDraft(dto as SaveDraftDto, dto.id),
     ).rejects.toThrow('Failed to save event. Please try again.');
+  });
+});
+
+describe('EventCrudService - publishEvent', () => {
+  let service: EventCrudService;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        EventCrudService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: EventStorageService, useValue: mockStorageService },
+        { provide: EventValidationService, useValue: mockValidationService },
+        { provide: EventDataUtils, useValue: mockUtils },
+      ],
+    }).compile();
+
+    service = module.get<EventCrudService>(EventCrudService);
+    jest.clearAllMocks();
+  });
+
+  it('UT-M017-01: should create new published event and return created event when no eventId provided', async () => {
+    const dto = createMockRoVCompetitionEvent();
+    const newEventId = uuidv4();
+    const now = new Date();
+    const expectedEvent = { ...dto, id: newEventId, status: 'PUBLISHED', publishedAt: now };
+    mockStorageService.resolveBannerUrl.mockReturnValue(dto.bannerUrl);
+    mockPrisma.event.create.mockResolvedValueOnce(expectedEvent);
+
+    const result = await service.publishEvent(dto as PublishEventDto);
+
+    expect(result).toEqual(expectedEvent);
+    expect(result.id).toBe(newEventId);
+    expect(result.status).toBe('PUBLISHED');
+    expect(result.publishedAt).toBeInstanceOf(Date);
+    expect(result.publishedAt).toEqual(now);
+
+    expect(mockPrisma.event.create).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.event.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: 'PUBLISHED',
+          publishedAt: expect.any(Date),
+        }),
+      }),
+    );
+    expect(mockPrisma.event.update).not.toHaveBeenCalled();
+  });
+
+  it('UT-M017-02: should update existing event as published and return updated event when eventId provided', async () => {
+    const dto = { ...createMockRoVCompetitionEvent(), id: uuidv4() };
+    const now = new Date();
+    const expectedEvent = { ...dto, status: 'PUBLISHED', publishedAt: now };
+    mockStorageService.resolveBannerUrl.mockReturnValue(dto.bannerUrl);
+    mockPrisma.event.findUnique.mockResolvedValueOnce({
+      bannerUrl: DEFAULT_BANNER_URL,
+    });
+    mockPrisma.event.update.mockResolvedValueOnce(expectedEvent);
+
+    const result = await service.publishEvent(dto as PublishEventDto, dto.id);
+
+    expect(result).toEqual(expectedEvent);
+    expect(result.id).toBe(dto.id);
+    expect(result.status).toBe('PUBLISHED');
+    expect(result.publishedAt).toBeInstanceOf(Date);
+    expect(result.publishedAt).toEqual(now);
+    expect(result.bannerUrl).toBe(dto.bannerUrl);
+
+    expect(mockPrisma.event.update).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.event.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: dto.id },
+        data: expect.objectContaining({
+          status: 'PUBLISHED',
+          publishedAt: expect.any(Date),
+        }),
+      }),
+    );
+    expect(mockPrisma.event.create).not.toHaveBeenCalled();
+  });
+
+  it('UT-M017-03: should throw NotFoundException when eventId provided but event not found', async () => {
+    const dto = { ...createMockRoVCompetitionEvent(), id: uuidv4() };
+    mockStorageService.resolveBannerUrl.mockReturnValue(dto.bannerUrl);
+    mockPrisma.event.findUnique.mockResolvedValueOnce(null);
+
+    await expect(
+      service.publishEvent(dto as PublishEventDto, dto.id),
+    ).rejects.toThrow(NotFoundException);
+
+    mockPrisma.event.findUnique.mockResolvedValueOnce(null);
+    await expect(
+      service.publishEvent(dto as PublishEventDto, dto.id),
+    ).rejects.toThrow('Event not found.');
+  });
+
+  it('UT-M017-04: should throw InvalidDateRangeException when startAt is greater than or equal to endAt', async () => {
+    const dto = {
+      ...createMockRoVCompetitionEvent(),
+      startAt: new Date('2026-05-15T11:00:00.000Z'),
+      endAt: new Date('2026-05-15T02:00:00.000Z'),
+    };
+    mockStorageService.resolveBannerUrl.mockReturnValue(dto.bannerUrl);
+    mockValidationService.validatePublishDateRange.mockImplementationOnce(
+      () => {
+        throw new InvalidDateRangeException();
+      },
+    );
+
+    await expect(service.publishEvent(dto as PublishEventDto)).rejects.toThrow(
+      InvalidDateRangeException,
+    );
+
+    mockValidationService.validatePublishDateRange.mockImplementationOnce(
+      () => {
+        throw new InvalidDateRangeException();
+      },
+    );
+    await expect(service.publishEvent(dto as PublishEventDto)).rejects.toThrow(
+      'Start date must be before end date.',
+    );
+  });
+
+  it('UT-M017-05: should throw PublishEventException when Prisma create fails', async () => {
+    const dto = createMockRoVCompetitionEvent();
+    mockStorageService.resolveBannerUrl.mockReturnValue(dto.bannerUrl);
+    mockPrisma.event.create.mockRejectedValueOnce(
+      new Error('DB connection failed'),
+    );
+
+    await expect(service.publishEvent(dto as PublishEventDto)).rejects.toThrow(
+      PublishEventException,
+    );
+
+    mockPrisma.event.create.mockRejectedValueOnce(
+      new Error('DB connection failed'),
+    );
+    await expect(service.publishEvent(dto as PublishEventDto)).rejects.toThrow(
+      'Failed to publish event. Please try again.',
+    );
+  });
+
+  it('UT-M017-06: should throw PublishEventException when Prisma update fails', async () => {
+    const dto = { ...createMockRoVCompetitionEvent(), id: uuidv4() };
+    mockStorageService.resolveBannerUrl.mockReturnValue(dto.bannerUrl);
+    mockPrisma.event.findUnique.mockResolvedValueOnce({
+      bannerUrl: DEFAULT_BANNER_URL,
+    });
+    mockPrisma.event.update.mockRejectedValueOnce(
+      new Error('DB connection failed'),
+    );
+
+    await expect(
+      service.publishEvent(dto as PublishEventDto, dto.id),
+    ).rejects.toThrow(PublishEventException);
+
+    mockPrisma.event.findUnique.mockResolvedValueOnce({
+      bannerUrl: DEFAULT_BANNER_URL,
+    });
+    mockPrisma.event.update.mockRejectedValueOnce(
+      new Error('DB connection failed'),
+    );
+    await expect(
+      service.publishEvent(dto as PublishEventDto, dto.id),
+    ).rejects.toThrow('Failed to publish event. Please try again.');
   });
 });
