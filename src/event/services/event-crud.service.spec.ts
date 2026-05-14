@@ -6,6 +6,9 @@ import { EventValidationService } from './event-validation.service';
 import { EventDataUtils } from '../utils/event-data.utils';
 import { DEFAULT_BANNER_URL } from '../constants/event-category.constant';
 import { NotFoundException } from '@nestjs/common';
+import { SaveDraftDto } from '../dto/save-draft.dto';
+import { SaveEventException } from '../exceptions/save-event.exception';
+import { v4 as uuidv4 } from 'uuid';
 
 const mockPrisma = {
   event: {
@@ -134,6 +137,51 @@ const createMockOrientationEvent = () => ({
   contactLineId: '@cmustudentaffairs',
   startAt: new Date('2026-07-01T02:00:00.000Z'),
   endAt: new Date('2026-07-01T08:00:00.000Z'),
+  bannerUrl:
+    'https://mockproject.supabase.co/storage/v1/object/public/banners/uuid.jpg',
+});
+
+const createMockSportsDayEvent = () => ({
+  title: { en: 'CAMT Sports Day 2026', th: 'กีฬาสี CAMT 2026' },
+  description: {
+    en: 'Annual sports day for CAMT students featuring fun activities and competitions',
+    th: 'งานกีฬาสีประจำปีสำหรับนักศึกษา CAMT พร้อมกิจกรรมสนุกสนานและการแข่งขัน',
+  },
+  location: { en: 'CMU Sports Complex', th: 'สนามกีฬา มช.' },
+  cateringDescription: {
+    en: 'Free snacks and drinks for all participants',
+    th: 'ของว่างและเครื่องดื่มฟรีสำหรับผู้เข้าร่วม',
+  },
+  remarks: { en: 'Wear comfortable sportswear', th: 'สวมชุดกีฬาที่สบาย' },
+  agenda: [
+    { time: '08:00', activity: { en: 'Opening Ceremony', th: 'พิธีเปิด' } },
+    {
+      time: '09:00',
+      activity: { en: 'Sports Competitions', th: 'การแข่งขันกีฬา' },
+    },
+    {
+      time: '12:00',
+      activity: { en: 'Lunch Break', th: 'พักรับประทานอาหารกลางวัน' },
+    },
+    {
+      time: '13:00',
+      activity: { en: 'Fun Activities', th: 'กิจกรรมสนุกสนาน' },
+    },
+    { time: '16:00', activity: { en: 'Award Ceremony', th: 'พิธีมอบรางวัล' } },
+  ],
+  category: ['SPORT', 'CLUB_ACTIVITY'],
+  isOnline: false,
+  hasCatering: true,
+  isCateringFree: true,
+  mapLink: 'https://maps.app.goo.gl/camtsportscomplex',
+  externalUrl: 'https://reg.camt.cmu.ac.th/sportsday2026',
+  seatLimit: 200,
+  contactName: 'CAMT Student Club',
+  contactEmail: 'club@camt.cmu.ac.th',
+  contactPhone: '053-942463',
+  contactLineId: '@camtclub',
+  startAt: new Date('2026-03-15T01:00:00.000Z'),
+  endAt: new Date('2026-03-15T10:00:00.000Z'),
   bannerUrl:
     'https://mockproject.supabase.co/storage/v1/object/public/banners/uuid.jpg',
 });
@@ -322,5 +370,131 @@ describe('EventCrudService - getEventById', () => {
     await expect(service.getEventById('non-existent-id')).rejects.toThrow(
       'Event not found.',
     );
+  });
+});
+
+describe('EventCrudService - saveEventAsDraft', () => {
+  let service: EventCrudService;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        EventCrudService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: EventStorageService, useValue: mockStorageService },
+        { provide: EventValidationService, useValue: mockValidationService },
+        { provide: EventDataUtils, useValue: mockUtils },
+      ],
+    }).compile();
+
+    service = module.get<EventCrudService>(EventCrudService);
+    jest.clearAllMocks();
+  });
+
+  it('UT-M022-01: should create new draft event and return created event when no eventId provided', async () => {
+    const dto = createMockSportsDayEvent();
+    const newEventId = uuidv4();
+    const expectedEvent = { ...dto, id: newEventId, status: 'DRAFT' };
+    mockStorageService.resolveBannerUrl.mockReturnValue(dto.bannerUrl);
+    mockPrisma.event.create.mockResolvedValueOnce(expectedEvent);
+
+    const result = await service.saveEventAsDraft(dto as SaveDraftDto);
+
+    expect(result).toEqual(expectedEvent);
+    expect(result.id).toBeDefined();
+    expect(result.id).toBe(newEventId);
+    expect(mockPrisma.event.create).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.event.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: 'DRAFT' }),
+      }),
+    );
+    expect(mockPrisma.event.update).not.toHaveBeenCalled();
+  });
+
+  it('UT-M022-02: should update existing draft event and return updated event when eventId provided', async () => {
+    const dto = { ...createMockSportsDayEvent(), id: uuidv4() };
+    const expectedEvent = { ...dto, status: 'DRAFT' };
+    mockStorageService.resolveBannerUrl.mockReturnValue(dto.bannerUrl);
+    mockPrisma.event.findUnique.mockResolvedValueOnce({
+      bannerUrl: DEFAULT_BANNER_URL,
+    });
+    mockPrisma.event.update.mockResolvedValueOnce(expectedEvent);
+
+    const result = await service.saveEventAsDraft(
+      dto as SaveDraftDto,
+      dto.id,
+    );
+
+    expect(result).toEqual(expectedEvent);
+    expect(result.id).toBe(dto.id);
+    expect(result.bannerUrl).toBe(dto.bannerUrl);
+    
+    expect(mockPrisma.event.update).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.event.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: dto.id },
+        data: expect.objectContaining({ status: 'DRAFT' }),
+      }),
+    );
+    expect(mockPrisma.event.create).not.toHaveBeenCalled();
+  });
+
+  it('UT-M022-03: should throw NotFoundException when eventId provided but event not found', async () => {
+    const dto = {...createMockSportsDayEvent(), id: uuidv4() };
+    mockStorageService.resolveBannerUrl.mockReturnValue(dto.bannerUrl);
+    mockPrisma.event.findUnique.mockResolvedValueOnce(null);
+
+    await expect(
+      service.saveEventAsDraft(dto as SaveDraftDto, dto.id),
+    ).rejects.toThrow(NotFoundException);
+
+    mockPrisma.event.findUnique.mockResolvedValueOnce(null);
+    await expect(
+      service.saveEventAsDraft(dto as SaveDraftDto, dto.id),
+    ).rejects.toThrow('Event not found.');
+  });
+
+  it('UT-M022-04: should throw SaveEventException when Prisma create fails', async () => {
+    const dto = createMockSportsDayEvent();
+    mockStorageService.resolveBannerUrl.mockReturnValue(dto.bannerUrl);
+    mockPrisma.event.create.mockRejectedValueOnce(
+      new Error('DB connection failed'),
+    );
+    await expect(service.saveEventAsDraft(dto as SaveDraftDto)).rejects.toThrow(
+      SaveEventException,
+    );
+
+    mockPrisma.event.create.mockRejectedValueOnce(
+      new Error('DB connection failed'),
+    );
+    await expect(service.saveEventAsDraft(dto as SaveDraftDto)).rejects.toThrow(
+      'Failed to save event. Please try again.',
+    );
+  });
+
+  it('UT-M022-05: should throw SaveEventException when Prisma update fails', async () => {
+    const dto = {...createMockSportsDayEvent(), id: uuidv4() };
+    mockStorageService.resolveBannerUrl.mockReturnValue(dto.bannerUrl);
+    mockPrisma.event.findUnique.mockResolvedValueOnce({
+      bannerUrl: DEFAULT_BANNER_URL,
+    });
+    mockPrisma.event.update.mockRejectedValueOnce(
+      new Error('DB connection failed'),
+    );
+
+    await expect(
+      service.saveEventAsDraft(dto as SaveDraftDto, dto.id),
+    ).rejects.toThrow(SaveEventException);
+
+    mockPrisma.event.findUnique.mockResolvedValueOnce({
+      bannerUrl: DEFAULT_BANNER_URL,
+    });
+    mockPrisma.event.update.mockRejectedValueOnce(
+      new Error('DB connection failed'),
+    );
+    await expect(
+      service.saveEventAsDraft(dto as SaveDraftDto, dto.id),
+    ).rejects.toThrow('Failed to save event. Please try again.');
   });
 });
