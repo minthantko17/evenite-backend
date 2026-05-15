@@ -5,6 +5,10 @@ import { EventStorageService } from './event-storage.service';
 import { EventValidationService } from './event-validation.service';
 import { BannerUploadException } from '../exceptions/banner-upload.exception';
 import { InvalidImageException } from '../exceptions/invalid-image.exception';
+import { DEFAULT_BANNER_URL } from '../constants/event-category.constant';
+import * as fs from 'fs';
+import * as path from 'path';
+import { v4 as uuidv4 } from 'uuid';
 
 
 jest.mock('@supabase/supabase-js', () => ({
@@ -17,7 +21,11 @@ const mockStorageFrom = {
   remove: jest.fn(),
 };
 
-// got error without before all because of hoisting issue.
+const mockValidationService = {
+  validateBannerFile: jest.fn(),
+};
+
+// got error without beforeAll because of hoisting issue.
 beforeAll(() => {
   (createClient as jest.Mock).mockReturnValue({
     storage: {
@@ -26,82 +34,64 @@ beforeAll(() => {
   });
 });
 
-const mockValidationService = {
-  validateBannerFile: jest.fn(),
-};
+const fixturesPath = path.join(__dirname, '../../../test/fixtures/images');
+const MOCK_SUPABASE_BASE_URL = 'https://mockproject.supabase.co/storage/v1/object/public/banners';
 
-let service: EventStorageService;
-
+const createMockFile = (
+  buffer: Buffer,
+  mimetype: string,
+  originalname: string,
+  size?: number,
+): Express.Multer.File => ({
+  buffer,
+  mimetype,
+  originalname,
+  size: size ?? buffer.length,
+  fieldname: 'file',
+  encoding: '7bit',
+  destination: '',
+  filename: '',
+  path: '',
+  stream: null as any,
+});
 
 // Mock data files
-const small_jpeg_file: Express.Multer.File = {
-  buffer: Buffer.from('fake-jpeg-bytes'),
-  mimetype: 'image/jpeg',
-  originalname: 'small_image.jpeg',
-  size: 1024,
-  fieldname: 'banner',
-  encoding: '7bit',
-  destination: '',
-  filename: '',
-  path: '',
-  stream: null as any,
-};
+const small_jpg_file = createMockFile(
+  fs.readFileSync(path.join(fixturesPath, 'small_image_jpg.jpg')),
+  'image/jpeg',
+  'small_jpeg.jpg',
+);
 
-const small_png_file: Express.Multer.File = {
-  buffer: Buffer.from('fake-png-bytes'),
-  mimetype: 'image/png',
-  originalname: 'small_image.png',
-  size: 1024,
-  fieldname: 'banner',
-  encoding: '7bit',
-  destination: '',
-  filename: '',
-  path: '',
-  stream: null as any,
-};
+const small_png_file = createMockFile(
+  fs.readFileSync(path.join(fixturesPath, 'small_image_png.png')),
+  'image/png',
+  'small_png.png',
+);
 
-const small_webp_file: Express.Multer.File = {
-  buffer: Buffer.from('fake-webp-bytes'),
-  mimetype: 'image/webp',
-  originalname: 'small_image.webp',
-  size: 1024,
-  fieldname: 'banner',
-  encoding: '7bit',
-  destination: '',
-  filename: '',
-  path: '',
-  stream: null as any,
-};
+const small_webp_file = createMockFile(
+  fs.readFileSync(path.join(fixturesPath, 'small_image_webp.webp')),
+  'image/webp',
+  'small_webp.webp',
+);
 
-const gif_file: Express.Multer.File = {
-  buffer: Buffer.from('fake-gif-bytes'),
-  mimetype: 'image/gif',
-  originalname: 'image.gif',
-  size: 1024,
-  fieldname: 'banner',
-  encoding: '7bit',
-  destination: '',
-  filename: '',
-  path: '',
-  stream: null as any,
-};
+const invalid_format_file = createMockFile(
+  fs.readFileSync(path.join(fixturesPath, 'christmas_party.gif')),
+  'image/gif',
+  'christmas_party.gif',
+);
 
-const large_jpeg_file: Express.Multer.File = {
-  buffer: Buffer.from('fake-large-bytes'),
-  mimetype: 'image/jpeg',
-  originalname: 'large_image.jpeg',
-  size: 6 * 1024 * 1024, // larger than 5MB case
-  fieldname: 'banner',
-  encoding: '7bit',
-  destination: '',
-  filename: '',
-  path: '',
-  stream: null as any,
-};
+const large_image_file = createMockFile(
+  fs.readFileSync(path.join(fixturesPath, 'small_image_jpg.jpg')),
+  'image/jpeg',
+  'large_image.jpeg',
+  5 * 1024 * 1024 + 1
+);
 
 
 // test
 describe('EventStorageService - uploadBannerToStorage', () => {
+  let service: EventStorageService;
+  
   beforeEach(async () => {
     jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
     const module: TestingModule = await Test.createTestingModule({
@@ -116,13 +106,14 @@ describe('EventStorageService - uploadBannerToStorage', () => {
   });
 
 
-  it('UT-M024-01: should upload JPEG file successfully and return public URL', async () => {
-    const expectedUrl = 'https://supabase.co/storage/v1/object/public/banners/uuid.jpg';
-    // supabase return as no error if success
+  it('UT-M015-01: should upload JPEG file successfully and return public URL', async () => {
+    const mockUuid = uuidv4();
+    const expectedUrl = `${MOCK_SUPABASE_BASE_URL}/${mockUuid}.jpg`;
+    // supabase return as no-error if success
     mockStorageFrom.upload.mockResolvedValueOnce({ error: null });
     mockStorageFrom.getPublicUrl.mockReturnValueOnce({ data: { publicUrl: expectedUrl } });
 
-    const result = await service.uploadBannerToStorage(small_jpeg_file);
+    const result = await service.uploadBannerToStorage(small_jpg_file);
     // console.log('Returned URL:', result);
     expect(result).toBe(expectedUrl);
     
@@ -130,12 +121,13 @@ describe('EventStorageService - uploadBannerToStorage', () => {
     const uploadedFileName = mockStorageFrom.upload.mock.calls[0][0];
     expect(uploadedFileName).toMatch(/\.jpg$/);
 
-    expect(mockValidationService.validateBannerFile).toHaveBeenCalledWith(small_jpeg_file);
+    expect(mockValidationService.validateBannerFile).toHaveBeenCalledWith(small_jpg_file);
     expect(mockValidationService.validateBannerFile).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-M024-02: should upload PNG file successfully and return public URL', async () => {
-    const expectedUrl = 'https://supabase.co/storage/v1/object/public/banners/uuid.png';
+  it('UT-M015-02: should upload PNG file successfully and return public URL', async () => {
+    const mockUuid = uuidv4();
+    const expectedUrl = `${MOCK_SUPABASE_BASE_URL}/${mockUuid}.png`;
     mockStorageFrom.upload.mockResolvedValueOnce({ error: null });
     mockStorageFrom.getPublicUrl.mockReturnValueOnce({ data: { publicUrl: expectedUrl } });
 
@@ -149,8 +141,9 @@ describe('EventStorageService - uploadBannerToStorage', () => {
     expect(mockValidationService.validateBannerFile).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-M024-03: should upload WEBP file successfully and return public URL', async () => {
-    const expectedUrl = 'https://supabase.co/storage/v1/object/public/banners/uuid.webp';
+  it('UT-M015-03: should upload WEBP file successfully and return public URL', async () => {
+    const mockUuid = uuidv4();
+    const expectedUrl = `${MOCK_SUPABASE_BASE_URL}/${mockUuid}.webp`;
     mockStorageFrom.upload.mockResolvedValueOnce({ error: null });
     mockStorageFrom.getPublicUrl.mockReturnValueOnce({ data: { publicUrl: expectedUrl } });
 
@@ -164,50 +157,50 @@ describe('EventStorageService - uploadBannerToStorage', () => {
     expect(mockValidationService.validateBannerFile).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-M024-04: should throw InvalidImageException for unsupported file format', async () => {
+  it('UT-M015-04: should throw InvalidImageException for unsupported file format', async () => {
     mockValidationService.validateBannerFile.mockImplementationOnce(() => {
       throw new InvalidImageException('Unsupported image format');
     });
     await expect(
-      service.uploadBannerToStorage(gif_file)
+      service.uploadBannerToStorage(invalid_format_file)
     ).rejects.toThrow(InvalidImageException);
 
     mockValidationService.validateBannerFile.mockImplementationOnce(() => {
       throw new InvalidImageException('Unsupported image format');
     });
     await expect(
-      service.uploadBannerToStorage(gif_file)
+      service.uploadBannerToStorage(invalid_format_file)
     ).rejects.toThrow('Unsupported image format');
 
     expect(mockStorageFrom.upload).not.toHaveBeenCalled();
   });
 
-  it('UT-M024-05: should throw InvalidImageException for file exceeding 5MB', async () => {
+  it('UT-M015-05: should throw InvalidImageException for file exceeding 5MB', async () => {
     mockValidationService.validateBannerFile.mockImplementationOnce(() => {
       throw new InvalidImageException('File size must not exceed 5MB.');
     });
     await expect(
-      service.uploadBannerToStorage(large_jpeg_file)
+      service.uploadBannerToStorage(large_image_file)
     ).rejects.toThrow(InvalidImageException);
 
     mockValidationService.validateBannerFile.mockImplementationOnce(() => {
       throw new InvalidImageException('File size must not exceed 5MB.');
     });
     await expect(
-      service.uploadBannerToStorage(large_jpeg_file)
+      service.uploadBannerToStorage(large_image_file)
     ).rejects.toThrow('File size must not exceed 5MB.');
 
     expect(mockStorageFrom.upload).not.toHaveBeenCalled();
   });
 
-  it('UT-M024-06: should throw BannerUploadException when Supabase upload fails', async () => {
-    // validation passes — jest.fn() does nothing by default
+  it('UT-M015-06: should throw BannerUploadException when Supabase upload fails', async () => {
+    // mock as validation passes will be same as jest.fn() does nothing by default
     // Supabase returns error object as { error: {...} } without throwing
     mockStorageFrom.upload.mockResolvedValueOnce({
       error: { message: 'Storage bucket not found' },
     });
     await expect(
-      service.uploadBannerToStorage(small_jpeg_file)
+      service.uploadBannerToStorage(small_jpg_file)
     ).rejects.toThrow(BannerUploadException);
 
 
@@ -215,10 +208,87 @@ describe('EventStorageService - uploadBannerToStorage', () => {
       error: { message: 'Storage bucket not found' },
     });
     await expect(
-      service.uploadBannerToStorage(small_jpeg_file)
+      service.uploadBannerToStorage(small_jpg_file)
     ).rejects.toThrow('Failed to upload banner image. Please try again.');
 
-    expect(mockValidationService.validateBannerFile).toHaveBeenCalledWith(small_jpeg_file);
+    expect(mockValidationService.validateBannerFile).toHaveBeenCalledWith(small_jpg_file);
     expect(mockStorageFrom.getPublicUrl).not.toHaveBeenCalled();
+  });
+});
+
+describe('EventStorageService - resolveBannerUrl', () => {
+  let service: EventStorageService;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        EventStorageService,
+        { provide: EventValidationService, useValue: mockValidationService },
+      ],
+    }).compile();
+
+    service = module.get<EventStorageService>(EventStorageService);
+    jest.clearAllMocks();
+  });
+
+  it('UT-M016-01: should return provided URL when valid URL is given', () => {
+    const mockUuid = uuidv4();
+    const validUrl = `${MOCK_SUPABASE_BASE_URL}/${mockUuid}.jpg`;
+    expect(service.resolveBannerUrl(validUrl)).toBe(validUrl);
+  });
+
+  it('UT-M016-02: should return DEFAULT_BANNER_URL when input is undefined', () => {
+    expect(service.resolveBannerUrl(undefined)).toBe(DEFAULT_BANNER_URL);
+  });
+
+  it('UT-M016-03: should return DEFAULT_BANNER_URL when input is empty string', () => {
+    expect(service.resolveBannerUrl('')).toBe(DEFAULT_BANNER_URL);
+  });
+
+  it('UT-M016-04: should return DEFAULT_BANNER_URL when input is whitespace only', () => {
+    expect(service.resolveBannerUrl('   ')).toBe(DEFAULT_BANNER_URL);
+  });
+
+  it('UT-M016-05: should return DEFAULT_BANNER_URL when input is null', () => {
+    expect(service.resolveBannerUrl(null as any)).toBe(DEFAULT_BANNER_URL);
+  });
+});
+
+describe('EventStorageService - deleteBannerFromStorage', () => {
+  let service: EventStorageService;
+
+  beforeEach(async () => {
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        EventStorageService,
+        { provide: EventValidationService, useValue: mockValidationService },
+      ],
+    }).compile();
+
+    service = module.get<EventStorageService>(EventStorageService);
+    jest.clearAllMocks();
+  });
+
+  it('UT-M020-01: should call remove with correct file path when valid Supabase URL is given', async () => {
+    const mockUuid = uuidv4();
+    const bannerUrl = `${MOCK_SUPABASE_BASE_URL}/${mockUuid}.jpg`;
+
+    await service.deleteBannerFromStorage(bannerUrl);
+
+    expect(mockStorageFrom.remove).toHaveBeenCalledWith([`${mockUuid}.jpg`]);
+    expect(mockStorageFrom.remove).toHaveBeenCalledTimes(1);
+  });
+
+  it('UT-M020-02: should not call remove when input is not a valid URL', async () => {
+    await service.deleteBannerFromStorage('not a url');
+
+    expect(mockStorageFrom.remove).not.toHaveBeenCalled();
+  });
+
+  it('UT-M020-03: should not call remove when URL does not match Supabase storage pattern', async () => {
+    await service.deleteBannerFromStorage('https://www.cmu.ac.th/files/image.jpg');
+
+    expect(mockStorageFrom.remove).not.toHaveBeenCalled();
   });
 });
