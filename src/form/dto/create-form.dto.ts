@@ -15,7 +15,7 @@ export class FormFieldInputDto {
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  options?: string[] | null;
+  options?: string[];
 
   @IsOptional()
   @IsString()

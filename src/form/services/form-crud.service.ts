@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Prisma, FormType } from '@prisma/client';
+import { FormType, FieldType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateFormDto } from '../dto/create-form.dto';
 import { UpdateFormDto } from '../dto/update-form.dto';
@@ -143,11 +143,79 @@ export class FormCrudService {
           formFieldId: answer.formFieldId,
           label: answer.formField.label,
           valueText: answer.valueText ?? null,
-          valueNumber: answer.valueNumber ?? null,
+          valueNumber: answer.valueNumber !== null ? answer.valueNumber.toNumber() : null,
           valueDate: answer.valueDate ?? null,
           valueArray: answer.valueArray,
         })),
       })),
     };
+  }
+
+  async getFormResponsesSummary(eventId: string, type: FormType) {
+    const form = await this.prisma.form.findUnique({
+      where: { eventId_type: { eventId, type } },
+      include: {
+        fields: { orderBy: { order: 'asc' } },
+      },
+    });
+    if (!form) throw new FormNotFoundException();
+
+    const responses = await this.prisma.formResponse.findMany({
+      where: { formId: form.id },
+      include: {
+        fieldResponses: true,
+      },
+    });
+
+    // TODO: need to add submittedBy to each answer object when Feature 5 after registrationId is added to FormResponse
+    // (this is using NxM iteration, maybe gotta optimize later if not bored :D)
+    const summary = form.fields.map((field) => {
+      const answers = responses.map((response) => {
+        const fieldResponse = response.fieldResponses.find(
+          (fr) => fr.formFieldId === field.id,
+        );
+        return {
+          responseId: response.id,
+          createdAt: response.createdAt,
+          value: !fieldResponse
+            ? this.getDefaultValue(field.type)
+            : (fieldResponse.valueText
+              ?? (fieldResponse.valueNumber !== null ? fieldResponse.valueNumber.toNumber() : null)
+              ?? (fieldResponse.valueDate !== null ? fieldResponse.valueDate : null)
+              ?? (fieldResponse.valueArray.length > 0 ? fieldResponse.valueArray : null)
+              ?? this.getDefaultValue(field.type)),
+        };
+      });
+      return {
+        formFieldId: field.id,
+        label: field.label,
+        type: field.type,
+        answers,
+      };
+    });
+
+    return {
+      formId: form.id,
+      totalResponses: responses.length,
+      summary,
+    };
+  }
+
+  private getDefaultValue(type: FieldType): string | number | string[] | null {
+    switch (type) {
+      case FieldType.TEXT:
+      case FieldType.TEXTAREA:
+        return '';
+      case FieldType.NUMBER:
+      case FieldType.RATING:
+        return null; // 0 is also possible but, i think that could be misleading
+      case FieldType.DATE:
+        return null;
+      case FieldType.CHOICE:
+      case FieldType.CHECKBOX:
+        return [];
+      default:
+        return null;
+    }
   }
 }
