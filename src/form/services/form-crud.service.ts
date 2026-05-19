@@ -86,8 +86,10 @@ export class FormCrudService {
         await tx.form.update({
           where: { id: form.id },
           data: {
-            title: dto.title ?? '',
-            description: dto.description ?? '',
+            ...(dto.title !== undefined && { title: dto.title }),
+            ...(dto.description !== undefined && {
+              description: dto.description,
+            }),
           },
         });
 
@@ -134,8 +136,10 @@ export class FormCrudService {
         await tx.form.update({
           where: { id: formId },
           data: {
-            title: dto.title ?? '',
-            description: dto.description ?? '',
+            ...(dto.title !== undefined && { title: dto.title }),
+            ...(dto.description !== undefined && {
+              description: dto.description,
+            }),
           },
         });
 
