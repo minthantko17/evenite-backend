@@ -88,7 +88,7 @@ model FormField {
   options     String[]
   autoFillKey String?
 
-  form        Form                @relation(fields: [formId], references: [id])
+  form        Form                @relation(fields: [formId], references: [id], onDelete: Cascade)
   responses   FormFieldResponse[]
 
   @@unique([formId, order])
@@ -102,7 +102,7 @@ model FormResponse {
   // registrationId String           // deferred Feature #5
   // @@unique([registrationId, formId])  // deferred Feature #5
 
-  form           Form                @relation(fields: [formId], references: [id])
+  form           Form                @relation(fields: [formId], references: [id], onDelete: Cascade)
   fieldResponses FormFieldResponse[]
 
   @@unique([id, formId])
@@ -118,8 +118,8 @@ model FormFieldResponse {
   valueDate      DateTime?
   valueArray     String[]
 
-  formResponse   FormResponse @relation(fields: [formResponseId, formId], references: [id, formId])
-  formField      FormField    @relation(fields: [formFieldId, formId], references: [id, formId])
+  formResponse   FormResponse @relation(fields: [formResponseId, formId], references: [id, formId], onDelete: Cascade)
+  formField      FormField    @relation(fields: [formFieldId, formId], references: [id, formId], onDelete: Cascade)
 
   @@unique([formResponseId, formFieldId])
 }
