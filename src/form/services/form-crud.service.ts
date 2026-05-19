@@ -5,6 +5,9 @@ import { CreateFormDto } from '../dto/create-form.dto';
 import { UpdateFormDto } from '../dto/update-form.dto';
 import { FormNotFoundException } from '../exceptions/form-not-found.exception';
 import { SaveFormException } from '../exceptions/save-form.exception';
+import { ReturnFormWithFields } from '../dto/return-form-with-fields.dto';
+import { ReturnFormSubmissions } from '../dto/return-form-submissions.dto';
+import { ReturnFormSummary } from '../dto/return-form-summary.dto';
 
 @Injectable()
 export class FormCrudService {
@@ -12,7 +15,9 @@ export class FormCrudService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async createForm(eventId: string, dto: CreateFormDto) {
+  async createForm(
+    eventId: string, dto: CreateFormDto
+  ) : Promise<ReturnFormWithFields> {
     try {
       return await this.prisma.form.create({
         data: {
@@ -34,23 +39,25 @@ export class FormCrudService {
         include: {
           fields: { orderBy: { order: 'asc' } },
         },
-      });
+      }) as ReturnFormWithFields;
     } catch (error) {
       this.logger.error('Failed to create form', error);
       throw new SaveFormException();
     }
   }
 
-  async getFormsByEventId(eventId: string) {
+  async getFormsByEventId(eventId: string) : Promise<ReturnFormWithFields[]> {
     return await this.prisma.form.findMany({
       where: { eventId },
       include: {
         fields: { orderBy: { order: 'asc' } },
       },
-    });
+    }) as ReturnFormWithFields[];
   }
 
-  async getFormByEventAndType(eventId: string, type: FormType) {
+  async getFormByEventAndType(
+    eventId: string, type: FormType
+  ) : Promise<ReturnFormWithFields> {
     const form = await this.prisma.form.findUnique({
       where: { eventId_type: { eventId, type } },
       include: {
@@ -58,10 +65,12 @@ export class FormCrudService {
       },
     });
     if (!form) throw new FormNotFoundException();
-    return form;
+    return form as ReturnFormWithFields;
   }
 
-  async updateForm(eventId: string, type: FormType, dto: UpdateFormDto) {
+  async updateForm(
+    eventId: string, type: FormType, dto: UpdateFormDto
+  ) : Promise<ReturnFormWithFields> {
     const form = await this.prisma.form.findUnique({
       where: { eventId_type: { eventId, type } },
     });
@@ -104,7 +113,7 @@ export class FormCrudService {
           include: {
             fields: { orderBy: { order: 'asc' } },
           },
-        });
+        }) as ReturnFormWithFields;
       });
     } catch (error) {
       this.logger.error('Failed to update form', error);
@@ -112,7 +121,9 @@ export class FormCrudService {
     }
   }
 
-  async getFormResponses(eventId: string, type: FormType) {
+  async getFormResponses(
+    eventId: string, type: FormType
+  ) : Promise<ReturnFormSubmissions> {
     const form = await this.prisma.form.findUnique({
       where: { eventId_type: { eventId, type } },
       select: { id: true },
@@ -148,10 +159,12 @@ export class FormCrudService {
           valueArray: answer.valueArray,
         })),
       })),
-    };
+    } as ReturnFormSubmissions;
   }
 
-  async getFormResponsesSummary(eventId: string, type: FormType) {
+  async getFormResponsesSummary(
+    eventId: string, type: FormType
+  ) : Promise<ReturnFormSummary> {
     const form = await this.prisma.form.findUnique({
       where: { eventId_type: { eventId, type } },
       include: {
@@ -198,7 +211,7 @@ export class FormCrudService {
       formId: form.id,
       totalResponses: responses.length,
       summary,
-    };
+    } as ReturnFormSummary;
   }
 
   private getDefaultValue(type: FieldType): string | number | string[] | null {
