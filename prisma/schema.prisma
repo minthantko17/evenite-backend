@@ -85,7 +85,7 @@ model FormField {
   label       String
   isRequired  Boolean       @default(false)
   order       Int
-  options     Json?
+  options     String[]
   autoFillKey String?
 
   form        Form                @relation(fields: [formId], references: [id])
@@ -116,7 +116,7 @@ model FormFieldResponse {
   valueText      String?
   valueNumber    Decimal?
   valueDate      DateTime?
-  valueJson      Json?
+  valueArray     String[]
 
   formResponse   FormResponse @relation(fields: [formResponseId, formId], references: [id, formId])
   formField      FormField    @relation(fields: [formFieldId, formId], references: [id, formId])

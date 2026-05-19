@@ -26,7 +26,7 @@ export class FormCrudService {
               label: field.label,
               isRequired: field.isRequired ?? false,
               order: index,
-              options: field.options ?? Prisma.JsonNull,
+              options: field.options ?? [],
               autoFillKey: field.autoFillKey ?? null,
             })),
           },
@@ -92,7 +92,7 @@ export class FormCrudService {
               label: field.label,
               isRequired: field.isRequired ?? false,
               order: index,
-              options: field.options ?? Prisma.JsonNull,
+              options: field.options ?? [],
               autoFillKey: field.autoFillKey ?? null,
             })),
           });
@@ -145,7 +145,7 @@ export class FormCrudService {
           valueText: answer.valueText ?? null,
           valueNumber: answer.valueNumber ?? null,
           valueDate: answer.valueDate ?? null,
-          valueJson: answer.valueJson ?? null,
+          valueArray: answer.valueArray,
         })),
       })),
     };
