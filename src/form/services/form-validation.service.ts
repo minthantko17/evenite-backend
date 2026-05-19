@@ -7,6 +7,8 @@ import { FormFieldInvalidException } from '../exceptions/form-field-invalid.exce
 import { FormLockedException } from '../exceptions/form-locked.exception';
 import { FormAlreadyExistsException } from '../exceptions/form-already-exists.exception';
 import { FormNotFoundException } from '../exceptions/form-not-found.exception';
+import { FormHasResponsesException } from '../exceptions/form-has-responses.exception';
+import { CreateFormFieldAnswerDto } from '../dto/create-form-response.dto';
 
 @Injectable()
 export class FormValidationService {
@@ -70,6 +72,58 @@ export class FormValidationService {
         throw new FormFieldInvalidException(
           `Field at index ${index}: at least two options are required for ${field.type} type.`,
         );
+      }
+    });
+  }
+
+  // (me to my future self) following is related to method for dev purposes only
+  async validateFormHasNoResponses(formId: string): Promise<void> {
+    const count = await this.prisma.formResponse.count({
+      where: { formId },
+    });
+    if (count > 0) {
+      throw new FormHasResponsesException();
+    }
+  }
+
+  validateFormFieldAnswers(
+    fields: { id: string; type: FieldType; isRequired: boolean ; label: string }[],
+    answers: CreateFormFieldAnswerDto[],
+  ): void {
+    const fieldMap = new Map(fields.map((f) => [f.id, f]));
+
+    answers.forEach((answer, index) => {
+      // check formFieldId belongs to this form
+      const field = fieldMap.get(answer.formFieldId);
+      if (!field) {
+        throw new FormFieldInvalidException(
+          `Answer at index ${index}: formFieldId does not belong to this form.`,
+        );
+      }
+
+      // check data format
+      if (answer.valueDate !== undefined && answer.valueDate !== null) {
+        const date = new Date(answer.valueDate);
+        if (isNaN(date.getTime())) {
+          throw new FormFieldInvalidException(
+            `Answer at index ${index}: invalid date format for "${field.label}".`,
+          );
+        }
+      }
+
+      // check value only if field is required
+      if (field.isRequired) {
+        const hasValue =
+          answer.valueText !== undefined ||
+          answer.valueNumber !== undefined ||
+          answer.valueDate !== undefined ||
+          (answer.valueArray !== undefined && answer.valueArray.length > 0);
+
+        if (!hasValue) {
+          throw new FormFieldInvalidException(
+            `Answer at index ${index}: "${field.label}" is required.`,
+          );
+        }
       }
     });
   }

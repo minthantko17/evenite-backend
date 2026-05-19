@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { FormType, FieldType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateFormDto } from '../dto/create-form.dto';
@@ -8,6 +8,10 @@ import { SaveFormException } from '../exceptions/save-form.exception';
 import { ReturnFormWithFields } from '../dto/return-form-with-fields.dto';
 import { ReturnFormSubmissions } from '../dto/return-form-submissions.dto';
 import { ReturnFormSummary } from '../dto/return-form-summary.dto';
+import { CreateFormResponseDto } from '../dto/create-form-response.dto';
+import { ReturnFormSubmissionItem } from '../dto/return-form-submissions.dto';
+import { DeleteFormException } from '../exceptions/delete-form.exception';
+import { FormFieldInvalidException } from '../exceptions/form-field-invalid.exception';
 
 @Injectable()
 export class FormCrudService {
@@ -286,6 +290,110 @@ export class FormCrudService {
         return [];
       default:
         return null;
+    }
+  }
+
+  // Following is just for dev/testing purpose only.
+  async createFormResponse(
+    formId: string,
+    dto: CreateFormResponseDto,
+  ): Promise<ReturnFormSubmissionItem> {
+    try {
+      const response = await this.prisma.formResponse.create({
+        data: {
+          formId,
+          fieldResponses: {
+            create: dto.answers.map((answer) => ({
+              formFieldId: answer.formFieldId,
+              valueText: answer.valueText ?? null,
+              valueNumber: answer.valueNumber ?? null,
+              valueDate: answer.valueDate ? new Date(answer.valueDate) : null,
+              valueArray: answer.valueArray ?? [],
+            })),
+          },
+        },
+        include: {
+          fieldResponses: {
+            include: {
+              formField: {
+                select: { label: true },
+              },
+            },
+          },
+        },
+      });
+
+      return {
+        id: response.id,
+        createdAt: response.createdAt,
+        answers: response.fieldResponses.map((fr) => ({
+          formFieldId: fr.formFieldId,
+          label: fr.formField.label,
+          valueText: fr.valueText ?? null,
+          valueNumber: fr.valueNumber !== null ? fr.valueNumber.toNumber() : null,
+          valueDate: fr.valueDate !== null ? fr.valueDate : null,
+          valueArray: fr.valueArray,
+        })),
+      } as ReturnFormSubmissionItem;
+    } catch (error) {
+      this.logger.error('Failed to create form response', error);
+      throw new SaveFormException();
+    }
+  }
+
+  async deleteForm(formId: string): Promise<void> {
+    // TEMP: dev convenience only
+    // Review before production — needs proper authorization
+    try {
+      await this.prisma.form.delete({
+        where: { id: formId },
+      });
+    } catch (error) {
+      this.logger.error('Failed to delete form', error);
+      throw new DeleteFormException();
+    }
+  }
+
+  async deleteFormResponseById(
+    formResponseId: string,
+    formId: string,
+  ): Promise<void> {
+    // TEMP: dev convenience only
+    const response = await this.prisma.formResponse.findUnique({
+      where: { id: formResponseId },
+      select: { id: true, formId: true },
+    });
+
+    if (!response) {
+      throw new FormNotFoundException();
+    }
+
+    if (response.formId !== formId) {
+      throw new FormNotFoundException();
+    }
+
+    try {
+      await this.prisma.formResponse.delete({
+        where: { id: formResponseId },
+      });
+    } catch (error) {
+      this.logger.error('Failed to delete form response', error);
+      throw new DeleteFormException();
+    }
+  }
+
+  async deleteAllFormResponses(
+    formId: string,
+  ): Promise<{ deletedCount: number }> {
+    // TEMP: dev convenience only
+    try {
+      const result = await this.prisma.formResponse.deleteMany({
+        where: { formId },
+      });
+      return { deletedCount: result.count };
+    } catch (error) {
+      this.logger.error('Failed to delete all form responses', error);
+      throw new DeleteFormException();
     }
   }
 }
