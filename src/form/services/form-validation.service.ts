@@ -97,6 +97,8 @@ export class FormValidationService {
   ): void {
     const fieldMap = new Map(fields.map((f) => [f.id, f]));
 
+    this.validateAllRequiredFieldsAnswered(fields, answers);
+
     answers.forEach((answer, index) => {
       // check formFieldId belongs to this form
       const field = fieldMap.get(answer.formFieldId);
@@ -115,6 +117,22 @@ export class FormValidationService {
       // validate isRequired field is answered
       this.validateAnswerRequired(answer, field, index);
     });
+  }
+
+  private validateAllRequiredFieldsAnswered(
+    fields: { id: string; isRequired: boolean; label: string }[],
+    answers: CreateFormFieldAnswerDto[],
+  ): void {
+    const answeredFieldIds = new Set(answers.map((a) => a.formFieldId));
+    const missingRequired = fields.filter(
+      (f) => f.isRequired && !answeredFieldIds.has(f.id),
+    );
+    if (missingRequired.length > 0) {
+      const labels = missingRequired.map((f) => `"${f.label}"`).join(', ');
+      throw new FormFieldInvalidException(
+        `Missing required fields: ${labels}.`,
+      );
+    }
   }
 
   private validateAnswerDateFormat(
