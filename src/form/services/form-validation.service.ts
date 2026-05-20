@@ -97,7 +97,7 @@ export class FormValidationService {
   ): void {
     const fieldMap = new Map(fields.map((f) => [f.id, f]));
 
-    this.validateAllRequiredFieldsAnswered(fields, answers);
+    this.validateAllRequiredFieldsIncluded(fields, answers);
 
     answers.forEach((answer, index) => {
       // check formFieldId belongs to this form
@@ -115,11 +115,11 @@ export class FormValidationService {
       this.validateAnswerValueType(answer, field, index);
 
       // validate isRequired field is answered
-      this.validateAnswerRequired(answer, field, index);
+      this.validateRequiredFieldHasAnswer(answer, field, index);
     });
   }
 
-  private validateAllRequiredFieldsAnswered(
+  private validateAllRequiredFieldsIncluded(
     fields: { id: string; isRequired: boolean; label: string }[],
     answers: CreateFormFieldAnswerDto[],
   ): void {
@@ -206,7 +206,7 @@ export class FormValidationService {
     }
   }
 
-  private validateAnswerRequired(
+  private validateRequiredFieldHasAnswer(
     answer: CreateFormFieldAnswerDto,
     field: { isRequired: boolean; label: string },
     index: number,
