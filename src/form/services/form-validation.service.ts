@@ -43,7 +43,7 @@ export class FormValidationService {
     if (!form) {
       throw new FormNotFoundException();
     }
-    if (form.event.status === EventStatus.PUBLISHED) {
+    if (form.event.status !== EventStatus.DRAFT) {
       throw new FormLockedException();
     }
   }

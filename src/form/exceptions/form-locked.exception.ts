@@ -2,6 +2,6 @@ import { BadRequestException } from '@nestjs/common';
 
 export class FormLockedException extends BadRequestException {
   constructor() {
-    super('Form cannot be edited after the event is published.');
+    super('Form can only be edited while the event is in draft state.');
   }
 }
