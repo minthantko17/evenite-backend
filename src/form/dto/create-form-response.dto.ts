@@ -23,7 +23,7 @@ export class CreateFormFieldAnswerDto {
   valueNumber?: number | null;
 
   @IsOptional()
-  @IsDateString()
+  // @IsDateString()
   valueDate?: string | null;
 
   @IsOptional()
