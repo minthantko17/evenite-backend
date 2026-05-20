@@ -114,7 +114,9 @@ export class FormValidationService {
       // check value only if field is required
       if (field.isRequired) {
         const hasValue =
-          answer.valueText !== undefined ||
+          (answer.valueText !== undefined 
+            && answer.valueText !== null && 
+            answer.valueText.trim().length > 0) ||
           answer.valueNumber !== undefined ||
           answer.valueDate !== undefined ||
           (answer.valueArray !== undefined && answer.valueArray.length > 0);
