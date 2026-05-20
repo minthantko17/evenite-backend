@@ -7,7 +7,7 @@ import { FormNotFoundException } from '../exceptions/form-not-found.exception';
 import { SaveFormException } from '../exceptions/save-form.exception';
 import { ReturnFormWithFields } from '../dto/return-form-with-fields.dto';
 import { ReturnFormSubmissions } from '../dto/return-form-submissions.dto';
-import { ReturnFormSummary } from '../dto/return-form-summary.dto';
+import { ReturnFormFieldSummary, ReturnFormSummary, ReturnSummaryAnswer } from '../dto/return-form-summary.dto';
 import { CreateFormResponseDto } from '../dto/create-form-response.dto';
 import { ReturnFormSubmissionItem } from '../dto/return-form-submissions.dto';
 import { DeleteFormException } from '../exceptions/delete-form.exception';
@@ -258,14 +258,14 @@ export class FormCrudService {
                 ? fieldResponse.valueArray
                 : null) ??
               this.getDefaultValue(field.type)),
-        };
+        } as ReturnSummaryAnswer;
       });
       return {
         formFieldId: field.id,
         label: field.label,
         type: field.type,
         answers,
-      };
+      } as ReturnFormFieldSummary;
     });
 
     return {
