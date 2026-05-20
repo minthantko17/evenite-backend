@@ -87,7 +87,12 @@ export class FormValidationService {
   }
 
   validateFormFieldAnswers(
-    fields: { id: string; type: FieldType; isRequired: boolean ; label: string }[],
+    fields: {
+      id: string;
+      type: FieldType;
+      isRequired: boolean;
+      label: string;
+    }[],
     answers: CreateFormFieldAnswerDto[],
   ): void {
     const fieldMap = new Map(fields.map((f) => [f.id, f]));
@@ -101,32 +106,105 @@ export class FormValidationService {
         );
       }
 
-      // check data format
-      if (answer.valueDate !== undefined && answer.valueDate !== null) {
-        const date = new Date(answer.valueDate);
-        if (isNaN(date.getTime())) {
-          throw new FormFieldInvalidException(
-            `Answer at index ${index}: invalid date format for "${field.label}".`,
-          );
-        }
-      }
+      // validate date format if provided
+      this.validateAnswerDateFormat(answer, field, index);
 
-      // check value only if field is required
-      if (field.isRequired) {
-        const hasValue =
-          (answer.valueText !== undefined 
-            && answer.valueText !== null && 
-            answer.valueText.trim().length > 0) ||
-          answer.valueNumber !== undefined ||
-          answer.valueDate !== undefined ||
-          (answer.valueArray !== undefined && answer.valueArray.length > 0);
+      // validate if only correct value column exists per field type
+      this.validateAnswerValueType(answer, field, index);
 
-        if (!hasValue) {
-          throw new FormFieldInvalidException(
-            `Answer at index ${index}: "${field.label}" is required.`,
-          );
-        }
-      }
+      // validate isRequired field is answered
+      this.validateAnswerRequired(answer, field, index);
     });
+  }
+
+  private validateAnswerDateFormat(
+    answer: CreateFormFieldAnswerDto,
+    field: { type: FieldType; label: string },
+    index: number,
+  ): void {
+    if (answer.valueDate !== undefined && answer.valueDate !== null) {
+      const date = new Date(answer.valueDate);
+      if (isNaN(date.getTime())) {
+        throw new FormFieldInvalidException(
+          `Answer at index ${index}: invalid date format for "${field.label}".`,
+        );
+      }
+    }
+  }
+
+  private validateAnswerValueType(
+    answer: CreateFormFieldAnswerDto,
+    field: { type: FieldType; label: string },
+    index: number,
+  ): void {
+    switch (field.type) {
+      case FieldType.TEXT:
+      case FieldType.TEXTAREA:
+        if (
+          (answer.valueNumber !== undefined && answer.valueNumber !== null) ||
+          (answer.valueDate !== undefined && answer.valueDate !== null) ||
+          (answer.valueArray !== undefined && answer.valueArray.length > 0)
+        ) {
+          throw new FormFieldInvalidException(
+            `Answer at index ${index}: "${field.label}" expects text value only.`,
+          );
+        }
+        break;
+      case FieldType.NUMBER:
+      case FieldType.RATING:
+        if (
+          (answer.valueText !== undefined && answer.valueText !== null) ||
+          (answer.valueDate !== undefined && answer.valueDate !== null) ||
+          (answer.valueArray !== undefined && answer.valueArray.length > 0)
+        ) {
+          throw new FormFieldInvalidException(
+            `Answer at index ${index}: "${field.label}" expects number value only.`,
+          );
+        }
+        break;
+      case FieldType.DATE:
+        if (
+          (answer.valueText !== undefined && answer.valueText !== null) ||
+          (answer.valueNumber !== undefined && answer.valueNumber !== null) ||
+          (answer.valueArray !== undefined && answer.valueArray.length > 0)
+        ) {
+          throw new FormFieldInvalidException(
+            `Answer at index ${index}: "${field.label}" expects date value only.`,
+          );
+        }
+        break;
+      case FieldType.CHOICE:
+      case FieldType.CHECKBOX:
+        if (
+          (answer.valueText !== undefined && answer.valueText !== null) ||
+          (answer.valueNumber !== undefined && answer.valueNumber !== null) ||
+          (answer.valueDate !== undefined && answer.valueDate !== null)
+        ) {
+          throw new FormFieldInvalidException(
+            `Answer at index ${index}: "${field.label}" expects array value only.`,
+          );
+        }
+        break;
+    }
+  }
+
+  private validateAnswerRequired(
+    answer: CreateFormFieldAnswerDto,
+    field: { isRequired: boolean; label: string },
+    index: number,
+  ): void {
+    if (field.isRequired) {
+      const hasValue =
+        (answer.valueText != null && answer.valueText.trim().length > 0) ||
+        answer.valueNumber !== undefined ||
+        answer.valueDate !== undefined ||
+        (answer.valueArray !== undefined && answer.valueArray.length > 0);
+
+      if (!hasValue) {
+        throw new FormFieldInvalidException(
+          `Answer at index ${index}: "${field.label}" is required.`,
+        );
+      }
+    }
   }
 }
