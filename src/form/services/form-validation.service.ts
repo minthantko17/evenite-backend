@@ -9,6 +9,7 @@ import { FormAlreadyExistsException } from '../exceptions/form-already-exists.ex
 import { FormNotFoundException } from '../exceptions/form-not-found.exception';
 import { FormHasResponsesException } from '../exceptions/form-has-responses.exception';
 import { CreateFormFieldAnswerDto } from '../dto/create-form-response.dto';
+import { ReturnFormField } from '../dto/return-form-with-fields.dto';
 
 @Injectable()
 export class FormValidationService {
@@ -87,12 +88,7 @@ export class FormValidationService {
   }
 
   validateFormFieldAnswers(
-    fields: {
-      id: string;
-      type: FieldType;
-      isRequired: boolean;
-      label: string;
-    }[],
+    fields: ReturnFormField[],
     answers: CreateFormFieldAnswerDto[],
   ): void {
     const fieldMap = new Map(fields.map((f) => [f.id, f]));
@@ -108,11 +104,14 @@ export class FormValidationService {
         );
       }
 
+      // validate if only correct value column exists per field type
+      this.validateAnswerValueType(answer, field, index);
+
       // validate date format if provided
       this.validateAnswerDateFormat(answer, field, index);
 
-      // validate if only correct value column exists per field type
-      this.validateAnswerValueType(answer, field, index);
+      // validate options if it's choice or checkbox type
+      this.validateAnswerOptions(answer, field, index);
 
       // validate isRequired field is answered
       this.validateRequiredFieldHasAnswer(answer, field, index);
@@ -120,7 +119,7 @@ export class FormValidationService {
   }
 
   private validateAllRequiredFieldsIncluded(
-    fields: { id: string; isRequired: boolean; label: string }[],
+    fields: ReturnFormField[],
     answers: CreateFormFieldAnswerDto[],
   ): void {
     const answeredFieldIds = new Set(answers.map((a) => a.formFieldId));
@@ -137,7 +136,7 @@ export class FormValidationService {
 
   private validateAnswerDateFormat(
     answer: CreateFormFieldAnswerDto,
-    field: { type: FieldType; label: string },
+    field: ReturnFormField,
     index: number,
   ): void {
     if (answer.valueDate !== undefined && answer.valueDate !== null) {
@@ -152,7 +151,7 @@ export class FormValidationService {
 
   private validateAnswerValueType(
     answer: CreateFormFieldAnswerDto,
-    field: { type: FieldType; label: string },
+    field: ReturnFormField,
     index: number,
   ): void {
     switch (field.type) {
@@ -206,9 +205,29 @@ export class FormValidationService {
     }
   }
 
+  private validateAnswerOptions(
+    answer: CreateFormFieldAnswerDto,
+    field: ReturnFormField,
+    index: number,
+  ): void {
+    if (field.type !== FieldType.CHOICE && field.type !== FieldType.CHECKBOX)
+      return;
+
+    if (answer.valueArray && answer.valueArray.length > 0) {
+      const invalidOptions = answer.valueArray.filter(
+        (v) => !field.options.includes(v),
+      );
+      if (invalidOptions.length > 0) {
+        throw new FormFieldInvalidException(
+          `Answer at index ${index}: "${field.label}" contains invalid options: ${invalidOptions.map((o) => `"${o}"`).join(', ')}.`,
+        );
+      }
+    }
+  }
+
   private validateRequiredFieldHasAnswer(
     answer: CreateFormFieldAnswerDto,
-    field: { isRequired: boolean; label: string },
+    field: ReturnFormField,
     index: number,
   ): void {
     if (field.isRequired) {
