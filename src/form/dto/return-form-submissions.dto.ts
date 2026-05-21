@@ -1,10 +1,10 @@
+import { FieldType } from '@prisma/client';
+
 export interface ReturnFormFieldAnswer {
   formFieldId: string;
   label: string;
-  valueText: string | null;
-  valueNumber: number | null;
-  valueDate: Date | null;
-  valueArray: string[];
+  type: FieldType;
+  value : string | number | Date | string[] | null;
 }
 
 export interface ReturnFormSubmissionItem {

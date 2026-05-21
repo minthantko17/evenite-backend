@@ -3,7 +3,7 @@ import { FieldType } from '@prisma/client';
 export interface ReturnSummaryAnswer {
   responseId: string;
   createdAt: Date;
-  value: string | number | string[] | null;
+  value: string | number | Date | string[] | null;
   // need to add submittedBy when registrationId added to FormResponse in feature 5
 }
 

@@ -10,6 +10,7 @@ import { ReturnFormSubmissions } from '../dto/return-form-submissions.dto';
 import { ReturnFormFieldSummary, ReturnFormSummary, ReturnSummaryAnswer } from '../dto/return-form-summary.dto';
 import { CreateFormResponseDto } from '../dto/create-form-response.dto';
 import { ReturnFormSubmissionItem } from '../dto/return-form-submissions.dto';
+import { ReturnFormFieldAnswer } from '../dto/return-form-submissions.dto';
 import { DeleteFormException } from '../exceptions/delete-form.exception';
 import { FormFieldInvalidException } from '../exceptions/form-field-invalid.exception';
 
@@ -189,7 +190,10 @@ export class FormCrudService {
         fieldResponses: {
           include: {
             formField: {
-              select: { label: true },
+              select: { 
+                label: true,
+                type: true
+              },
             },
           },
         },
@@ -206,13 +210,10 @@ export class FormCrudService {
         answers: response.fieldResponses.map((answer) => ({
           formFieldId: answer.formFieldId,
           label: answer.formField.label,
-          valueText: answer.valueText ?? null,
-          valueNumber:
-            answer.valueNumber !== null ? answer.valueNumber.toNumber() : null,
-          valueDate: answer.valueDate ?? null,
-          valueArray: answer.valueArray,
-        })),
-      })),
+          type: answer.formField.type,
+          value: this.resolveFieldValue(answer, answer.formField.type),
+        } as ReturnFormFieldAnswer)),
+      } as ReturnFormSubmissionItem)),
     } as ReturnFormSubmissions;
   }
 
@@ -330,7 +331,10 @@ export class FormCrudService {
           fieldResponses: {
             include: {
               formField: {
-                select: { label: true },
+                select: { 
+                  label: true,
+                  type: true
+                },
               },
             },
           },
@@ -343,11 +347,9 @@ export class FormCrudService {
         answers: response.fieldResponses.map((fr) => ({
           formFieldId: fr.formFieldId,
           label: fr.formField.label,
-          valueText: fr.valueText ?? null,
-          valueNumber: fr.valueNumber !== null ? fr.valueNumber.toNumber() : null,
-          valueDate: fr.valueDate !== null ? fr.valueDate : null,
-          valueArray: fr.valueArray,
-        })),
+          type: fr.formField.type,
+          value: this.resolveFieldValue(fr, fr.formField.type),
+        } as ReturnFormFieldAnswer)),
       } as ReturnFormSubmissionItem;
     } catch (error) {
       this.logger.error('Failed to create form response', error);
