@@ -1,7 +1,5 @@
 import {
   IsArray,
-  IsDateString,
-  IsNumber,
   IsOptional,
   IsString,
   IsUUID,
@@ -15,21 +13,7 @@ export class CreateFormFieldAnswerDto {
   formFieldId!: string;
 
   @IsOptional()
-  @IsString()
-  valueText?: string | null;
-
-  @IsOptional()
-  @IsNumber()
-  valueNumber?: number | null;
-
-  @IsOptional()
-  // @IsDateString()
-  valueDate?: string | null;
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  valueArray?: string[];
+  value?: string | number | string[] | null;
 }
 
 export class CreateFormResponseDto {

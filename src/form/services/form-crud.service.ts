@@ -313,6 +313,12 @@ export class FormCrudService {
     formId: string,
     dto: CreateFormResponseDto,
   ): Promise<ReturnFormSubmissionItem> {
+    const fields = await this.prisma.formField.findMany({
+      where: { formId },
+      select: { id: true, type: true },
+    });
+    const fieldTypeMap = new Map(fields.map((f) => [f.id, f.type]));
+
     try {
       const response = await this.prisma.formResponse.create({
         data: {
@@ -320,10 +326,10 @@ export class FormCrudService {
           fieldResponses: {
             create: dto.answers.map((answer) => ({
               formFieldId: answer.formFieldId,
-              valueText: answer.valueText ?? null,
-              valueNumber: answer.valueNumber ?? null,
-              valueDate: answer.valueDate ? new Date(answer.valueDate) : null,
-              valueArray: answer.valueArray ?? [],
+              ...this.mapValueToColumn(
+                answer.value,
+                fieldTypeMap.get(answer.formFieldId)!,
+              ),
             })),
           },
         },
@@ -331,9 +337,9 @@ export class FormCrudService {
           fieldResponses: {
             include: {
               formField: {
-                select: { 
+                select: {
                   label: true,
-                  type: true
+                  type: true,
                 },
               },
             },
@@ -344,11 +350,11 @@ export class FormCrudService {
       return {
         id: response.id,
         createdAt: response.createdAt,
-        answers: response.fieldResponses.map((fr) => ({
-          formFieldId: fr.formFieldId,
-          label: fr.formField.label,
-          type: fr.formField.type,
-          value: this.resolveFieldValue(fr, fr.formField.type),
+        answers: response.fieldResponses.map((fieldResponse) => ({
+          formFieldId: fieldResponse.formFieldId,
+          label: fieldResponse.formField.label,
+          type: fieldResponse.formField.type,
+          value: this.resolveFieldValue(fieldResponse, fieldResponse.formField.type),
         } as ReturnFormFieldAnswer)),
       } as ReturnFormSubmissionItem;
     } catch (error) {
@@ -410,6 +416,61 @@ export class FormCrudService {
     } catch (error) {
       this.logger.error('Failed to delete all form responses', error);
       throw new DeleteFormException();
+    }
+  }
+
+  private mapValueToColumn(
+    value: string | number | string[] | null | undefined,
+    fieldType: FieldType,
+  ) {
+    if (value === undefined || value === null) {
+      return {
+        valueText: null,
+        valueNumber: null,
+        valueDate: null,
+        valueArray: [],
+      };
+    }
+
+    switch (fieldType) {
+      case FieldType.TEXT:
+      case FieldType.TEXTAREA:
+        return {
+          valueText: value as string,
+          valueNumber: null,
+          valueDate: null,
+          valueArray: [],
+        };
+      case FieldType.NUMBER:
+      case FieldType.RATING:
+        return {
+          valueText: null,
+          valueNumber: value as number,
+          valueDate: null,
+          valueArray: [],
+        };
+      case FieldType.DATE:
+        return {
+          valueText: null,
+          valueNumber: null,
+          valueDate: new Date(value as string),
+          valueArray: [],
+        };
+      case FieldType.CHOICE:
+      case FieldType.CHECKBOX:
+        return {
+          valueText: null,
+          valueNumber: null,
+          valueDate: null,
+          valueArray: value as string[],
+        };
+      default:
+        return {
+          valueText: null,
+          valueNumber: null,
+          valueDate: null,
+          valueArray: [],
+        };
     }
   }
 }

@@ -134,34 +134,17 @@ export class FormValidationService {
     }
   }
 
-  private validateAnswerDateFormat(
-    answer: CreateFormFieldAnswerDto,
-    field: ReturnFormField,
-    index: number,
-  ): void {
-    if (answer.valueDate !== undefined && answer.valueDate !== null) {
-      const date = new Date(answer.valueDate);
-      if (isNaN(date.getTime())) {
-        throw new FormFieldInvalidException(
-          `Answer at index ${index}: invalid date format for "${field.label}".`,
-        );
-      }
-    }
-  }
-
   private validateAnswerValueType(
     answer: CreateFormFieldAnswerDto,
     field: ReturnFormField,
     index: number,
   ): void {
+    if (answer.value === undefined || answer.value === null) return;
+
     switch (field.type) {
       case FieldType.TEXT:
       case FieldType.TEXTAREA:
-        if (
-          (answer.valueNumber !== undefined && answer.valueNumber !== null) ||
-          (answer.valueDate !== undefined && answer.valueDate !== null) ||
-          (answer.valueArray !== undefined && answer.valueArray.length > 0)
-        ) {
+        if (typeof answer.value !== 'string') {
           throw new FormFieldInvalidException(
             `Answer at index ${index}: "${field.label}" expects text value only.`,
           );
@@ -169,39 +152,43 @@ export class FormValidationService {
         break;
       case FieldType.NUMBER:
       case FieldType.RATING:
-        if (
-          (answer.valueText !== undefined && answer.valueText !== null) ||
-          (answer.valueDate !== undefined && answer.valueDate !== null) ||
-          (answer.valueArray !== undefined && answer.valueArray.length > 0)
-        ) {
+        if (typeof answer.value !== 'number') {
           throw new FormFieldInvalidException(
             `Answer at index ${index}: "${field.label}" expects number value only.`,
           );
         }
         break;
       case FieldType.DATE:
-        if (
-          (answer.valueText !== undefined && answer.valueText !== null) ||
-          (answer.valueNumber !== undefined && answer.valueNumber !== null) ||
-          (answer.valueArray !== undefined && answer.valueArray.length > 0)
-        ) {
+        if (typeof answer.value !== 'string') {
           throw new FormFieldInvalidException(
-            `Answer at index ${index}: "${field.label}" expects date value only.`,
+            `Answer at index ${index}: "${field.label}" expects date string value only.`,
           );
         }
         break;
       case FieldType.CHOICE:
       case FieldType.CHECKBOX:
-        if (
-          (answer.valueText !== undefined && answer.valueText !== null) ||
-          (answer.valueNumber !== undefined && answer.valueNumber !== null) ||
-          (answer.valueDate !== undefined && answer.valueDate !== null)
-        ) {
+        if (!Array.isArray(answer.value)) {
           throw new FormFieldInvalidException(
             `Answer at index ${index}: "${field.label}" expects array value only.`,
           );
         }
         break;
+    }
+  }
+
+  private validateAnswerDateFormat(
+    answer: CreateFormFieldAnswerDto,
+    field: ReturnFormField,
+    index: number,
+  ): void {
+    if (field.type !== FieldType.DATE) return;
+    if (answer.value === undefined || answer.value === null) return;
+
+    const date = new Date(answer.value as string);
+    if (isNaN(date.getTime())) {
+      throw new FormFieldInvalidException(
+        `Answer at index ${index}: invalid date format for "${field.label}".`,
+      );
     }
   }
 
@@ -213,15 +200,15 @@ export class FormValidationService {
     if (field.type !== FieldType.CHOICE && field.type !== FieldType.CHECKBOX)
       return;
 
-    if (answer.valueArray && answer.valueArray.length > 0) {
-      const invalidOptions = answer.valueArray.filter(
-        (v) => !field.options.includes(v),
+    if (!Array.isArray(answer.value) || answer.value.length === 0) return;
+
+    const invalidOptions = (answer.value as string[]).filter(
+      (v) => !field.options.includes(v),
+    );
+    if (invalidOptions.length > 0) {
+      throw new FormFieldInvalidException(
+        `Answer at index ${index}: "${field.label}" contains invalid options: ${invalidOptions.map((o) => `"${o}"`).join(', ')}.`,
       );
-      if (invalidOptions.length > 0) {
-        throw new FormFieldInvalidException(
-          `Answer at index ${index}: "${field.label}" contains invalid options: ${invalidOptions.map((o) => `"${o}"`).join(', ')}.`,
-        );
-      }
     }
   }
 
@@ -230,18 +217,17 @@ export class FormValidationService {
     field: ReturnFormField,
     index: number,
   ): void {
-    if (field.isRequired) {
-      const hasValue =
-        (answer.valueText != null && answer.valueText.trim().length > 0) ||
-        answer.valueNumber !== undefined ||
-        answer.valueDate !== undefined ||
-        (answer.valueArray !== undefined && answer.valueArray.length > 0);
+    if (!field.isRequired) return;
 
-      if (!hasValue) {
-        throw new FormFieldInvalidException(
-          `Answer at index ${index}: "${field.label}" is required.`,
-        );
-      }
+    const hasValue =
+      (typeof answer.value === 'string' && answer.value.trim().length > 0) ||
+      typeof answer.value === 'number' ||
+      (Array.isArray(answer.value) && answer.value.length > 0);
+
+    if (!hasValue) {
+      throw new FormFieldInvalidException(
+        `Answer at index ${index}: "${field.label}" is required.`,
+      );
     }
   }
 }
