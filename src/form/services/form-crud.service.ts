@@ -236,7 +236,7 @@ export class FormCrudService {
     });
 
     // TODO: need to add submittedBy to each answer object when Feature 5 after registrationId is added to FormResponse
-    // (this is using NxM iteration, maybe gotta optimize later if not bored :D)
+    // (this is using NxM iteration, maybe gotta find way to optimize later if not bored :D)
     const summary = form.fields.map((field) => {
       const answers = responses.map((response) => {
         const fieldResponse = response.fieldResponses.find(
@@ -245,19 +245,7 @@ export class FormCrudService {
         return {
           responseId: response.id,
           createdAt: response.createdAt,
-          value: !fieldResponse
-            ? this.getDefaultValue(field.type)
-            : (fieldResponse.valueText ??
-              (fieldResponse.valueNumber !== null
-                ? fieldResponse.valueNumber.toNumber()
-                : null) ??
-              (fieldResponse.valueDate !== null
-                ? fieldResponse.valueDate
-                : null) ??
-              (fieldResponse.valueArray.length > 0
-                ? fieldResponse.valueArray
-                : null) ??
-              this.getDefaultValue(field.type)),
+          value: this.resolveFieldValue(fieldResponse, field.type),
         } as ReturnSummaryAnswer;
       });
       return {
@@ -275,19 +263,45 @@ export class FormCrudService {
     } as ReturnFormSummary;
   }
 
-  private getDefaultValue(type: FieldType): string | number | string[] | null {
-    switch (type) {
+  private resolveFieldValue(
+    fieldResponse: {
+      valueText: string | null;
+      valueNumber: { toNumber(): number } | null;
+      valueDate: Date | null;
+      valueArray: string[];
+    } | null | undefined,
+    fieldType: FieldType,
+  ): string | number | Date | string[] | null {
+    if (!fieldResponse) {
+      switch (fieldType) {
+        case FieldType.TEXT:
+        case FieldType.TEXTAREA:
+          return '';
+        case FieldType.NUMBER:
+        case FieldType.RATING:
+          return null;
+        case FieldType.DATE:
+          return null;
+        case FieldType.CHOICE:
+        case FieldType.CHECKBOX:
+          return [];
+        default:
+          return null;
+      }
+    }
+
+    switch (fieldType) {
       case FieldType.TEXT:
       case FieldType.TEXTAREA:
-        return '';
+        return fieldResponse.valueText ?? '';
       case FieldType.NUMBER:
       case FieldType.RATING:
-        return null; // 0 is also possible but, i think that could be misleading
+        return fieldResponse.valueNumber !== null ? fieldResponse.valueNumber.toNumber() : null;
       case FieldType.DATE:
-        return null;
+        return fieldResponse.valueDate !== null ? fieldResponse.valueDate : null;
       case FieldType.CHOICE:
       case FieldType.CHECKBOX:
-        return [];
+        return fieldResponse.valueArray.length > 0 ? fieldResponse.valueArray : [];
       default:
         return null;
     }
