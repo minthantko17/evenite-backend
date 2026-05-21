@@ -180,24 +180,15 @@ export class FormCrudService {
   ): Promise<ReturnFormSubmissions> {
     const form = await this.prisma.form.findUnique({
       where: { eventId_type: { eventId, type } },
-      select: { id: true },
+      include: {
+        fields: { orderBy: { order: 'asc' } },
+      }
     });
     if (!form) throw new FormNotFoundException();
 
     const responses = await this.prisma.formResponse.findMany({
       where: { formId: form.id },
-      include: {
-        fieldResponses: {
-          include: {
-            formField: {
-              select: { 
-                label: true,
-                type: true
-              },
-            },
-          },
-        },
-      },
+      include: { fieldResponses: true },
       orderBy: { createdAt: 'asc' },
     });
 
@@ -207,12 +198,17 @@ export class FormCrudService {
       responses: responses.map((response) => ({
         id: response.id,
         createdAt: response.createdAt,
-        answers: response.fieldResponses.map((answer) => ({
-          formFieldId: answer.formFieldId,
-          label: answer.formField.label,
-          type: answer.formField.type,
-          value: this.resolveFieldValue(answer, answer.formField.type),
-        } as ReturnFormFieldAnswer)),
+        answers: form.fields.map((field)=>{
+          const fieldResponse = response.fieldResponses.find(
+            (fieldResponse) => fieldResponse.formFieldId === field.id
+          );
+          return{
+            formFieldId: field.id,
+            label: field.label,
+            type: field.type,
+            value: this.resolveFieldValue(fieldResponse, field.type),
+          } as ReturnFormFieldAnswer 
+        })
       } as ReturnFormSubmissionItem)),
     } as ReturnFormSubmissions;
   }
