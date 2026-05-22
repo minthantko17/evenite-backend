@@ -19,6 +19,9 @@ export class EventValidationService {
   }
 
   validateImageFile(file: Express.Multer.File): void {
+    if (!file) {
+      throw new InvalidImageException('No input file provided');
+    }
     if (!ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
       throw new InvalidImageException('Unsupported image format');
     }
@@ -29,6 +32,9 @@ export class EventValidationService {
   }
 
   validateBannerFile(file: Express.Multer.File): void {
+    if (!file) {
+      throw new InvalidImageException('No input file provided');
+    }
     if (!ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
       throw new InvalidImageException('Unsupported image format');
     }
