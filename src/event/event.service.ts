@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Event } from '@prisma/client';
+import { Event, EventStatus} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventValidationService } from './services/event-validation.service';
 import { EventAiService } from './services/event-ai.service';
@@ -49,8 +49,8 @@ export class EventService {
     return this.eventCrudService.publishEvent(dto, dto.id);
   }
 
-  async getAllEvents(): Promise<Event[]> {
-    return this.eventCrudService.getAllEvents();
+  async getEvents(status?: EventStatus): Promise<Event[]> {
+    return this.eventCrudService.getEvents(status);
   }
 
   async getEventById(id: string): Promise<Event> {

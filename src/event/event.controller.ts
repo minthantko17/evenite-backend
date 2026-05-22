@@ -1,10 +1,12 @@
 import { Controller, 
   Get, Post, Body, 
   Param, UploadedFile, UseInterceptors, 
-  ParseUUIDPipe, HttpCode, HttpStatus 
+  ParseUUIDPipe, HttpCode, HttpStatus, 
+  Query,
+  ParseEnumPipe
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { Event } from '@prisma/client';
+import { Event, EventStatus } from '@prisma/client';
 import { EventService } from './event.service';
 import { GenerateFromPromptDto } from './dto/generate-from-prompt.dto';
 import type { GeneratedEventDto } from './dto/generated-event.dto';
@@ -64,8 +66,12 @@ export class EventController {
   }
 
   @Get()
-  async getAllEvents(): Promise<Event[]> {
-    return this.eventService.getAllEvents();
+  async getEvents(
+    @Query('status', 
+      new ParseEnumPipe(EventStatus, { optional: true })
+    ) status?: EventStatus,
+  ): Promise<Event[]> {
+    return this.eventService.getEvents(status);
   }
 
   @Get(':id')

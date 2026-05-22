@@ -12,6 +12,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { PublishEventDto } from '../dto/publish-event.dto';
 import { PublishEventException } from '../exceptions/publish-event.exception';
 import { InvalidDateRangeException } from '../exceptions/invalid-date-range.exception';
+import { EventStatus } from '@prisma/client';
 
 const mockPrisma = {
   event: {
@@ -99,7 +100,7 @@ const mockEvent2 = {
   externalUrl: 'https://reg.cmu.ac.th/loykrathong2026',
   remarks: { en: 'All materials provided', th: 'มีวัสดุอุปกรณ์ให้ครบ' },
   bannerUrl: 'https://mockproject.supabase.co/storage/v1/object/public/banners/loykrathong-uuid.jpg',
-  status: 'PUBLISHED',
+  status: 'DRAFT',
   createdAt: new Date('2026-10-01T00:00:00.000Z'),
   updatedAt: new Date('2026-10-01T00:00:00.000Z'),
   publishedAt: new Date('2026-10-01T00:00:00.000Z'),
@@ -353,7 +354,7 @@ describe('EventCrudService - sanitizeEventData', () => {
   });
 });
 
-describe('EventCrudService - getAllEvents', () => {
+describe('EventCrudService - getEvents', () => {
   let service: EventCrudService;
 
   beforeEach(async () => {
@@ -371,22 +372,51 @@ describe('EventCrudService - getAllEvents', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M025-01: should return array of events and call with ordered by createdAt desc when events exist', async () => {
+  it('UT-M025-01: should return all events ordered by createdAt desc when no status provided', async () => {
     mockPrisma.event.findMany.mockResolvedValueOnce([mockEvent2, mockEvent]);
 
-    const result = await service.getAllEvents();
+    const result = await service.getEvents();
 
     expect(result).toEqual([mockEvent2, mockEvent]);
     expect(mockPrisma.event.findMany).toHaveBeenCalledWith({
+      where: undefined,
       orderBy: { createdAt: 'desc' },
     });
     expect(mockPrisma.event.findMany).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-M025-02: should return empty array when no events exist', async () => {
+  it('UT-M025-02: should return only published events when status PUBLISHED provided', async () => {
+    mockPrisma.event.findMany.mockResolvedValueOnce([mockEvent]);
+
+    const result = await service.getEvents(EventStatus.PUBLISHED);
+
+    expect(result).toEqual([mockEvent]);
+    expect(result[0].status).toBe(EventStatus.PUBLISHED);
+    expect(mockPrisma.event.findMany).toHaveBeenCalledWith({
+      where: { status: EventStatus.PUBLISHED },
+      orderBy: { createdAt: 'desc' },
+    });
+    expect(mockPrisma.event.findMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('UT-M025-03: should return only draft events when status DRAFT provided', async () => {
+    mockPrisma.event.findMany.mockResolvedValueOnce([mockEvent2]);
+
+    const result = await service.getEvents(EventStatus.DRAFT);
+
+    expect(result).toEqual([mockEvent2]);
+    expect(result[0].status).toBe(EventStatus.DRAFT);
+    expect(mockPrisma.event.findMany).toHaveBeenCalledWith({
+      where: { status: EventStatus.DRAFT },
+      orderBy: { createdAt: 'desc' },
+    });
+    expect(mockPrisma.event.findMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('UT-M025-04: should return empty array when no events exist', async () => {
     mockPrisma.event.findMany.mockResolvedValueOnce([]);
 
-    const result = await service.getAllEvents();
+    const result = await service.getEvents();
 
     expect(result).toEqual([]);
     expect(mockPrisma.event.findMany).toHaveBeenCalledTimes(1);
