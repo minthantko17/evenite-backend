@@ -20,6 +20,21 @@ enum EventStatus {
   CANCELLED
 }
 
+enum FormType {
+  REGISTRATION
+  FEEDBACK
+}
+
+enum FieldType {
+  TEXT
+  TEXTAREA
+  CHOICE
+  NUMBER
+  RATING
+  DATE
+  CHECKBOX
+}
+
 model Event {
   id          String      @id @default(uuid())
   title       Json?        
@@ -46,4 +61,65 @@ model Event {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   publishedAt DateTime?
+  forms   Form[]
+}
+
+model Form {
+  id          String         @id @default(uuid())
+  eventId     String
+  type        FormType
+  title       String?
+  description String?
+
+  event       Event          @relation(fields: [eventId], references: [id])
+  fields      FormField[]
+  responses   FormResponse[]
+
+  @@unique([eventId, type])
+}
+
+model FormField {
+  id          String        @id @default(uuid())
+  formId      String
+  type        FieldType
+  label       String
+  isRequired  Boolean       @default(false)
+  order       Int
+  options     String[]
+  autoFillKey String?
+
+  form        Form                @relation(fields: [formId], references: [id], onDelete: Cascade)
+  responses   FormFieldResponse[]
+
+  @@unique([formId, order])
+  @@unique([id, formId])
+}
+
+model FormResponse {
+  id             String     @id @default(uuid())
+  formId         String
+  createdAt      DateTime   @default(now())
+  // registrationId String           // deferred Feature #5
+  // @@unique([registrationId, formId])  // deferred Feature #5
+
+  form           Form                @relation(fields: [formId], references: [id], onDelete: Cascade)
+  fieldResponses FormFieldResponse[]
+
+  @@unique([id, formId])
+}
+
+model FormFieldResponse {
+  id             String       @id @default(uuid())
+  formResponseId String
+  formFieldId    String
+  formId         String
+  valueText      String?
+  valueNumber    Decimal?
+  valueDate      DateTime?
+  valueArray     String[]
+
+  formResponse   FormResponse @relation(fields: [formResponseId, formId], references: [id, formId], onDelete: Cascade)
+  formField      FormField    @relation(fields: [formFieldId, formId], references: [id, formId], onDelete: Cascade)
+
+  @@unique([formResponseId, formFieldId])
 }

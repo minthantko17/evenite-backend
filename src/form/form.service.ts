@@ -1,0 +1,131 @@
+import { Injectable } from '@nestjs/common';
+import { FormType } from '@prisma/client';
+import { FormValidationService } from './services/form-validation.service';
+import { FormCrudService } from './services/form-crud.service';
+import { CreateFormDto } from './dto/create-form.dto';
+import { UpdateFormDto } from './dto/update-form.dto';
+import { ReturnFormWithFields } from './dto/return-form-with-fields.dto';
+import { ReturnFormSubmissions } from './dto/return-form-submissions.dto';
+import { ReturnFormSummary } from './dto/return-form-summary.dto';
+import { CreateFormResponseDto } from './dto/create-form-response.dto';
+import { ReturnFormSubmissionItem } from './dto/return-form-submissions.dto';
+
+@Injectable()
+export class FormService {
+  constructor(
+    private readonly formValidationService: FormValidationService,
+    private readonly formCrudService: FormCrudService,
+  ) {}
+
+  async createForm(
+    eventId: string,
+    dto: CreateFormDto,
+  ): Promise<ReturnFormWithFields> {
+    await this.formValidationService.validateEventExists(eventId);
+    await this.formValidationService.validateFormTypeNotDuplicated(
+      eventId,
+      dto.type,
+    );
+    this.formValidationService.validateFormFields(dto.fields);
+
+    return await this.formCrudService.createForm(eventId, dto);
+  }
+
+  async getFormsByEventId(eventId: string): Promise<ReturnFormWithFields[]> {
+    await this.formValidationService.validateEventExists(eventId);
+    return await this.formCrudService.getFormsByEventId(eventId);
+  }
+
+  async getFormByEventAndType(
+    eventId: string,
+    type: FormType,
+  ): Promise<ReturnFormWithFields> {
+    await this.formValidationService.validateEventExists(eventId);
+    return await this.formCrudService.getFormByEventAndType(eventId, type);
+  }
+
+  async updateForm(
+    eventId: string,
+    type: FormType,
+    dto: UpdateFormDto,
+  ): Promise<ReturnFormWithFields> {
+    await this.formValidationService.validateEventExists(eventId);
+    const form = await this.formCrudService.getFormByEventAndType(eventId,type);
+    await this.formValidationService.validateFormNotLocked(form.id);
+    await this.formValidationService.validateNoResponsesExist(form.id);
+    if (dto.fields) {
+      this.formValidationService.validateFormFields(dto.fields);
+    }
+    
+    return await this.formCrudService.updateFormById(form.id, dto);
+  }
+
+  async getFormResponses(
+    eventId: string,
+    type: FormType,
+  ): Promise<ReturnFormSubmissions> {
+    await this.formValidationService.validateEventExists(eventId);
+    return await this.formCrudService.getFormResponses(eventId, type);
+  }
+
+  async getFormResponsesSummary(
+    eventId: string,
+    type: FormType,
+  ): Promise<ReturnFormSummary> {
+    await this.formValidationService.validateEventExists(eventId);
+    return await this.formCrudService.getFormResponsesSummary(eventId, type);
+  }
+
+  async createFormResponse(
+    eventId: string,
+    type: FormType,
+    dto: CreateFormResponseDto,
+  ): Promise<ReturnFormSubmissionItem> {
+    await this.formValidationService.validateEventExists(eventId);
+    const form = await this.formCrudService.getFormByEventAndType(
+      eventId,
+      type,
+    );
+    this.formValidationService.validateFormFieldAnswers(
+      form.fields,
+      dto.answers,
+    );
+    return await this.formCrudService.createFormResponse(form.id, dto);
+  }
+
+  async deleteForm(eventId: string, type: FormType): Promise<void> {
+    await this.formValidationService.validateEventExists(eventId);
+    const form = await this.formCrudService.getFormByEventAndType(
+      eventId,
+      type,
+    );
+    await this.formValidationService.validateFormNotLocked(form.id);
+    await this.formValidationService.validateFormHasNoResponses(form.id);
+    await this.formCrudService.deleteForm(form.id);
+  }
+
+  async deleteFormResponseById(
+    eventId: string,
+    type: FormType,
+    responseId: string,
+  ): Promise<void> {
+    await this.formValidationService.validateEventExists(eventId);
+    const form = await this.formCrudService.getFormByEventAndType(
+      eventId,
+      type,
+    );
+    await this.formCrudService.deleteFormResponseById(responseId, form.id);
+  }
+
+  async deleteAllFormResponses(
+    eventId: string,
+    type: FormType,
+  ): Promise<{ deletedCount: number }> {
+    await this.formValidationService.validateEventExists(eventId);
+    const form = await this.formCrudService.getFormByEventAndType(
+      eventId,
+      type,
+    );
+    return await this.formCrudService.deleteAllFormResponses(form.id);
+  }
+}
