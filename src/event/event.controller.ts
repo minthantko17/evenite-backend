@@ -66,12 +66,12 @@ export class EventController {
   }
 
   @Get()
-  async getAllEvents(
+  async getEvents(
     @Query('status', 
       new ParseEnumPipe(EventStatus, { optional: true })
     ) status?: EventStatus,
   ): Promise<Event[]> {
-    return this.eventService.getAllEvents(status);
+    return this.eventService.getEvents(status);
   }
 
   @Get(':id')

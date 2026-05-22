@@ -353,7 +353,7 @@ describe('EventCrudService - sanitizeEventData', () => {
   });
 });
 
-describe('EventCrudService - getAllEvents', () => {
+describe('EventCrudService - getEvents', () => {
   let service: EventCrudService;
 
   beforeEach(async () => {
@@ -374,7 +374,7 @@ describe('EventCrudService - getAllEvents', () => {
   it('UT-M025-01: should return array of events and call with ordered by createdAt desc when events exist', async () => {
     mockPrisma.event.findMany.mockResolvedValueOnce([mockEvent2, mockEvent]);
 
-    const result = await service.getAllEvents();
+    const result = await service.getEvents();
 
     expect(result).toEqual([mockEvent2, mockEvent]);
     expect(mockPrisma.event.findMany).toHaveBeenCalledWith({
@@ -386,7 +386,7 @@ describe('EventCrudService - getAllEvents', () => {
   it('UT-M025-02: should return empty array when no events exist', async () => {
     mockPrisma.event.findMany.mockResolvedValueOnce([]);
 
-    const result = await service.getAllEvents();
+    const result = await service.getEvents();
 
     expect(result).toEqual([]);
     expect(mockPrisma.event.findMany).toHaveBeenCalledTimes(1);

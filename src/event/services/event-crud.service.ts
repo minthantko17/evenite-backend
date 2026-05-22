@@ -111,7 +111,7 @@ export class EventCrudService {
     }
   }
 
-  async getAllEvents(status?: EventStatus): Promise<Event[]> {
+  async getEvents(status?: EventStatus): Promise<Event[]> {
     return this.prisma.event.findMany({
       where: status ? { status }: undefined,
       orderBy: { createdAt: 'desc' },
