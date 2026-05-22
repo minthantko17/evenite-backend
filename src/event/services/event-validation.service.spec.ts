@@ -165,6 +165,22 @@ describe('EventValidationService - validateImageFile', () => {
     expect(() => service.validateImageFile(large_image_file)).toThrow(InvalidImageException);
     expect(() => service.validateImageFile(large_image_file)).toThrow('File size must not exceed 5MB.');
   });
+  
+  it('UT-M013-00: should throw InvalidImageException when no file is provided', () => {
+    expect(() => service.validateImageFile(null as any)).toThrow(
+      InvalidImageException,
+    );
+    expect(() => service.validateImageFile(null as any)).toThrow(
+      'No input file provided',
+    );
+
+    expect(() => service.validateImageFile(undefined as any)).toThrow(
+      InvalidImageException,
+    );
+    expect(() => service.validateImageFile(undefined as any)).toThrow(
+      'No input file provided',
+    );
+  });
 });
 
 describe('EventValidationService - validatePublishDateRange', () => {
