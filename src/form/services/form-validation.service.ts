@@ -8,6 +8,7 @@ import { FormLockedException } from '../exceptions/form-locked.exception';
 import { FormAlreadyExistsException } from '../exceptions/form-already-exists.exception';
 import { FormNotFoundException } from '../exceptions/form-not-found.exception';
 import { FormHasResponsesException } from '../exceptions/form-has-responses.exception';
+import { FormAlreadyHasResponsesException } from '../exceptions/form-already-has-responses.exception';
 import { CreateFormFieldAnswerDto } from '../dto/create-form-response.dto';
 import { ReturnFormField } from '../dto/return-form-with-fields.dto';
 
@@ -54,7 +55,7 @@ export class FormValidationService {
       where: { formId },
     });
     if (count > 0) {
-      throw new FormLockedException();
+      throw new FormAlreadyHasResponsesException();
     }
   }
 
