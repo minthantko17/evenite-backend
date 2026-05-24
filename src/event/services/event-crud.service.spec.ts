@@ -69,6 +69,7 @@ const mockEvent = {
   createdAt: new Date('2026-07-01T00:00:00.000Z'),
   updatedAt: new Date('2026-07-01T00:00:00.000Z'),
   publishedAt: new Date('2026-07-01T00:00:00.000Z'),
+  forms: [],
 };
 
 const mockEvent2 = {
@@ -104,6 +105,9 @@ const mockEvent2 = {
   createdAt: new Date('2026-10-01T00:00:00.000Z'),
   updatedAt: new Date('2026-10-01T00:00:00.000Z'),
   publishedAt: new Date('2026-10-01T00:00:00.000Z'),
+  forms: [
+    { id: 'form-uuid-1', type: 'REGISTRATION' },
+  ],
 };
 
 const createMockOrientationEvent = () => ({
@@ -381,6 +385,11 @@ describe('EventCrudService - getEvents', () => {
     expect(mockPrisma.event.findMany).toHaveBeenCalledWith({
       where: undefined,
       orderBy: { createdAt: 'desc' },
+      include: {
+        forms: {
+          select:{ id: true, type: true }
+        }
+      }
     });
     expect(mockPrisma.event.findMany).toHaveBeenCalledTimes(1);
   });
@@ -395,6 +404,11 @@ describe('EventCrudService - getEvents', () => {
     expect(mockPrisma.event.findMany).toHaveBeenCalledWith({
       where: { status: EventStatus.PUBLISHED },
       orderBy: { createdAt: 'desc' },
+      include: {
+        forms: {
+          select:{ id: true, type: true }
+        }
+      }
     });
     expect(mockPrisma.event.findMany).toHaveBeenCalledTimes(1);
   });
@@ -409,6 +423,11 @@ describe('EventCrudService - getEvents', () => {
     expect(mockPrisma.event.findMany).toHaveBeenCalledWith({
       where: { status: EventStatus.DRAFT },
       orderBy: { createdAt: 'desc' },
+      include: {
+        forms: {
+          select:{ id: true, type: true }
+        }
+      }
     });
     expect(mockPrisma.event.findMany).toHaveBeenCalledTimes(1);
   });
@@ -449,6 +468,11 @@ describe('EventCrudService - getEventById', () => {
     expect(result).toEqual(mockEvent);
     expect(mockPrisma.event.findUnique).toHaveBeenCalledWith({
       where: { id: mockEvent.id },
+      include: {
+        forms: {
+          select:{ id: true, type: true }
+        }
+      }
     });
     expect(mockPrisma.event.findUnique).toHaveBeenCalledTimes(1);
   });
