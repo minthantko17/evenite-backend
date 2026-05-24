@@ -10,6 +10,7 @@ import { GeneratedEventDto } from './dto/generated-event.dto';
 import { SaveDraftDto } from './dto/save-draft.dto';
 import { PublishEventDto } from './dto/publish-event.dto';
 import type { TranslateBilingualFieldsDto } from './dto/translate-bilingual-fields.dto';
+import { EventResponseDto } from './dto/event-response.dto';
 
 @Injectable()
 export class EventService {
@@ -49,11 +50,11 @@ export class EventService {
     return this.eventCrudService.publishEvent(dto, dto.id);
   }
 
-  async getEvents(status?: EventStatus): Promise<Event[]> {
+  async getEvents(status?: EventStatus): Promise<EventResponseDto[]> {
     return this.eventCrudService.getEvents(status);
   }
 
-  async getEventById(id: string): Promise<Event> {
+  async getEventById(id: string): Promise<EventResponseDto> {
     return this.eventCrudService.getEventById(id);
   }
 }

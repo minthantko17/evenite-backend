@@ -6,6 +6,9 @@ import { EventValidationService } from './event-validation.service';
 import { EventDataUtils } from '../utils/event-data.utils';
 import { SaveDraftDto } from '../dto/save-draft.dto';
 import { PublishEventDto } from '../dto/publish-event.dto';
+import { EventResponseDto } from '../dto/event-response.dto';
+import type { BilingualField } from '../dto/bilingual-field.dto';
+import type { AgendaItem } from '../dto/agenda-item.dto';
 
 import { SaveEventException } from '../exceptions/save-event.exception';
 import { PublishEventException } from '../exceptions/publish-event.exception';
@@ -111,23 +114,35 @@ export class EventCrudService {
     }
   }
 
-  async getEvents(status?: EventStatus): Promise<Event[]> {
-    return this.prisma.event.findMany({
+  async getEvents(status?: EventStatus): Promise<EventResponseDto[]> {
+    const events = await this.prisma.event.findMany({
       where: status ? { status }: undefined,
       orderBy: { createdAt: 'desc' },
+      include: {
+        forms: {
+          select:{ id: true, type: true }
+        }
+      }
     });
+
+    return events.map((event) => this.mapToEventResponseDto(event));
   }
 
-  async getEventById(id: string): Promise<Event> {
+  async getEventById(id: string): Promise<EventResponseDto> {
     const event = await this.prisma.event.findUnique({
       where: { id },
+      include: {
+        forms: {
+          select:{ id: true, type: true }
+        }
+      }
     });
 
     if (!event) {
       throw new NotFoundException(`Event not found.`);
     }
 
-    return event;
+    return this.mapToEventResponseDto(event);
   }
 
   // --- helper methods ---
@@ -181,5 +196,40 @@ export class EventCrudService {
     ) {
       await this.eventStorageService.deleteBannerFromStorage(oldBannerUrl);
     }
+  }
+
+private mapToEventResponseDto(event: any): EventResponseDto {
+    return {
+      id: event.id,
+      title: event.title as BilingualField,
+      description: event.description as BilingualField,
+      category: event.category ?? [],
+      location: event.location as BilingualField,
+      mapLink: event.mapLink ?? '',
+      isOnline: event.isOnline ?? false,
+      startAt: event.startAt ?? null,
+      endAt: event.endAt ?? null,
+      seatLimit: event.seatLimit ?? null,
+      hasCatering: event.hasCatering ?? false,
+      isCateringFree: event.isCateringFree ?? false,
+      cateringDescription: event.cateringDescription as BilingualField,
+      agenda: (event.agenda as AgendaItem[]) ?? [],
+      contactName: event.contactName ?? '',
+      contactEmail: event.contactEmail ?? '',
+      contactPhone: event.contactPhone ?? '',
+      contactLineId: event.contactLineId ?? '',
+      externalUrl: event.externalUrl ?? '',
+      remarks: event.remarks as BilingualField,
+      bannerUrl: event.bannerUrl ?? '',
+      status: event.status,
+      publishedAt: event.publishedAt ?? null,
+      createdAt: event.createdAt,
+      updatedAt: event.updatedAt,
+      forms:
+        event.forms?.map((form: any) => ({
+          id: form.id,
+          type: form.type,
+        })) ?? [],
+    };
   }
 }

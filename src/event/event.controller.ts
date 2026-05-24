@@ -13,6 +13,7 @@ import type { GeneratedEventDto } from './dto/generated-event.dto';
 import type { TranslateBilingualFieldsDto } from './dto/translate-bilingual-fields.dto';
 import { SaveDraftDto } from './dto/save-draft.dto';
 import { PublishEventDto } from './dto/publish-event.dto';
+import { EventResponseDto } from './dto/event-response.dto';
 
 @Controller('events')
 export class EventController {
@@ -70,12 +71,12 @@ export class EventController {
     @Query('status', 
       new ParseEnumPipe(EventStatus, { optional: true })
     ) status?: EventStatus,
-  ): Promise<Event[]> {
+  ): Promise<EventResponseDto[]> {
     return this.eventService.getEvents(status);
   }
 
   @Get(':id')
-  async getEvent(@Param('id', ParseUUIDPipe) id: string): Promise<Event> {
+  async getEvent(@Param('id', ParseUUIDPipe) id: string): Promise<EventResponseDto> {
     return this.eventService.getEventById(id);
   }
 }
