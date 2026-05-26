@@ -37,6 +37,7 @@ describe('FormValidationService - validateEventExists', () => {
       'e1000000-0000-0000-0000-000000000001',
     );
     await expect(result).resolves.toBeUndefined();
+    await expect(() => result).not.toThrow();
   });
 
   it('UT-M027-02: should throw NotFoundException with message when event not found', async () => {
@@ -311,6 +312,100 @@ describe('FormValidationService - validateFormFields', () => {
     expect(call).toThrow(FormFieldInvalidException);
     expect(call).toThrow(
       'Field at index 1: at least two options are required for CHOICE type.',
+    );
+  });
+});
+
+describe('FormValidationService - validateFormNotLocked', () => {
+  let service: FormValidationService;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        FormValidationService,
+        { provide: PrismaService, useValue: mockPrisma },
+      ],
+    }).compile();
+    service = module.get<FormValidationService>(FormValidationService);
+    jest.clearAllMocks();
+  });
+
+  it('UT-M034-01: should throw FormNotFoundException with message when form not found', async () => {
+    mockPrisma.form.findUnique.mockResolvedValueOnce(null);
+    const result = service.validateFormNotLocked(
+      'f9999999-9999-9999-9999-999999999999',
+    );
+    await expect(result).rejects.toThrow(FormNotFoundException);
+    await expect(result).rejects.toThrow('Form not found.');
+  });
+
+  it('UT-M034-02: should resolve without throwing when event status is DRAFT', async () => {
+    mockPrisma.form.findUnique.mockResolvedValue({
+      event: { status: EventStatus.DRAFT },
+    });
+    const result = service.validateFormNotLocked(
+      'f1000000-0000-0000-0000-000000000001',
+    );
+    await expect(result).resolves.toBeUndefined();
+    await expect(() => result).not.toThrow();
+  });
+
+  it('UT-M034-03: should throw FormLockedException with message when event status is PUBLISHED', async () => {
+    mockPrisma.form.findUnique.mockResolvedValue({
+      event: { status: EventStatus.PUBLISHED },
+    });
+    const result = service.validateFormNotLocked(
+      'f1000000-0000-0000-0000-000000000001',
+    );
+    await expect(result).rejects.toThrow(FormLockedException);
+    await expect(result).rejects.toThrow(
+      'Form can only be edited while the event is in draft state.',
+    );
+  });
+});
+
+describe('FormValidationService - validateNoResponsesExist', () => {
+  let service: FormValidationService;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        FormValidationService,
+        { provide: PrismaService, useValue: mockPrisma },
+      ],
+    }).compile();
+    service = module.get<FormValidationService>(FormValidationService);
+    jest.clearAllMocks();
+  });
+
+  it('UT-M035-01: should resolve without throwing when no responses exist', async () => {
+    mockPrisma.formResponse.count.mockResolvedValue(0);
+    const result = service.validateNoResponsesExist(
+      'f1000000-0000-0000-0000-000000000001',
+    );
+    await expect(result).resolves.toBeUndefined();
+    await expect(() => result).not.toThrow();
+  });
+
+  it('UT-M035-02: should throw FormAlreadyHasResponsesException with message when exactly 1 response exists', async () => {
+    mockPrisma.formResponse.count.mockResolvedValueOnce(1);
+    const result = service.validateNoResponsesExist(
+      'f1000000-0000-0000-0000-000000000002',
+    );
+    await expect(result).rejects.toThrow(FormAlreadyHasResponsesException);
+    await expect(result).rejects.toThrow(
+      'Form cannot be updated because it has existing responses.',
+    );
+  });
+
+  it('UT-M035-03: should throw FormAlreadyHasResponsesException with message when multiple responses exist', async () => {
+    mockPrisma.formResponse.count.mockResolvedValueOnce(5);
+    const result = service.validateNoResponsesExist(
+      'f2000000-0000-0000-0000-000000000002',
+    );
+    await expect(result).rejects.toThrow(FormAlreadyHasResponsesException);
+    await expect(result).rejects.toThrow(
+      'Form cannot be updated because it has existing responses.',
     );
   });
 });
