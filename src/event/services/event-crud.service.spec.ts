@@ -713,7 +713,8 @@ describe('EventCrudService - publishEvent', () => {
   });
 
   it('UT-M017-02: should update existing event as published and return updated event when eventId provided', async () => {
-    const dto = { ...createMockRoVCompetitionEvent(), id: uuidv4() };
+    const existingEventId = uuidv4();
+    const dto = { ...createMockRoVCompetitionEvent(), id: existingEventId };
     const now = new Date();
     const expectedEvent = { ...dto, status: 'PUBLISHED', publishedAt: now };
     mockStorageService.resolveBannerUrl.mockReturnValue(dto.bannerUrl);
@@ -852,9 +853,9 @@ describe('EventCrudService - deleteOrphanBannerIfReplaced', () => {
   const existingEventId = uuidv4();
   const nonExistingEventId = 'non-existent-id';
   const oldBannerUrl =
-    `https://mockproject.supabase.co/storage/v1/object/public/banners/${uuidv4()}.jpg`;
+    `https://mockproject.supabase.co/storage/v1/object/public/banners/banner-url-1.jpg`;
   const newBannerUrl =
-    `https://mockproject.supabase.co/storage/v1/object/public/banners/${uuidv4()}.jpg`;
+    `https://mockproject.supabase.co/storage/v1/object/public/banners/banner-url-2.jpg`;
 
   it('UT-M019-01: should call deleteBannerFromStorage when old and new bannerUrl differ and old is not default', async () => {
     mockPrisma.event.findUnique.mockResolvedValueOnce({
