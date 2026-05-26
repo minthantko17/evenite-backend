@@ -279,6 +279,7 @@ describe('EventCrudService - sanitizeEventData', () => {
 
     const result = service.sanitizeEventData(dto as any);
 
+    expect(result.title).toEqual(dto.title);
     expect(result.category).toEqual(['ORIENTATION']);
     expect(result.isOnline).toBe(false);
     expect(result.hasCatering).toBe(true);
@@ -289,9 +290,10 @@ describe('EventCrudService - sanitizeEventData', () => {
     expect(mockUtils.sanitizeBilingualField).toHaveBeenCalled();
     expect(mockUtils.sanitizeAgendaItems).toHaveBeenCalled();
     expect(mockStorageService.resolveBannerUrl).toHaveBeenCalled();
+    expect(result).toEqual(dto);
   });
 
-  it('UT-M021-02: should apply defaults when optional fields are missing', () => {
+  it('UT-M021-02: should apply defaults when fields are missing', () => {
     mockStorageService.resolveBannerUrl.mockReturnValue(DEFAULT_BANNER_URL);
 
     const result = service.sanitizeEventData({} as any);
@@ -306,6 +308,28 @@ describe('EventCrudService - sanitizeEventData', () => {
     expect(result.contactPhone).toBe('');
     expect(result.contactLineId).toBe('');
     expect(result.externalUrl).toBe('');
+    expect(result).toEqual({
+      title: { en: '', th: '' },
+      description: { en: '', th: '' },
+      location: { en: '', th: '' },
+      cateringDescription: { en: '', th: '' },
+      remarks: { en: '', th: '' },
+      agenda: [],
+      bannerUrl: DEFAULT_BANNER_URL,
+      category: [],
+      startAt: undefined,
+      endAt: undefined,
+      isOnline: false,
+      hasCatering: false,
+      isCateringFree: false,
+      mapLink: '',
+      seatLimit: undefined,
+      contactName: '',
+      contactEmail: '',
+      contactPhone: '',
+      contactLineId: '',
+      externalUrl: '',
+    });
   });
 
   it('UT-M021-03: should call resolveBannerUrl and return DEFAULT_BANNER_URL when no bannerUrl provided', () => {
@@ -315,6 +339,28 @@ describe('EventCrudService - sanitizeEventData', () => {
 
     expect(mockStorageService.resolveBannerUrl).toHaveBeenCalledWith(undefined);
     expect(result.bannerUrl).toBe(DEFAULT_BANNER_URL);
+    expect(result).toEqual({
+      title: { en: '', th: '' },
+      description: { en: '', th: '' },
+      location: { en: '', th: '' },
+      cateringDescription: { en: '', th: '' },
+      remarks: { en: '', th: '' },
+      agenda: [],
+      bannerUrl: DEFAULT_BANNER_URL,
+      category: [],
+      startAt: undefined,
+      endAt: undefined,
+      isOnline: false,
+      hasCatering: false,
+      isCateringFree: false,
+      mapLink: '',
+      seatLimit: undefined,
+      contactName: '',
+      contactEmail: '',
+      contactPhone: '',
+      contactLineId: '',
+      externalUrl: '',
+    });
   });
 
   it('UT-M021-04: should call resolveBannerUrl and return provided URL when bannerUrl is valid', () => {
@@ -326,15 +372,17 @@ describe('EventCrudService - sanitizeEventData', () => {
     expect(mockStorageService.resolveBannerUrl).toHaveBeenCalledWith(
       dto.bannerUrl,
     );
+    expect(result).toEqual(dto);
     expect(result.bannerUrl).toBe(dto.bannerUrl);
   });
 
   it('UT-M021-05: should call sanitizeBilingualField for all bilingual fields', () => {
-    const dto = createMockOrientationEvent();
-    mockStorageService.resolveBannerUrl.mockReturnValue(DEFAULT_BANNER_URL);
+    const dto = createMockRoVCompetitionEvent();
+    mockStorageService.resolveBannerUrl.mockReturnValue(dto.bannerUrl);
 
-    service.sanitizeEventData(dto as any);
+    const result = service.sanitizeEventData(dto as any);
 
+    expect(result).toEqual(dto);
     expect(mockUtils.sanitizeBilingualField).toHaveBeenCalledWith(dto.title);
     expect(mockUtils.sanitizeBilingualField).toHaveBeenCalledWith(
       dto.description,
@@ -348,13 +396,15 @@ describe('EventCrudService - sanitizeEventData', () => {
   });
 
   it('UT-M021-06: should call sanitizeAgendaItems for agenda field', () => {
-    const dto = createMockOrientationEvent();
-    mockStorageService.resolveBannerUrl.mockReturnValue(DEFAULT_BANNER_URL);
+    const dto = createMockSportsDayEvent();
+    mockStorageService.resolveBannerUrl.mockReturnValue(dto.bannerUrl);
 
-    service.sanitizeEventData(dto as any);
+    const result = service.sanitizeEventData(dto as any);
 
     expect(mockUtils.sanitizeAgendaItems).toHaveBeenCalledWith(dto.agenda);
     expect(mockUtils.sanitizeAgendaItems).toHaveBeenCalledTimes(1);
+    expect(result.agenda).toEqual(dto.agenda);
+    expect(result).toEqual(dto);
   });
 });
 
@@ -663,7 +713,8 @@ describe('EventCrudService - publishEvent', () => {
   });
 
   it('UT-M017-02: should update existing event as published and return updated event when eventId provided', async () => {
-    const dto = { ...createMockRoVCompetitionEvent(), id: uuidv4() };
+    const existingEventId = uuidv4();
+    const dto = { ...createMockRoVCompetitionEvent(), id: existingEventId };
     const now = new Date();
     const expectedEvent = { ...dto, status: 'PUBLISHED', publishedAt: now };
     mockStorageService.resolveBannerUrl.mockReturnValue(dto.bannerUrl);
@@ -802,9 +853,9 @@ describe('EventCrudService - deleteOrphanBannerIfReplaced', () => {
   const existingEventId = uuidv4();
   const nonExistingEventId = 'non-existent-id';
   const oldBannerUrl =
-    `https://mockproject.supabase.co/storage/v1/object/public/banners/${uuidv4()}.jpg`;
+    `https://mockproject.supabase.co/storage/v1/object/public/banners/banner-url-1.jpg`;
   const newBannerUrl =
-    `https://mockproject.supabase.co/storage/v1/object/public/banners/${uuidv4()}.jpg`;
+    `https://mockproject.supabase.co/storage/v1/object/public/banners/banner-url-2.jpg`;
 
   it('UT-M019-01: should call deleteBannerFromStorage when old and new bannerUrl differ and old is not default', async () => {
     mockPrisma.event.findUnique.mockResolvedValueOnce({
