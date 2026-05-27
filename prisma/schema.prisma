@@ -12,6 +12,16 @@ datasource db {
   url = env("DATABASE_URL")
 }
 
+enum Role {
+  PARTICIPANT
+  ORGANIZER
+}
+
+enum RegistrationStatus {
+  CONFIRMED
+  CANCELLED
+}
+
 enum EventStatus {
   DRAFT
   PUBLISHED
@@ -37,6 +47,8 @@ enum FieldType {
 
 model Event {
   id          String      @id @default(uuid())
+  organizerId  String
+  universityId String 
   title       Json?        
   description Json?        
   category    String[]    
@@ -61,6 +73,9 @@ model Event {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   publishedAt DateTime?
+
+  organizer    User          @relation(fields: [organizerId], references: [id])   // ADD
+  university   University    @relation(fields: [universityId], references: [id])
   forms   Form[]
 }
 
@@ -122,4 +137,46 @@ model FormFieldResponse {
   formField      FormField    @relation(fields: [formFieldId, formId], references: [id, formId], onDelete: Cascade)
 
   @@unique([formResponseId, formFieldId])
+}
+
+model University {
+  id        String   @id @default(uuid())
+  name      String
+  domain    String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  users  User[]
+  events Event[]
+}
+
+model User {
+  id           String   @id @default(uuid())
+  universityId String
+  email        String   @unique
+  passwordHash String
+  firstName    String
+  lastName     String?
+  nickname     String?
+  studentId    String?
+  phone        String?
+  imageUrl     String?
+  role         Role     @default(PARTICIPANT)
+  isVerified   Boolean  @default(false)
+  preferences  Json?
+  refreshToken String?
+  createdAt    DateTime @default(now())
+
+  university University @relation(fields: [universityId], references: [id])
+  events     Event[]
+  emailVerification EmailVerification?
+}
+
+model EmailVerification {
+  id       String   @id @default(uuid())
+  token    String   @unique
+  expireAt DateTime
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
