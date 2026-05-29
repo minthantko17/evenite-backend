@@ -47,8 +47,8 @@ enum FieldType {
 
 model Event {
   id          String      @id @default(uuid())
-  organizerId  String
-  universityId String 
+  organizerId  String?
+  universityId String?
   title       Json?        
   description Json?        
   category    String[]    
@@ -74,8 +74,8 @@ model Event {
   updatedAt DateTime @updatedAt
   publishedAt DateTime?
 
-  organizer    User          @relation(fields: [organizerId], references: [id])   // ADD
-  university   University    @relation(fields: [universityId], references: [id])
+  organizer    User?          @relation(fields: [organizerId], references: [id])   // ADD
+  university   University?    @relation(fields: [universityId], references: [id])
   forms   Form[]
 }
 
