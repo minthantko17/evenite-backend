@@ -13,16 +13,14 @@ export class AuthTokenService {
     private readonly authCrudService: AuthCrudService,
   ) {}
 
-  // Signs and returns a short-lived access token (15m)
   generateAccessToken(payload: JwtAccessPayload): string {
     const options: JwtSignOptions = {
       secret: process.env.JWT_ACCESS_SECRET!,
-      expiresIn: '15m', // hardcoded — env var only used as fallback at runtime
+      expiresIn: '15m',
     };
     return this.jwtService.sign(payload, options);
   }
 
-  // Signs and returns a long-lived refresh token (7d)
   generateRefreshToken(payload: JwtRefreshPayload): string {
     const options: JwtSignOptions = {
       secret: process.env.JWT_REFRESH_SECRET!,
@@ -31,7 +29,6 @@ export class AuthTokenService {
     return this.jwtService.sign(payload, options);
   }
 
-  // Hashes refresh token before storing — raw token never stored in DB
   async hashAndStoreRefreshToken(
     userId: string,
     refreshToken: string,
@@ -40,7 +37,6 @@ export class AuthTokenService {
     await this.authCrudService.updateUser(userId, { refreshToken: hashed });
   }
 
-  // Sets refreshToken to null — prevents reuse after logout
   async clearRefreshToken(userId: string): Promise<void> {
     await this.authCrudService.updateUser(userId, { refreshToken: null });
   }

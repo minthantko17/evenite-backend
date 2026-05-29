@@ -3,7 +3,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { Role } from '@prisma/client';
 
-// This defines what data is stored inside the access token
+// Defines what data is stored inside the access token
 export interface JwtAccessPayload {
   sub: string; // user id
   email: string;
@@ -19,7 +19,7 @@ export class JwtAccessStrategy extends PassportStrategy(
 ) {
   constructor() {
     super({
-      // Extract token from Authorization: Bearer <token> header
+      // Extract token from Bearer header
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       secretOrKey: process.env.JWT_ACCESS_SECRET!,

@@ -20,21 +20,14 @@ export class AuthService {
     private readonly authEmailService: AuthEmailService,
   ) {}
 
-  // ─── REGISTER ─────────────────────────────────────────────────────────────
-
   async register(dto: RegisterDto): Promise<{ message: string }> {
-    // 1. Validate university domain → returns University for its id
     const university = await this.authValidationService.checkUniversityDomain(
       dto.email,
     );
-
-    // 2. Ensure email not already taken
     await this.authValidationService.checkEmailNotTaken(dto.email);
-
-    // 3. Hash password
     const passwordHash = await bcrypt.hash(dto.password, 12);
 
-    // 4. Create user (isVerified: false, role: PARTICIPANT by default)
+    // Create user (isVerified: false, role: PARTICIPANT by default)
     const user = await this.authCrudService.createUser({
       universityId: university.id,
       email: dto.email,
@@ -42,8 +35,6 @@ export class AuthService {
       firstName: dto.firstName,
       lastName: dto.lastName ?? null,
     });
-
-    // 5. Send verification email
     await this.authEmailService.sendVerificationEmail(user.id, user.email);
 
     return {
@@ -52,36 +43,24 @@ export class AuthService {
     };
   }
 
-  // ─── VERIFY EMAIL ──────────────────────────────────────────────────────────
-
   // TODO: update to return tokens + auto login after User module is complete
   async verifyEmail(token: string): Promise<{ message: string }> {
-    // 1. Validate token → returns verification record for userId
     const verification =
       await this.authValidationService.checkVerificationToken(token);
 
-    // 2. Mark user as verified
     await this.authCrudService.updateUser(verification.userId, {
       isVerified: true,
     });
-
-    // 3. Delete verification record — token can never be reused
     await this.authCrudService.deleteVerificationByToken(token);
 
     return { message: 'Email verified successfully. You can now log in.' };
   }
 
-  // ─── LOGIN ─────────────────────────────────────────────────────────────────
-
   async login(
     dto: LoginDto,
   ): Promise<{ accessToken: string; refreshToken: string }> {
-    // 1. Find user by email
     const user = await this.authCrudService.findUserByEmail(dto.email);
 
-    // 2. Check password
-    // Note: throw same exception whether email not found or password wrong
-    // → prevents attacker from knowing if email is registered
     if (!user) {
       throw new InvalidCredentialsException();
     }
@@ -90,10 +69,9 @@ export class AuthService {
       user.passwordHash,
     );
 
-    // 3. Check email verified
     this.authValidationService.checkIsVerified(user.isVerified);
 
-    // 4. Build token payloads
+    // Build token payloads
     const accessPayload: JwtAccessPayload = {
       sub: user.id,
       email: user.email,
@@ -101,43 +79,35 @@ export class AuthService {
       isVerified: user.isVerified,
       universityId: user.universityId,
     };
-
     const refreshPayload: JwtRefreshPayload = {
       sub: user.id,
       email: user.email,
     };
 
-    // 5. Generate tokens
     const accessToken =
       this.authTokenService.generateAccessToken(accessPayload);
     const refreshToken =
       this.authTokenService.generateRefreshToken(refreshPayload);
 
-    // 6. Hash and store refresh token in DB
     await this.authTokenService.hashAndStoreRefreshToken(user.id, refreshToken);
-
     return { accessToken, refreshToken };
   }
-
-  // ─── REFRESH ───────────────────────────────────────────────────────────────
 
   async refresh(
     userId: string,
     refreshToken: string,
   ): Promise<{ accessToken: string }> {
-    // 1. Find user
     const user = await this.authCrudService.findUserById(userId);
     if (!user) {
       throw new InvalidTokenException();
     }
 
-    // 2. Validate refresh token against stored hash
     await this.authValidationService.checkRefreshToken(
       refreshToken,
       user.refreshToken,
     );
 
-    // 3. Issue new access token
+    // Issue new access token
     const accessPayload: JwtAccessPayload = {
       sub: user.id,
       email: user.email,
@@ -151,14 +121,10 @@ export class AuthService {
     };
   }
 
-  // ─── LOGOUT ────────────────────────────────────────────────────────────────
-
   async logout(userId: string): Promise<{ message: string }> {
     await this.authTokenService.clearRefreshToken(userId);
     return { message: 'Logged out successfully.' };
   }
-
-  // ─── RESEND VERIFICATION ───────────────────────────────────────────────────
 
   async resendVerification(email: string): Promise<{ message: string }> {
     // Generic message always returned — prevents email enumeration
@@ -166,10 +132,7 @@ export class AuthService {
       message:
         'If this email is registered and unverified, a new verification email has been sent.',
     };
-
     const user = await this.authCrudService.findUserByEmail(email);
-
-    // Silent return if user not found or already verified
     if (!user || user.isVerified) {
       return genericMessage;
     }

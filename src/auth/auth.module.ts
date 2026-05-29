@@ -30,9 +30,9 @@ import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
     JwtRefreshStrategy,
   ],
   exports: [
-    AuthCrudService, // exported for User module
-    AuthTokenService, // exported for User module
-    JwtAccessStrategy, // exported so JwtAccessGuard works app-wide
+    AuthCrudService,
+    AuthTokenService, 
+    JwtAccessStrategy,
   ],
 })
 export class AuthModule {}

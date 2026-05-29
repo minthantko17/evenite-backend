@@ -6,8 +6,7 @@ import { User, EmailVerification } from '@prisma/client';
 export class AuthCrudService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // ─── USER ──────────────────────────────────────────────────────────────────
-
+  // USER
   async findUserByEmail(email: string): Promise<User | null> {
     return this.prisma.user.findUnique({
       where: { email },
@@ -38,6 +37,7 @@ export class AuthCrudService {
       firstName: string;
       lastName: string | null;
       nickname: string | null;
+      studentId: string | null;
       phone: string | null;
       imageUrl: string | null;
       preferences: any;
@@ -50,8 +50,7 @@ export class AuthCrudService {
     });
   }
 
-  // ─── EMAIL VERIFICATION ────────────────────────────────────────────────────
-
+  // EMAIL VERIFICATION
   async findVerificationByToken(
     token: string,
   ): Promise<EmailVerification | null> {

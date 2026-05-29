@@ -9,11 +9,9 @@ export class AuthEmailService {
     sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
   }
 
-  // Creates a verification record and sends email via SendGrid
-  // Token expires in 24 hours
   async sendVerificationEmail(userId: string, email: string): Promise<void> {
     const token = uuidv4();
-    const expireAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const expireAt = new Date(Date.now() + 24 * 60 * 60 * 1000); //24hrs
 
     await this.authCrudService.createVerificationRecord(
       userId,
@@ -36,8 +34,7 @@ export class AuthEmailService {
     });
   }
 
-  // Deletes existing verification record for user
-  // Used in resend flow — old token invalidated before sending new one
+  // Used for resend flow to delete old
   async deleteVerificationRecord(userId: string): Promise<void> {
     await this.authCrudService.deleteVerificationByUserId(userId);
   }
