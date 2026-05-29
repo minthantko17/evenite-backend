@@ -1,12 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { AuthCrudService } from './auth-crud.service';
-import sgMail from '@sendgrid/mail';
+import { Resend } from 'resend';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class AuthEmailService {
+  private readonly resend: Resend;
+
   constructor(private readonly authCrudService: AuthCrudService) {
-    sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
+    this.resend = new Resend(process.env.RESEND_API_KEY!);
   }
 
   async sendVerificationEmail(userId: string, email: string): Promise<void> {
@@ -21,20 +23,20 @@ export class AuthEmailService {
 
     const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${token}`;
 
-    await sgMail.send({
+    await this.resend.emails.send({
+      from: 'Evenite <onboarding@resend.dev>',  // TODO: replace with real domain in production
       to: email,
-      from: process.env.SENDGRID_FROM_EMAIL!,
       subject: 'Verify your Evenite account',
       html: `
         <h2>Welcome to Evenite!</h2>
-        <p>Please verify your email by clicking the link below:</p>
+        <p>Please verify your email by clicking the link below:\n</p>
         <a href="${verificationUrl}">Verify Email</a>
-        <p>This link expires in 24 hours.</p>
+        <p>\nThis link expires in 24 hours.</p>
       `,
     });
   }
 
-  // Used for resend flow to delete old
+  // Used for resend flow to delete old token
   async deleteVerificationRecord(userId: string): Promise<void> {
     await this.authCrudService.deleteVerificationByUserId(userId);
   }
