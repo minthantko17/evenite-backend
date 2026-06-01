@@ -45,38 +45,130 @@ enum FieldType {
   CHECKBOX
 }
 
-model Event {
-  id          String      @id @default(uuid())
-  organizerId  String?
-  universityId String?
-  title       Json?        
-  description Json?        
-  category    String[]    
-  bannerUrl   String?     
-  location    Json?
-  mapLink     String?
-  isOnline    Boolean     @default(false)
-  startAt     DateTime?
-  endAt       DateTime?
-  seatLimit   Int?        
-  status      EventStatus @default(DRAFT)
-  hasCatering     Boolean @default(false)
-  isCateringFree  Boolean @default(false)
-  cateringDescription Json?   
-  agenda  Json?
-  contactName   String?
-  contactEmail  String?
-  contactPhone  String?
-  contactLineId String?
-  externalUrl String?
-  remarks Json?  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  publishedAt DateTime?
 
-  organizer    User?          @relation(fields: [organizerId], references: [id])   // ADD
-  university   University?    @relation(fields: [universityId], references: [id])
-  forms   Form[]
+// -----Models-----
+
+model University {
+  id        String   @id @default(uuid())
+  name      String
+  domain    String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  users  User[]
+  events Event[]
+}
+
+model User {
+  id           String    @id @default(uuid())
+  universityId String
+  email        String    @unique
+  passwordHash String
+  currentRole  Role?
+  isVerified   Boolean   @default(false)
+  refreshToken String?
+  createdAt    DateTime  @default(now())
+
+  university          University          @relation(fields: [universityId], references: [id])
+  emailVerification   EmailVerification?
+  participantProfile  ParticipantProfile?
+  organizerProfile    OrganizerProfile?
+}
+
+model ParticipantProfile {
+  id          String   @id @default(uuid())
+  firstName   String
+  lastName    String?
+  nickname    String?
+  studentId   String?
+  major       String?
+  contactEmail       String?
+  contactPhone       String?
+  contactLineId      String?
+  imageUrl    String?
+  preferences Json?
+  createdAt   DateTime @default(now())
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  eventRegistrations EventRegistration[]
+}
+
+model OrganizerProfile {
+  id                String   @id @default(uuid())
+  name              String
+  bio               String?
+  contactEmail      String?
+  contactPhone      String?
+  contactLineId     String?
+  imageUrl          String?
+  externalUrl       String?
+  createdAt         DateTime @default(now())
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  events Event[]
+}
+
+model EmailVerification {
+  id       String   @id @default(uuid())
+  token    String   @unique
+  expireAt DateTime
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Event {
+  id                  String      @id @default(uuid())
+  organizerId         String?
+  universityId        String?
+  title               Json?
+  description         Json?
+  category            String[]
+  bannerUrl           String?
+  location            Json?
+  mapLink             String?
+  isOnline            Boolean     @default(false)
+  startAt             DateTime?
+  endAt               DateTime?
+  seatLimit           Int?
+  status              EventStatus @default(DRAFT)
+  hasCatering         Boolean     @default(false)
+  isCateringFree      Boolean     @default(false)
+  cateringDescription Json?
+  agenda              Json?
+  contactName         String?
+  contactEmail        String?
+  contactPhone        String?
+  contactLineId       String?
+  externalUrl         String?
+  remarks             Json?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  publishedAt         DateTime?
+
+  organizer  OrganizerProfile? @relation(fields: [organizerId], references: [id])
+  university University?       @relation(fields: [universityId], references: [id])
+  forms      Form[]
+  eventRegistrations EventRegistration[]
+}
+
+model EventRegistration {
+  id        String             @id @default(uuid())
+  status    RegistrationStatus @default(CONFIRMED)
+  createdAt DateTime           @default(now())
+
+  participantId String
+  eventId       String
+
+  participant ParticipantProfile @relation(fields: [participantId], references: [id])
+  event       Event              @relation(fields: [eventId], references: [id])
+  formResponses FormResponse[]
+
+  @@unique([participantId, eventId])
 }
 
 model Form {
@@ -94,17 +186,17 @@ model Form {
 }
 
 model FormField {
-  id          String        @id @default(uuid())
+  id          String    @id @default(uuid())
   formId      String
   type        FieldType
   label       String
-  isRequired  Boolean       @default(false)
+  isRequired  Boolean   @default(false)
   order       Int
   options     String[]
   autoFillKey String?
 
-  form        Form                @relation(fields: [formId], references: [id], onDelete: Cascade)
-  responses   FormFieldResponse[]
+  form      Form        @relation(fields: [formId], references: [id], onDelete: Cascade)
+  responses FormFieldResponse[]
 
   @@unique([formId, order])
   @@unique([id, formId])
@@ -113,18 +205,19 @@ model FormField {
 model FormResponse {
   id             String     @id @default(uuid())
   formId         String
+  eventRegistrationId String?  // nullable until Feature #5
   createdAt      DateTime   @default(now())
-  // registrationId String           // deferred Feature #5
-  // @@unique([registrationId, formId])  // deferred Feature #5
 
   form           Form                @relation(fields: [formId], references: [id], onDelete: Cascade)
   fieldResponses FormFieldResponse[]
+  eventRegistration EventRegistration? @relation(fields: [eventRegistrationId], references: [id])
 
   @@unique([id, formId])
+  // @@unique([eventRegistrationId, formId]) // just temp, so gotta uncomment in Feature #5
 }
 
 model FormFieldResponse {
-  id             String       @id @default(uuid())
+  id             String   @id @default(uuid())
   formResponseId String
   formFieldId    String
   formId         String
@@ -133,50 +226,8 @@ model FormFieldResponse {
   valueDate      DateTime?
   valueArray     String[]
 
-  formResponse   FormResponse @relation(fields: [formResponseId, formId], references: [id, formId], onDelete: Cascade)
-  formField      FormField    @relation(fields: [formFieldId, formId], references: [id, formId], onDelete: Cascade)
+  formResponse FormResponse @relation(fields: [formResponseId, formId], references: [id, formId], onDelete: Cascade)
+  formField    FormField    @relation(fields: [formFieldId, formId], references: [id, formId], onDelete: Cascade)
 
   @@unique([formResponseId, formFieldId])
-}
-
-model University {
-  id        String   @id @default(uuid())
-  name      String
-  domain    String   @unique
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-
-  users  User[]
-  events Event[]
-}
-
-model User {
-  id           String   @id @default(uuid())
-  universityId String
-  email        String   @unique
-  passwordHash String
-  firstName    String
-  lastName     String?
-  nickname     String?
-  studentId    String?
-  phone        String?
-  imageUrl     String?
-  role         Role     @default(PARTICIPANT)
-  isVerified   Boolean  @default(false)
-  preferences  Json?
-  refreshToken String?
-  createdAt    DateTime @default(now())
-
-  university University @relation(fields: [universityId], references: [id])
-  events     Event[]
-  emailVerification EmailVerification?
-}
-
-model EmailVerification {
-  id       String   @id @default(uuid())
-  token    String   @unique
-  expireAt DateTime
-
-  userId String @unique
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

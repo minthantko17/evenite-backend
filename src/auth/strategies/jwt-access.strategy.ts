@@ -7,9 +7,12 @@ import { Role } from '@prisma/client';
 export interface JwtAccessPayload {
   sub: string; // user id
   email: string;
-  role: Role;
+  currentRole: Role | null;
   isVerified: boolean;
   universityId: string;
+  participantProfileId: string | null;
+  organizerProfileId: string | null;
+  hasCreatedProfile: boolean;
 }
 
 @Injectable()

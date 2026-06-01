@@ -1,21 +1,36 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { User, EmailVerification } from '@prisma/client';
+import { User, Role, EmailVerification, Prisma } from '@prisma/client';
+
+export type UserWithProfiles = Prisma.UserGetPayload<{
+  include: {
+    participantProfile: true;
+    organizerProfile: true;
+  };
+}>;
 
 @Injectable()
 export class AuthCrudService {
   constructor(private readonly prisma: PrismaService) {}
 
   // USER
-  async findUserByEmail(email: string): Promise<User | null> {
+  async findUserByEmail(email: string): Promise<UserWithProfiles | null> {
     return this.prisma.user.findUnique({
       where: { email },
+      include: {
+        participantProfile: true,
+        organizerProfile: true,
+      }
     });
   }
 
-  async findUserById(id: string): Promise<User | null> {
+  async findUserById(id: string): Promise<UserWithProfiles | null> {
     return this.prisma.user.findUnique({
       where: { id },
+      include: {
+        participantProfile: true,
+        organizerProfile: true,
+      }
     });
   }
 
@@ -23,8 +38,6 @@ export class AuthCrudService {
     universityId: string;
     email: string;
     passwordHash: string;
-    firstName: string;
-    lastName?: string | null;
   }): Promise<User> {
     return this.prisma.user.create({ data });
   }
@@ -34,14 +47,8 @@ export class AuthCrudService {
     data: Partial<{
       isVerified: boolean;
       refreshToken: string | null;
-      firstName: string;
-      lastName: string | null;
-      nickname: string | null;
-      studentId: string | null;
-      phone: string | null;
-      imageUrl: string | null;
-      preferences: any;
-      role: any;
+      currentRole: Role | null;
+      passwordHash: string;
     }>,
   ): Promise<User> {
     return this.prisma.user.update({

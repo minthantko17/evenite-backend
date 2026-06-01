@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { AuthCrudService } from './services/auth-crud.service';
+import { AuthCrudService, UserWithProfiles } from './services/auth-crud.service';
 import { AuthValidationService } from './services/auth-validation.service';
 import { AuthTokenService } from './services/auth-token.service';
 import { AuthEmailService } from './services/auth-email.service';
@@ -27,13 +27,10 @@ export class AuthService {
     await this.authValidationService.checkEmailNotTaken(dto.email);
     const passwordHash = await bcrypt.hash(dto.password, 12);
 
-    // Create user (isVerified: false, role: PARTICIPANT by default)
     const user = await this.authCrudService.createUser({
       universityId: university.id,
       email: dto.email,
       passwordHash,
-      firstName: dto.firstName,
-      lastName: dto.lastName ?? null,
     });
     await this.authEmailService.sendVerificationEmail(user.id, user.email);
 
@@ -43,17 +40,51 @@ export class AuthService {
     };
   }
 
-  // TODO: update to return tokens + auto login after User module is complete
-  async verifyEmail(token: string): Promise<{ message: string }> {
+  async verifyEmail(token: string): Promise<{
+    message: string;
+    accessToken: string;
+    refreshToken: string;
+  }> {
     const verification =
       await this.authValidationService.checkVerificationToken(token);
 
+    const user = await this.authCrudService.findUserById(verification.userId);
+    if (!user) throw new InvalidTokenException();
     await this.authCrudService.updateUser(verification.userId, {
       isVerified: true,
     });
+
     await this.authCrudService.deleteVerificationByToken(token);
 
-    return { message: 'Email verified successfully. You can now log in.' };
+    // create payload
+    const accessPayload: JwtAccessPayload = {
+      sub: user.id,
+      email: user.email,
+      currentRole: user.currentRole,
+      isVerified: true,
+      universityId: user.universityId,
+      participantProfileId: user.participantProfile?.id ?? null,
+      organizerProfileId: user.organizerProfile?.id ?? null,
+      hasCreatedProfile:
+        user.participantProfile !== null || user.organizerProfile !== null,
+    };
+    const refreshPayload: JwtRefreshPayload = {
+      sub: user.id,
+      email: user.email,
+    };
+
+    const accessToken =
+      this.authTokenService.generateAccessToken(accessPayload);
+    const refreshToken =
+      this.authTokenService.generateRefreshToken(refreshPayload);
+
+    await this.authTokenService.hashAndStoreRefreshToken(user.id, refreshToken);
+
+    return {
+      message: 'Email verified successfully.',
+      accessToken,
+      refreshToken,
+    };
   }
 
   async login(
@@ -75,9 +106,13 @@ export class AuthService {
     const accessPayload: JwtAccessPayload = {
       sub: user.id,
       email: user.email,
-      role: user.role,
+      currentRole: user.currentRole,
       isVerified: user.isVerified,
       universityId: user.universityId,
+      participantProfileId: user.participantProfile?.id ?? null,
+      organizerProfileId: user.organizerProfile?.id ?? null,
+      hasCreatedProfile:
+        user.participantProfile !== null || user.organizerProfile !== null,
     };
     const refreshPayload: JwtRefreshPayload = {
       sub: user.id,
@@ -111,9 +146,13 @@ export class AuthService {
     const accessPayload: JwtAccessPayload = {
       sub: user.id,
       email: user.email,
-      role: user.role,
+      currentRole: user.currentRole,
       isVerified: user.isVerified,
       universityId: user.universityId,
+      participantProfileId: user.participantProfile?.id ?? null,
+      organizerProfileId: user.organizerProfile?.id ?? null,
+      hasCreatedProfile:
+        user.participantProfile !== null || user.organizerProfile !== null,
     };
 
     return {
