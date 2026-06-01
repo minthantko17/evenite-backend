@@ -34,5 +34,9 @@ export class CreateOrganizerProfileDto {
 
   @IsOptional()
   @IsUrl()
+  imageUrl?: string;
+
+  @IsOptional()
+  @IsUrl()
   externalUrl?: string;
 }

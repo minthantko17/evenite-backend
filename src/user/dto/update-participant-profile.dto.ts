@@ -2,9 +2,10 @@ import {
   IsString,
   IsOptional,
   IsEmail,
+  IsUrl,
+  MinLength,
   MaxLength,
   ValidateNested,
-  MinLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { UpdatePreferencesDto } from './update-preferences.dto';
@@ -49,6 +50,10 @@ export class UpdateParticipantProfileDto {
   @IsString()
   @MaxLength(50)
   contactLineId?: string;
+
+  @IsOptional()
+  @IsUrl()
+  imageUrl?: string;
 
   @IsOptional()
   @ValidateNested()

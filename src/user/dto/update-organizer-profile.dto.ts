@@ -35,5 +35,9 @@ export class UpdateOrganizerProfileDto {
 
   @IsOptional()
   @IsUrl()
+  imageUrl?: string;
+
+  @IsOptional()
+  @IsUrl()
   externalUrl?: string;
 }

@@ -2,6 +2,7 @@ import {
   IsString,
   IsOptional,
   IsEmail,
+  IsUrl,
   MinLength,
   MaxLength,
   ValidateNested,
@@ -48,6 +49,10 @@ export class CreateParticipantProfileDto {
   @IsString()
   @MaxLength(50)
   contactLineId?: string;
+
+  @IsOptional()
+  @IsUrl()
+  imageUrl?: string;
 
   @IsOptional()
   @ValidateNested()
