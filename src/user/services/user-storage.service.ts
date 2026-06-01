@@ -1,10 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable ,NotFoundException } from '@nestjs/common';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
-import { UserValidationService } from './user-validation.service';
 import { ImageUploadException } from '../exceptions/image-upload.exception';
+import { PrismaService } from '../../prisma/prisma.service';
+import { DEFAULT_ORGANIZER_IMAGE_URL, DEFAULT_PARTICIPANT_IMAGE_URL } from '../constants/user-images.constant';
 
-// image type for upload
 export type ProfileImageType = 'participant' | 'organizer';
 
 @Injectable()
@@ -12,7 +12,9 @@ export class UserStorageService {
   private readonly supabase: SupabaseClient;
   private readonly BUCKET = 'evenite-images';
 
-  constructor(private readonly userValidationService: UserValidationService) {
+  constructor(
+    private readonly prisma: PrismaService,
+  ) {
     this.supabase = createClient(
       process.env.SUPABASE_URL!,
       process.env.SUPABASE_KEY!,
@@ -25,8 +27,6 @@ export class UserStorageService {
     file: Express.Multer.File,
     type: ProfileImageType,
   ): Promise<string> {
-    this.userValidationService.validateImageFile(file);
-
     const ext = this.getExtension(file.mimetype);
     const folder = type === 'participant' ? 'participant' : 'organizer';
     const filename = `${folder}/${uuidv4()}.${ext}`;
@@ -39,7 +39,9 @@ export class UserStorageService {
       });
 
     if (error) {
-      throw new ImageUploadException('Failed to upload image. Please try again.');
+      throw new ImageUploadException(
+        'Failed to upload image. Please try again.',
+      );
     }
 
     const { data } = this.supabase.storage
@@ -56,11 +58,54 @@ export class UserStorageService {
     return imageUrl;
   }
 
-  async deleteOldImageFromStorage(
-    imageUrl: string,
+  async deleteOrphanProfileImageIfReplaced(
+    userId: string,
+    newImageUrl: string,
   ): Promise<void> {
-    if(!imageUrl) return;
+    const existing = await this.prisma.participantProfile.findUnique({
+      where: { userId },
+      select: { imageUrl: true },
+    });
 
+    if (!existing) {
+      throw new NotFoundException(' Participant profile not found.');
+    }
+
+    const oldImageUrl = existing.imageUrl;
+    if (
+      oldImageUrl &&
+      oldImageUrl !== newImageUrl &&
+      oldImageUrl !== DEFAULT_PARTICIPANT_IMAGE_URL
+    ) {
+      await this.deleteOldImageFromStorage(oldImageUrl);
+    }
+  }
+
+  async deleteOrphanOrganizerImageIfReplaced(
+    userId: string,
+    newImageUrl: string,
+  ): Promise<void> {
+    const existing = await this.prisma.organizerProfile.findUnique({
+      where: { userId },
+      select: { imageUrl: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundException(' Organizer profile not found.');
+    }
+
+    const oldImageUrl = existing.imageUrl;
+    if (
+      oldImageUrl &&
+      oldImageUrl !== newImageUrl &&
+      oldImageUrl !== DEFAULT_ORGANIZER_IMAGE_URL
+    ) {
+      await this.deleteOldImageFromStorage(oldImageUrl);
+    }
+  }
+
+  async deleteOldImageFromStorage(imageUrl: string): Promise<void> {
+    if (!imageUrl) return;
     const filePath = this.extractPathFromUrl(imageUrl);
     if (!filePath) return;
 
@@ -86,7 +131,7 @@ export class UserStorageService {
       if (index === -1) return null;
 
       return decodeURIComponent(url.pathname.substring(index + marker.length));
-    } catch (error) {
+    } catch {
       return null;
     }
   }
