@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   User,
@@ -20,6 +20,7 @@ import {
   DEFAULT_PARTICIPANT_IMAGE_URL,
   DEFAULT_ORGANIZER_IMAGE_URL,
 } from '../constants/user-images.constant';
+import { UserStorageService } from './user-storage.service';
 
 // default empty preferences
 const DEFAULT_PREFERENCES: UserPreferences = {
@@ -31,7 +32,10 @@ const DEFAULT_PREFERENCES: UserPreferences = {
 
 @Injectable()
 export class UserCrudService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly userStorageService: UserStorageService,
+  ) {}
 
   async getUserById(userId: string): Promise<UserWithProfiles | null> {
     return this.prisma.user.findUnique({
@@ -73,7 +77,10 @@ export class UserCrudService {
         contactEmail: dto.contactEmail ?? '',
         contactPhone: dto.contactPhone ?? '',
         contactLineId: dto.contactLineId ?? '',
-        imageUrl: dto.imageUrl ?? DEFAULT_PARTICIPANT_IMAGE_URL,
+        imageUrl: this.userStorageService.resolveImageUrl(
+          dto.imageUrl,
+          DEFAULT_PARTICIPANT_IMAGE_URL,
+        ),
         preferences: dto.preferences
           ? (dto.preferences as unknown as Prisma.InputJsonValue)
           : (DEFAULT_PREFERENCES as unknown as Prisma.InputJsonValue),
@@ -85,6 +92,9 @@ export class UserCrudService {
     userId: string,
     dto: UpdateParticipantProfileDto,
   ): Promise<ParticipantProfile> {
+    dto.imageUrl = this.userStorageService.resolveImageUrl(dto.imageUrl, DEFAULT_PARTICIPANT_IMAGE_URL);
+    await this.deleteOrphanProfileImageIfReplaced(userId, dto.imageUrl ?? DEFAULT_PARTICIPANT_IMAGE_URL);
+
     return this.prisma.participantProfile.update({
       where: { userId },
       data: {
@@ -128,7 +138,10 @@ export class UserCrudService {
         contactEmail: dto.contactEmail ?? '',
         contactPhone: dto.contactPhone ?? '',
         contactLineId: dto.contactLineId ?? '',
-        imageUrl: dto.imageUrl ?? DEFAULT_ORGANIZER_IMAGE_URL,
+        imageUrl: this.userStorageService.resolveImageUrl(
+          dto.imageUrl,
+          DEFAULT_ORGANIZER_IMAGE_URL,
+        ),
         externalUrl: dto.externalUrl ?? '',
       },
     });
@@ -138,6 +151,9 @@ export class UserCrudService {
     userId: string,
     dto: UpdateOrganizerProfileDto,
   ): Promise<OrganizerProfile> {
+    dto.imageUrl = this.userStorageService.resolveImageUrl(dto.imageUrl, DEFAULT_ORGANIZER_IMAGE_URL);
+    await this.deleteOrphanOrganizerImageIfReplaced(userId, dto.imageUrl ?? DEFAULT_ORGANIZER_IMAGE_URL);
+
     return this.prisma.organizerProfile.update({
       where: { userId },
       data: {
@@ -176,5 +192,53 @@ export class UserCrudService {
     participantProfileId: string,
   ): Promise<EventRegistration[]> {
     return [];
+  }
+
+
+  // ----- helper methods ----
+  async deleteOrphanProfileImageIfReplaced(
+    userId: string,
+    newImageUrl: string,
+  ): Promise<void> {
+    const existing = await this.prisma.participantProfile.findUnique({
+      where: { userId },
+      select: { imageUrl: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundException(' Participant profile not found.');
+    }
+
+    const oldImageUrl = existing.imageUrl;
+    if (
+      oldImageUrl &&
+      oldImageUrl !== newImageUrl &&
+      oldImageUrl !== DEFAULT_PARTICIPANT_IMAGE_URL
+    ) {
+      await this.userStorageService.deleteOldImageFromStorage(oldImageUrl);
+    }
+  }
+
+  async deleteOrphanOrganizerImageIfReplaced(
+    userId: string,
+    newImageUrl: string,
+  ): Promise<void> {
+    const existing = await this.prisma.organizerProfile.findUnique({
+      where: { userId },
+      select: { imageUrl: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundException(' Organizer profile not found.');
+    }
+    
+    const oldImageUrl = existing.imageUrl;
+    if (
+      oldImageUrl &&
+      oldImageUrl !== newImageUrl &&
+      oldImageUrl !== DEFAULT_ORGANIZER_IMAGE_URL
+    ) {
+      await this.userStorageService.deleteOldImageFromStorage(oldImageUrl);
+    }
   }
 }
