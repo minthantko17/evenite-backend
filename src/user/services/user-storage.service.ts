@@ -51,7 +51,7 @@ export class UserStorageService {
     return data.publicUrl;
   }
 
-  resolveImageUrl(imageUrl: string | undefined, defaultUrl: string): string {
+  resolveImageUrl(imageUrl: string | undefined | null, defaultUrl: string): string {
     if (!imageUrl || imageUrl.trim() === '') {
       return defaultUrl;
     }

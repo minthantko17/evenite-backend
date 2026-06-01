@@ -15,19 +15,11 @@ import { UpdateParticipantProfileDto } from '../dto/update-participant-profile.d
 import { CreateOrganizerProfileDto } from '../dto/create-organizer-profile.dto';
 import { UpdateOrganizerProfileDto } from '../dto/update-organizer-profile.dto';
 import { UserWithProfiles } from '../../auth/services/auth-crud.service';
-import { UserPreferences } from '../constants/user-preferences.constant';
+import { UserPreferences, DEFAULT_PREFERENCES } from '../constants/user-preferences.constant';
 import {
   DEFAULT_PARTICIPANT_IMAGE_URL,
   DEFAULT_ORGANIZER_IMAGE_URL,
 } from '../constants/user-images.constant';
-
-// default empty preferences
-const DEFAULT_PREFERENCES: UserPreferences = {
-  personal: [],
-  personalOther: '',
-  event: [],
-  language: [],
-};
 
 @Injectable()
 export class UserCrudService {

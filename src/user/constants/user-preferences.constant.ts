@@ -29,3 +29,11 @@ export interface UserPreferences {
   event: EventPreference[];
   language: Language[];
 }
+
+export const DEFAULT_PREFERENCES: UserPreferences = {
+  personal: [],
+  personalOther: '',
+  event: [],
+  language: [],
+};
+export type DefaultParticipantPreferences = typeof DEFAULT_PREFERENCES;

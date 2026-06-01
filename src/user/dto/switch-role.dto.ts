@@ -3,5 +3,5 @@ import { Role } from '@prisma/client';
 
 export class SwitchRoleDto {
   @IsEnum(Role)
-  currentRole!: Role;
+  targetRole!: Role;
 }
