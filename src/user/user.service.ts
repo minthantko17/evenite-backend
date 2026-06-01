@@ -20,6 +20,7 @@ import {
   DEFAULT_ORGANIZER_IMAGE_URL,
 } from './constants/user-images.constant';
 import { DEFAULT_PREFERENCES } from './constants/user-preferences.constant';
+import type { ReturnSwitchProfileDto } from './dto/return-switch-profile.dto';
 
 @Injectable()
 export class UserService {
@@ -31,12 +32,12 @@ export class UserService {
     private readonly authCrudService: AuthCrudService,
   ) {}
 
-  async getMyProfile(userId: string): Promise<ReturnUserDto> {
+  async getUserProfile(userId: string): Promise<ReturnUserDto> {
     const user = await this.userValidationService.checkUserExists(userId);
     return this.mapToReturnUserDto(user);
   }
 
-  async getMyParticipantProfile(
+  async getParticipantProfile(
     userId: string,
   ): Promise<ReturnParticipantProfileDto> {
     await this.userValidationService.checkUserExists(userId);
@@ -62,6 +63,7 @@ export class UserService {
       userId,
       dto,
     );
+    await this.userCrudService.updateUserRole(userId, 'PARTICIPANT');
     const accessToken = await this.issueNewAccessToken(userId);
 
     return {
@@ -70,7 +72,7 @@ export class UserService {
     };
   }
 
-  async updateMyParticipantProfile(
+  async updateParticipantProfile(
     userId: string,
     dto: UpdateParticipantProfileDto,
   ): Promise<ReturnParticipantProfileDto> {
@@ -78,11 +80,12 @@ export class UserService {
     await this.userValidationService.checkParticipantProfileExists(userId);
     this.userValidationService.validateParticipantProfileData(dto);
 
+    const hasImageUrlField = dto.imageUrl !== undefined;
     dto.imageUrl = this.userStorageService.resolveImageUrl(
       dto.imageUrl,
       DEFAULT_PARTICIPANT_IMAGE_URL,
     );
-    if (dto.imageUrl !== undefined) {
+    if (hasImageUrlField) {
       await this.userStorageService.deleteOrphanProfileImageIfReplaced(
         userId,
         dto.imageUrl,
@@ -98,7 +101,6 @@ export class UserService {
   }
 
   async uploadParticipantImage(
-    userId: string,
     file: Express.Multer.File,
   ): Promise<{ imageUrl: string }> {
     this.userValidationService.validateImageFile(file);
@@ -112,7 +114,7 @@ export class UserService {
 
   // Organizer
 
-  async getMyOrganizerProfile(
+  async getOrganizerProfile(
     userId: string,
   ): Promise<ReturnOrganizerProfileDto> {
     await this.userValidationService.checkUserExists(userId);
@@ -138,6 +140,7 @@ export class UserService {
       userId,
       dto,
     );
+    await this.userCrudService.updateUserRole(userId, 'ORGANIZER');
     const accessToken = await this.issueNewAccessToken(userId);
 
     return {
@@ -146,7 +149,7 @@ export class UserService {
     };
   }
 
-  async updateMyOrganizerProfile(
+  async updateOrganizerProfile(
     userId: string,
     dto: UpdateOrganizerProfileDto,
   ): Promise<ReturnOrganizerProfileDto> {
@@ -154,11 +157,12 @@ export class UserService {
     await this.userValidationService.checkOrganizerProfileExists(userId);
     this.userValidationService.validateOrganizerProfileData(dto);
     
+    const hasImageUrlField = dto.imageUrl !== undefined;
     dto.imageUrl = this.userStorageService.resolveImageUrl(
       dto.imageUrl,
       DEFAULT_ORGANIZER_IMAGE_URL,
     );
-    if (dto.imageUrl !== undefined) {
+    if (hasImageUrlField) {
       await this.userStorageService.deleteOrphanOrganizerImageIfReplaced(
         userId,
         dto.imageUrl,
@@ -174,7 +178,6 @@ export class UserService {
   }
 
   async uploadOrganizerImage(
-    userId: string,
     file: Express.Multer.File,
   ): Promise<{ imageUrl: string }> {
     this.userValidationService.validateImageFile(file);
@@ -187,10 +190,10 @@ export class UserService {
   }
 
 
-  async switchRole(
+  async switchProfile(
     userId: string,
     dto: SwitchRoleDto,
-  ): Promise<{ message: string; accessToken: string }> {
+  ): Promise<ReturnSwitchProfileDto> {
     const user = await this.userValidationService.checkUserExists(userId);
 
     // check role switching is possible
@@ -199,11 +202,14 @@ export class UserService {
       dto.targetRole,
     );
 
-    // check profile exists for target role
+    let returnProfile: ReturnParticipantProfileDto | ReturnOrganizerProfileDto;
+
     if (dto.targetRole === 'PARTICIPANT') {
-      await this.userValidationService.checkParticipantProfileExists(userId);
+      const participantProfile = await this.userValidationService.checkParticipantProfileExists(userId);
+      returnProfile = this.mapToReturnParticipantProfileDto(participantProfile);
     } else {
-      await this.userValidationService.checkOrganizerProfileExists(userId);
+      const organizerProfile = await this.userValidationService.checkOrganizerProfileExists(userId);
+      returnProfile = this.mapToReturnOrganizerProfileDto(organizerProfile);
     }
 
     await this.userCrudService.updateUserRole(userId, dto.targetRole);
@@ -212,6 +218,7 @@ export class UserService {
     return {
       message: `Switched to ${dto.targetRole.toLowerCase()} mode successfully.`,
       accessToken,
+      profile: returnProfile,
     };
   }
 
@@ -236,10 +243,6 @@ export class UserService {
   }
 
 
-
-  // Issues new access token with latest user + profile data
-  // Called after profile creation or role switch
-  // to ensure JWT reflects updated state
   private async issueNewAccessToken(userId: string): Promise<string> {
     const user = await this.authCrudService.findUserById(userId);
     if (!user) throw new Error('User not found.');
