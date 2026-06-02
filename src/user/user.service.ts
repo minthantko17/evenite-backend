@@ -21,6 +21,7 @@ import {
 } from './constants/user-images.constant';
 import { DEFAULT_PREFERENCES } from './constants/user-preferences.constant';
 import type { ReturnSwitchProfileDto } from './dto/return-switch-profile.dto';
+import { EventRegistrationWithEvent } from './services/user-crud.service';
 
 @Injectable()
 export class UserService {
@@ -238,7 +239,9 @@ export class UserService {
     );
   }
 
-  async getRegisteredEvents(userId: string): Promise<EventRegistration[]> {
+  async getRegisteredEvents(
+    userId: string,
+  ): Promise<EventRegistrationWithEvent[]> {
     await this.userValidationService.checkUserExists(userId);
     const profile =
       await this.userValidationService.checkParticipantProfileExists(userId);

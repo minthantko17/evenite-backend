@@ -85,8 +85,15 @@ export class FormController {
     @Param('eventId', ParseUUIDPipe) eventId: string,
     @Param('type', new ParseEnumPipe(FormType)) type: FormType,
     @Body() dto: CreateFormResponseDto,
+    @Req() req: Request,
   ): Promise<ReturnFormSubmissionItem> {
-    return this.formService.createFormResponse(eventId, type, dto);
+    const user = req.user as JwtAccessPayload;
+    return this.formService.createFormResponse(
+      eventId,
+      type,
+      dto,
+      user.participantProfileId,  // ← ADD
+    );
   }
 
   // TEMP: dev convenience only

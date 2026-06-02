@@ -1,5 +1,5 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { FormType, FieldType } from '@prisma/client';
+import { Injectable, Logger } from '@nestjs/common';
+import { FormType, FieldType, RegistrationStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateFormDto } from '../dto/create-form.dto';
 import { UpdateFormDto } from '../dto/update-form.dto';
@@ -12,7 +12,6 @@ import { CreateFormResponseDto } from '../dto/create-form-response.dto';
 import { ReturnFormSubmissionItem } from '../dto/return-form-submissions.dto';
 import { ReturnFormFieldAnswer } from '../dto/return-form-submissions.dto';
 import { DeleteFormException } from '../exceptions/delete-form.exception';
-import { FormFieldInvalidException } from '../exceptions/form-field-invalid.exception';
 
 @Injectable()
 export class FormCrudService {
@@ -308,6 +307,7 @@ export class FormCrudService {
   async createFormResponse(
     formId: string,
     dto: CreateFormResponseDto,
+    eventRegistrationId: string | null,
   ): Promise<ReturnFormSubmissionItem> {
     const fields = await this.prisma.formField.findMany({
       where: { formId },
@@ -319,6 +319,7 @@ export class FormCrudService {
       const response = await this.prisma.formResponse.create({
         data: {
           formId,
+          eventRegistrationId,
           fieldResponses: {
             create: dto.answers.map((answer) => ({
               formFieldId: answer.formFieldId,
@@ -413,6 +414,27 @@ export class FormCrudService {
       this.logger.error('Failed to delete all form responses', error);
       throw new DeleteFormException();
     }
+  }
+
+  async createEventRegistration(eventId: string, participantProfileId: string) {
+    return this.prisma.eventRegistration.create({
+      data: {
+        eventId,
+        participantId: participantProfileId,
+        status: RegistrationStatus.CONFIRMED,
+      },
+    });
+  }
+
+  async findEventRegistration(eventId: string, participantProfileId: string) {
+    return this.prisma.eventRegistration.findUnique({
+      where: {
+        participantId_eventId: {
+          participantId: participantProfileId,
+          eventId,
+        },
+      },
+    });
   }
 
   private mapValueToColumn(

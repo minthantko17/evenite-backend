@@ -29,6 +29,7 @@ import { ReturnParticipantProfileDto } from './dto/return-participant-profile.dt
 import { ReturnOrganizerProfileDto } from './dto/return-organizer-profile.dto';
 import { ReturnSwitchProfileDto } from './dto/return-switch-profile.dto';
 import { Event, EventRegistration } from '@prisma/client';
+import { EventRegistrationWithEvent } from './services/user-crud.service';
 
 @Controller('users')
 @UseGuards(JwtAccessGuard, RolesGuard) // all endpoints require auth
@@ -91,7 +92,9 @@ export class UserController {
   // TODO: refine in Feature #5
   @Get('me/registered-events')
   @Roles(Role.PARTICIPANT)
-  getCurrentUserRegisteredEvents(@Req() req: Request): Promise<EventRegistration[]> {
+  getCurrentUserRegisteredEvents(
+    @Req() req: Request,
+  ): Promise<EventRegistrationWithEvent[]> {
     const user = req.user as JwtAccessPayload;
     return this.userService.getRegisteredEvents(user.sub);
   }

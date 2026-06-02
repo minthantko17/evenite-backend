@@ -21,6 +21,10 @@ import {
   DEFAULT_ORGANIZER_IMAGE_URL,
 } from '../constants/user-images.constant';
 
+export type EventRegistrationWithEvent = Prisma.EventRegistrationGetPayload<{
+  include: { event: true };
+}>;
+
 @Injectable()
 export class UserCrudService {
   constructor(
@@ -170,7 +174,11 @@ export class UserCrudService {
   // TODO: refine in Feature #5
   async getRegisteredEvents(
     participantProfileId: string,
-  ): Promise<EventRegistration[]> {
-    return [];
+  ): Promise<EventRegistrationWithEvent[]> {
+    return this.prisma.eventRegistration.findMany({
+      where: { participantId: participantProfileId },
+      include: { event: true },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 }

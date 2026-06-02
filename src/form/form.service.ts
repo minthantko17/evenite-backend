@@ -98,6 +98,7 @@ export class FormService {
     eventId: string,
     type: FormType,
     dto: CreateFormResponseDto,
+    participantProfileId: string | null,
   ): Promise<ReturnFormSubmissionItem> {
     await this.formValidationService.validateEventExists(eventId);
     const form = await this.formCrudService.getFormByEventAndType(
@@ -108,7 +109,31 @@ export class FormService {
       form.fields,
       dto.answers,
     );
-    return await this.formCrudService.createFormResponse(form.id, dto);
+
+    let eventRegistrationId: string | null = null;
+    if (participantProfileId) {
+      if (type === FormType.REGISTRATION) {
+        // create new EventRegistration
+        const registration = await this.formCrudService.createEventRegistration(
+          eventId,
+          participantProfileId,
+        );
+        eventRegistrationId = registration.id;
+      } else if (type === FormType.FEEDBACK) {
+        // find existing EventRegistration to link feedback
+        const registration = await this.formCrudService.findEventRegistration(
+          eventId,
+          participantProfileId,
+        );
+        eventRegistrationId = registration?.id ?? null;
+      }
+    }
+    
+    return this.formCrudService.createFormResponse(
+      form.id,
+      dto,
+      eventRegistrationId,
+    );
   }
 
   async deleteForm(
