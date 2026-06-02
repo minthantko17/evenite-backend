@@ -154,11 +154,13 @@ export class UserCrudService {
 
   async getCreatedEvents(
     organizerProfileId: string,
+    universityId: string,
     status?: EventStatus,
   ): Promise<Event[]> {
     return this.prisma.event.findMany({
       where: {
         organizerId: organizerProfileId,
+        universityId,
         ...(status && { status }),
       },
       orderBy: { createdAt: 'desc' },
