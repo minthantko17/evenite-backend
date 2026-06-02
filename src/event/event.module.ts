@@ -9,10 +9,12 @@ import { EventAiService } from './services/event-ai.service';
 import { EventStorageService } from './services/event-storage.service';
 import { EventCrudService } from './services/event-crud.service';
 import { EventDataUtils } from './utils/event-data.utils';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
     PrismaModule,
+    AuthModule,
     MulterModule.register({
       storage: memoryStorage(),
       limits: {

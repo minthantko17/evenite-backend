@@ -20,15 +20,19 @@ export class FormService {
   async createForm(
     eventId: string,
     dto: CreateFormDto,
+    organizerProfileId: string,
   ): Promise<ReturnFormWithFields> {
     await this.formValidationService.validateEventExists(eventId);
+    await this.formValidationService.validateEventOwnership(
+      eventId,
+      organizerProfileId,
+    );
     await this.formValidationService.validateFormTypeNotDuplicated(
       eventId,
       dto.type,
     );
     this.formValidationService.validateFormFields(dto.fields);
-
-    return await this.formCrudService.createForm(eventId, dto);
+    return this.formCrudService.createForm(eventId, dto);
   }
 
   async getFormsByEventId(eventId: string): Promise<ReturnFormWithFields[]> {
@@ -48,32 +52,46 @@ export class FormService {
     eventId: string,
     type: FormType,
     dto: UpdateFormDto,
+    organizerProfileId: string,
   ): Promise<ReturnFormWithFields> {
     await this.formValidationService.validateEventExists(eventId);
+    await this.formValidationService.validateEventOwnership(
+      eventId,
+      organizerProfileId,
+    );
     const form = await this.formCrudService.getFormByEventAndType(eventId,type);
     await this.formValidationService.validateFormNotLocked(form.id);
     await this.formValidationService.validateNoResponsesExist(form.id);
     if (dto.fields) {
       this.formValidationService.validateFormFields(dto.fields);
     }
-    
-    return await this.formCrudService.updateFormById(form.id, dto);
+    return this.formCrudService.updateFormById(form.id, dto);
   }
 
   async getFormResponses(
     eventId: string,
     type: FormType,
+    organizerProfileId: string,
   ): Promise<ReturnFormSubmissions> {
     await this.formValidationService.validateEventExists(eventId);
-    return await this.formCrudService.getFormResponses(eventId, type);
+    await this.formValidationService.validateEventOwnership(
+      eventId,
+      organizerProfileId,
+    );
+    return this.formCrudService.getFormResponses(eventId, type);
   }
 
   async getFormResponsesSummary(
     eventId: string,
     type: FormType,
+    organizerProfileId: string,
   ): Promise<ReturnFormSummary> {
     await this.formValidationService.validateEventExists(eventId);
-    return await this.formCrudService.getFormResponsesSummary(eventId, type);
+    await this.formValidationService.validateEventOwnership(
+      eventId,
+      organizerProfileId,
+    );
+    return this.formCrudService.getFormResponsesSummary(eventId, type);
   }
 
   async createFormResponse(
@@ -93,8 +111,16 @@ export class FormService {
     return await this.formCrudService.createFormResponse(form.id, dto);
   }
 
-  async deleteForm(eventId: string, type: FormType): Promise<void> {
+  async deleteForm(
+    eventId: string,
+    type: FormType,
+    organizerProfileId: string,
+  ): Promise<void> {
     await this.formValidationService.validateEventExists(eventId);
+    await this.formValidationService.validateEventOwnership(
+      eventId,
+      organizerProfileId,
+    );
     const form = await this.formCrudService.getFormByEventAndType(
       eventId,
       type,
@@ -108,8 +134,13 @@ export class FormService {
     eventId: string,
     type: FormType,
     responseId: string,
+    organizerProfileId: string,
   ): Promise<void> {
     await this.formValidationService.validateEventExists(eventId);
+    await this.formValidationService.validateEventOwnership(
+      eventId,
+      organizerProfileId,
+    );
     const form = await this.formCrudService.getFormByEventAndType(
       eventId,
       type,
@@ -120,12 +151,17 @@ export class FormService {
   async deleteAllFormResponses(
     eventId: string,
     type: FormType,
+    organizerProfileId: string,
   ): Promise<{ deletedCount: number }> {
     await this.formValidationService.validateEventExists(eventId);
+    await this.formValidationService.validateEventOwnership(
+      eventId,
+      organizerProfileId,
+    );
     const form = await this.formCrudService.getFormByEventAndType(
       eventId,
       type,
     );
-    return await this.formCrudService.deleteAllFormResponses(form.id);
+    return this.formCrudService.deleteAllFormResponses(form.id);
   }
 }

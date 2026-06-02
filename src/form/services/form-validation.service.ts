@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { FormType } from '@prisma/client';
 import { FieldType, EventStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -11,6 +11,7 @@ import { FormHasResponsesException } from '../exceptions/form-has-responses.exce
 import { FormAlreadyHasResponsesException } from '../exceptions/form-already-has-responses.exception';
 import { CreateFormFieldAnswerDto } from '../dto/create-form-response.dto';
 import { ReturnFormField } from '../dto/return-form-with-fields.dto';
+import { EventNotFoundException } from '../../event/exceptions/event-not-found.exception';
 
 @Injectable()
 export class FormValidationService {
@@ -85,6 +86,26 @@ export class FormValidationService {
     });
     if (count > 0) {
       throw new FormHasResponsesException();
+    }
+  }
+
+  async validateEventOwnership(
+    eventId: string,
+    organizerProfileId: string,
+  ): Promise<void> {
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+      select: { organizerId: true },
+    });
+
+    if (!event) {
+      throw new EventNotFoundException();
+    }
+
+    if (event.organizerId !== organizerProfileId) {
+      throw new ForbiddenException(
+        'You do not have permission to manage this event.',
+      );
     }
   }
 
