@@ -35,7 +35,7 @@ beforeAll(() => {
 });
 
 const fixturesPath = path.join(__dirname, '../../../test/fixtures/images');
-const MOCK_SUPABASE_BASE_URL = 'https://mockproject.supabase.co/storage/v1/object/public/banners';
+const MOCK_SUPABASE_BASE_URL = 'https://mockproject.supabase.co/storage/v1/object/public/evenite-images';
 
 const createMockFile = (
   buffer: Buffer,
