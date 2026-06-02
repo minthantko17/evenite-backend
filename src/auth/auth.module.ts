@@ -11,6 +11,7 @@ import { AuthTokenService } from './services/auth-token.service';
 import { AuthEmailService } from './services/auth-email.service';
 import { JwtAccessStrategy } from './strategies/jwt-access.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
+import { RolesGuard } from './guards/roles.guard';
 
 @Module({
   imports: [
@@ -28,11 +29,13 @@ import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
     AuthEmailService,
     JwtAccessStrategy,
     JwtRefreshStrategy,
+    RolesGuard,
   ],
   exports: [
     AuthCrudService,
-    AuthTokenService, 
+    AuthTokenService,
     JwtAccessStrategy,
+    RolesGuard,
   ],
 })
 export class AuthModule {}
