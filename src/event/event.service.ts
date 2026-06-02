@@ -1,16 +1,16 @@
-import { Injectable } from '@nestjs/common';
-import { Event, EventStatus} from '@prisma/client';
+import { Injectable, ForbiddenException } from '@nestjs/common';
+import { Event, EventStatus, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventValidationService } from './services/event-validation.service';
 import { EventAiService } from './services/event-ai.service';
 import { EventStorageService } from './services/event-storage.service';
 import { EventCrudService } from './services/event-crud.service';
-
 import { GeneratedEventDto } from './dto/generated-event.dto';
 import { SaveDraftDto } from './dto/save-draft.dto';
 import { PublishEventDto } from './dto/publish-event.dto';
 import type { TranslateBilingualFieldsDto } from './dto/translate-bilingual-fields.dto';
 import { EventResponseDto } from './dto/event-response.dto';
+import { EventNotFoundException } from './exceptions/event-not-found.exception';
 
 @Injectable()
 export class EventService {
@@ -42,19 +42,71 @@ export class EventService {
     return this.eventAiService.translateEventFields(dto);
   }
 
-  async saveEventAsDraft(dto: SaveDraftDto): Promise<Event> {
-    return this.eventCrudService.saveEventAsDraft(dto, dto.id);
+  async saveEventAsDraft(
+    dto: SaveDraftDto,
+    organizerProfileId: string,
+    universityId: string,
+  ): Promise<Event> {
+    return this.eventCrudService.saveEventAsDraft(
+      dto,
+      organizerProfileId,
+      universityId,
+      dto.id,
+    );
   }
 
-  async publishEvent(dto: PublishEventDto): Promise<Event> {
-    return this.eventCrudService.publishEvent(dto, dto.id);
+  async publishEvent(
+    dto: PublishEventDto,
+    organizerProfileId: string,
+    universityId: string,
+  ): Promise<Event> {
+    return this.eventCrudService.publishEvent(
+      dto,
+      organizerProfileId,
+      universityId,
+      dto.id,
+    );
   }
 
-  async getEvents(status?: EventStatus): Promise<EventResponseDto[]> {
-    return this.eventCrudService.getEvents(status);
+  async getPublicEvents(
+    universityId: string,
+    status?: EventStatus,
+  ): Promise<EventResponseDto[]> {
+
+    const visibleStatuses = [
+      EventStatus.PUBLISHED,
+      EventStatus.ONGOING,
+      EventStatus.CONCLUDED,
+    ] as EventStatus[];
+
+    // to prevent participant from filtering by DRAFT etc.
+    if(status && !visibleStatuses.includes(status)){
+      throw new ForbiddenException('You are not allowed to filter by this status');
+    }
+
+    return this.eventCrudService.getEvents(universityId, status ?? visibleStatuses);
   }
 
-  async getEventById(id: string): Promise<EventResponseDto> {
-    return this.eventCrudService.getEventById(id);
+  async getEventById(
+    id: string,
+    organizerProfileId: string | null,
+  ): Promise<EventResponseDto> {
+    const event = await this.eventCrudService.getEventById(id);
+
+    // participants can't see DRAFT
+    const visibleStatuses = [
+      EventStatus.PUBLISHED,
+      EventStatus.ONGOING,
+      EventStatus.CONCLUDED,
+    ] as EventStatus[];
+
+    const isOwner = event.organizerId === organizerProfileId;
+    const isVisible = visibleStatuses.includes(event.status);
+
+    if (!isOwner && !isVisible) {
+      throw new EventNotFoundException();
+    }
+
+    return event;
   }
 }

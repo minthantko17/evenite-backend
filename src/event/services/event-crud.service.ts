@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, ForbiddenException } from '@nestjs/common';
 import { Prisma, Event, EventStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventStorageService } from './event-storage.service';
@@ -14,6 +14,7 @@ import { SaveEventException } from '../exceptions/save-event.exception';
 import { PublishEventException } from '../exceptions/publish-event.exception';
 import { InvalidDateRangeException } from '../exceptions/invalid-date-range.exception';
 import { DEFAULT_BANNER_URL } from '../constants/event-category.constant';
+import { EventNotFoundException } from '../exceptions/event-not-found.exception';
 
 @Injectable()
 export class EventCrudService {
@@ -24,9 +25,16 @@ export class EventCrudService {
     private readonly eventValidationService: EventValidationService,
   ) {}
 
-  async saveEventAsDraft(dto: SaveDraftDto, eventId?: string): Promise<Event> {
+  async saveEventAsDraft(
+    dto: SaveDraftDto,
+    organizerProfileId: string,
+    universityId: string,
+    eventId?: string,
+  ): Promise<Event> {
     const sanitizedEventData = this.sanitizeEventData(dto);
     const jsonEventData = {
+      organizerId: organizerProfileId,
+      universityId: universityId,
       title: this.toJson(sanitizedEventData.title),
       description: this.toJson(sanitizedEventData.description),
       category: sanitizedEventData.category,
@@ -51,6 +59,7 @@ export class EventCrudService {
     };
     try {
       if (eventId) {
+        await this.validateEventOwnership(eventId, organizerProfileId);
         await this.deleteOrphanBannerIfReplaced(eventId, jsonEventData.bannerUrl);
         return await this.prisma.event.update({
           where: { id: eventId },
@@ -61,17 +70,25 @@ export class EventCrudService {
         data: jsonEventData,
       });
     } catch (error) {
-      if (error instanceof NotFoundException) throw error;
+      if (error instanceof EventNotFoundException) throw error;
+      if (error instanceof ForbiddenException) throw error;
       throw new SaveEventException();
     }
   }
 
-  async publishEvent(dto: PublishEventDto, eventId?: string): Promise<Event> {
+  async publishEvent(
+    dto: PublishEventDto,
+    organizerProfileId: string,
+    universityId: string,
+    eventId?: string,
+  ): Promise<Event> {
     this.eventValidationService.validatePublishDateRange(dto.startAt, dto.endAt);
     const sanitizedEventData = this.sanitizeEventData(dto);
     const now = new Date();
 
     const jsonEventData = {
+      organizerId: organizerProfileId,
+      universityId: universityId,
       title: this.toJson(sanitizedEventData.title),
       description: this.toJson(sanitizedEventData.description),
       category: sanitizedEventData.category,
@@ -98,6 +115,7 @@ export class EventCrudService {
 
     try {
       if (eventId) {
+        await this.validateEventOwnership(eventId, organizerProfileId);
         await this.deleteOrphanBannerIfReplaced(eventId, jsonEventData.bannerUrl);
         return await this.prisma.event.update({
           where: { id: eventId },
@@ -109,14 +127,27 @@ export class EventCrudService {
       });
     } catch (error) {
       if (error instanceof InvalidDateRangeException) throw error;
-      if (error instanceof NotFoundException) throw error;
+      if (error instanceof EventNotFoundException) throw error;
+      if (error instanceof ForbiddenException) throw error;
       throw new PublishEventException();
     }
   }
 
-  async getEvents(status?: EventStatus): Promise<EventResponseDto[]> {
+  async getEvents(
+    universityId: string,
+    status?: EventStatus | EventStatus[],
+  ): Promise<EventResponseDto[]> {
+    console.log('Getting events with status:', status);
     const events = await this.prisma.event.findMany({
-      where: status ? { status }: undefined,
+      where: {
+        universityId,
+        ...(status 
+          ? Array.isArray(status)
+            ? { status: { in: status } }
+            : { status }
+          : {}
+        ),
+      },
       orderBy: { createdAt: 'desc' },
       include: {
         forms: {
@@ -139,7 +170,7 @@ export class EventCrudService {
     });
 
     if (!event) {
-      throw new NotFoundException(`Event not found.`);
+      throw new EventNotFoundException();
     }
 
     return this.mapToEventResponseDto(event);
@@ -185,7 +216,7 @@ export class EventCrudService {
       select: { bannerUrl: true },
     });
 
-    if (!existing) throw new NotFoundException('Event not found.');
+    if (!existing) throw new EventNotFoundException();
 
     const oldBannerUrl = existing.bannerUrl;
 
@@ -201,6 +232,8 @@ export class EventCrudService {
 private mapToEventResponseDto(event: any): EventResponseDto {
     return {
       id: event.id,
+      organizerId: event.organizerId,
+      universityId: event.universityId,
       title: event.title as BilingualField,
       description: event.description as BilingualField,
       category: event.category ?? [],
@@ -231,5 +264,25 @@ private mapToEventResponseDto(event: any): EventResponseDto {
           type: form.type,
         })) ?? [],
     };
+  }
+
+  private async validateEventOwnership(
+    eventId: string,
+    organizerProfileId: string,
+  ): Promise<void> {
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+      select: { organizerId: true },
+    });
+
+    if (!event) {
+      throw new EventNotFoundException();
+    }
+
+    if (event.organizerId !== organizerProfileId) {
+      throw new ForbiddenException(
+        'You do not have permission to edit this event.',
+      );
+    }
   }
 }

@@ -9,6 +9,8 @@ export interface CreatedEventForm {
 
 export interface EventResponseDto {
   id: string;
+  organizerId: string;
+  universityId: string;
   title: BilingualField;
   description: BilingualField;
   category: string[];
