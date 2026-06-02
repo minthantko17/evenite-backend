@@ -123,8 +123,8 @@ model EmailVerification {
 
 model Event {
   id                  String      @id @default(uuid())
-  organizerId         String?
-  universityId        String?
+  organizerId         String
+  universityId        String
   title               Json?
   description         Json?
   category            String[]
@@ -150,8 +150,8 @@ model Event {
   updatedAt           DateTime    @updatedAt
   publishedAt         DateTime?
 
-  organizer  OrganizerProfile? @relation(fields: [organizerId], references: [id])
-  university University?       @relation(fields: [universityId], references: [id])
+  organizer  OrganizerProfile @relation(fields: [organizerId], references: [id])
+  university University       @relation(fields: [universityId], references: [id])
   forms      Form[]
   eventRegistrations EventRegistration[]
 }
