@@ -113,6 +113,7 @@ export class FormService {
     let eventRegistrationId: string | null = null;
     if (participantProfileId) {
       if (type === FormType.REGISTRATION) {
+        // TODO: need to validate registration exists for participantId and eventid..well later
         // create new EventRegistration
         const registration = await this.formCrudService.createEventRegistration(
           eventId,

@@ -12,6 +12,7 @@ import { FormAlreadyHasResponsesException } from '../exceptions/form-already-has
 import { CreateFormFieldAnswerDto } from '../dto/create-form-response.dto';
 import { ReturnFormField } from '../dto/return-form-with-fields.dto';
 import { EventNotFoundException } from '../../event/exceptions/event-not-found.exception';
+import { ALLOWED_AUTOFILL_KEYS } from '../constants/form.constants';
 
 @Injectable()
 export class FormValidationService {
@@ -74,6 +75,16 @@ export class FormValidationService {
       ) {
         throw new FormFieldInvalidException(
           `Field at index ${index}: at least two options are required for ${field.type} type.`,
+        );
+      }
+      if (
+        field.autoFillKey !== null &&
+        field.autoFillKey !== undefined &&
+        field.autoFillKey.trim() !== '' &&
+        !ALLOWED_AUTOFILL_KEYS.includes(field.autoFillKey as any)
+      ) {
+        throw new FormFieldInvalidException(
+          `Field at index ${index}: invalid autoFillKey "${field.autoFillKey}".`,
         );
       }
     });
