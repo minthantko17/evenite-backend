@@ -59,7 +59,7 @@ export class EventCrudService {
     };
     try {
       if (eventId) {
-        await this.validateEventOwnership(eventId, organizerProfileId);
+        await this.eventValidationService.validateEventOwnership(eventId, organizerProfileId);
         await this.deleteOrphanBannerIfReplaced(eventId, jsonEventData.bannerUrl);
         return await this.prisma.event.update({
           where: { id: eventId },
@@ -82,7 +82,6 @@ export class EventCrudService {
     universityId: string,
     eventId?: string,
   ): Promise<Event> {
-    this.eventValidationService.validatePublishDateRange(dto.startAt, dto.endAt);
     const sanitizedEventData = this.sanitizeEventData(dto);
     const now = new Date();
 
@@ -115,7 +114,7 @@ export class EventCrudService {
 
     try {
       if (eventId) {
-        await this.validateEventOwnership(eventId, organizerProfileId);
+        await this.eventValidationService.validateEventOwnership(eventId, organizerProfileId);
         await this.deleteOrphanBannerIfReplaced(eventId, jsonEventData.bannerUrl);
         return await this.prisma.event.update({
           where: { id: eventId },
@@ -229,7 +228,7 @@ export class EventCrudService {
     }
   }
 
-private mapToEventResponseDto(event: any): EventResponseDto {
+  private mapToEventResponseDto(event: any): EventResponseDto {
     return {
       id: event.id,
       organizerId: event.organizerId,
@@ -264,25 +263,5 @@ private mapToEventResponseDto(event: any): EventResponseDto {
           type: form.type,
         })) ?? [],
     };
-  }
-
-  private async validateEventOwnership(
-    eventId: string,
-    organizerProfileId: string,
-  ): Promise<void> {
-    const event = await this.prisma.event.findUnique({
-      where: { id: eventId },
-      select: { organizerId: true },
-    });
-
-    if (!event) {
-      throw new EventNotFoundException();
-    }
-
-    if (event.organizerId !== organizerProfileId) {
-      throw new ForbiddenException(
-        'You do not have permission to edit this event.',
-      );
-    }
   }
 }

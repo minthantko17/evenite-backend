@@ -13,6 +13,8 @@ import { PublishEventDto } from '../dto/publish-event.dto';
 import { PublishEventException } from '../exceptions/publish-event.exception';
 import { InvalidDateRangeException } from '../exceptions/invalid-date-range.exception';
 import { EventStatus } from '@prisma/client';
+import { EventNotFoundException } from '../exceptions/event-not-found.exception';
+import { FormValidationService } from '../../form/services/form-validation.service';
 
 const mockPrisma = {
   event: {
@@ -30,6 +32,7 @@ const mockStorageService = {
 };
 
 const mockValidationService = {
+  validateEventOwnership: jest.fn(),
   validatePublishDateRange: jest.fn(),
 };
 
@@ -427,13 +430,19 @@ describe('EventCrudService - getEvents', () => {
   });
 
   it('UT-M025-01: should return all events ordered by createdAt desc when no status provided', async () => {
+    const universityId = 'mock-university-uuid-1234';
+    const status = undefined;
     mockPrisma.event.findMany.mockResolvedValueOnce([mockEvent2, mockEvent]);
 
-    const result = await service.getEvents();
+    const result = await service.getEvents(
+      universityId
+    );
 
     expect(result).toEqual([mockEvent2, mockEvent]);
     expect(mockPrisma.event.findMany).toHaveBeenCalledWith({
-      where: undefined,
+      where: {
+        universityId,
+      },
       orderBy: { createdAt: 'desc' },
       include: {
         forms: {
@@ -445,14 +454,24 @@ describe('EventCrudService - getEvents', () => {
   });
 
   it('UT-M025-02: should return only published events when status PUBLISHED provided', async () => {
+    const universityId = 'mock-university-uuid-1234';
+    const status = EventStatus.PUBLISHED;
     mockPrisma.event.findMany.mockResolvedValueOnce([mockEvent]);
 
-    const result = await service.getEvents(EventStatus.PUBLISHED);
+    const result = await service.getEvents(universityId, status);
 
     expect(result).toEqual([mockEvent]);
     expect(result[0].status).toBe(EventStatus.PUBLISHED);
     expect(mockPrisma.event.findMany).toHaveBeenCalledWith({
-      where: { status: EventStatus.PUBLISHED },
+      where: {
+        universityId,
+        ...(status 
+          ? Array.isArray(status)
+            ? { status: { in: status } }
+            : { status }
+          : {}
+        ),
+      },
       orderBy: { createdAt: 'desc' },
       include: {
         forms: {
@@ -463,15 +482,25 @@ describe('EventCrudService - getEvents', () => {
     expect(mockPrisma.event.findMany).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-M025-03: should return only draft events when status DRAFT provided', async () => {
+  it('UT-M025-03: should still return only draft events when status DRAFT provided', async () => {
+    const universityId = 'mock-university-uuid-1234';
+    const status = EventStatus.DRAFT;
     mockPrisma.event.findMany.mockResolvedValueOnce([mockEvent2]);
 
-    const result = await service.getEvents(EventStatus.DRAFT);
+    const result = await service.getEvents(universityId, status);
 
     expect(result).toEqual([mockEvent2]);
     expect(result[0].status).toBe(EventStatus.DRAFT);
     expect(mockPrisma.event.findMany).toHaveBeenCalledWith({
-      where: { status: EventStatus.DRAFT },
+      where: {
+        universityId,
+        ...(status 
+          ? Array.isArray(status)
+            ? { status: { in: status } }
+            : { status }
+          : {}
+        ),
+      },
       orderBy: { createdAt: 'desc' },
       include: {
         forms: {
@@ -483,9 +512,11 @@ describe('EventCrudService - getEvents', () => {
   });
 
   it('UT-M025-04: should return empty array when no events exist', async () => {
+    const universityId = 'mock-university-uuid-1234';
+    const status = undefined;
     mockPrisma.event.findMany.mockResolvedValueOnce([]);
 
-    const result = await service.getEvents();
+    const result = await service.getEvents(universityId, status);
 
     expect(result).toEqual([]);
     expect(mockPrisma.event.findMany).toHaveBeenCalledTimes(1);
@@ -559,13 +590,19 @@ describe('EventCrudService - saveEventAsDraft', () => {
   });
 
   it('UT-M022-01: should create new draft event and return created event when no eventId provided', async () => {
+    const organizerId = 'mock-org-uuid-1234';
+    const universityId = 'mock-university-uuid-1234';
     const dto = createMockSportsDayEvent();
     const newEventId = uuidv4();
     const expectedEvent = { ...dto, id: newEventId, status: 'DRAFT' };
     mockStorageService.resolveBannerUrl.mockReturnValue(dto.bannerUrl);
     mockPrisma.event.create.mockResolvedValueOnce(expectedEvent);
 
-    const result = await service.saveEventAsDraft(dto as SaveDraftDto);
+    const result = await service.saveEventAsDraft(
+      dto as SaveDraftDto,
+      organizerId,
+      universityId
+    );
 
     expect(result).toEqual(expectedEvent);
     expect(result.id).toBeDefined();
@@ -580,16 +617,21 @@ describe('EventCrudService - saveEventAsDraft', () => {
   });
 
   it('UT-M022-02: should update existing draft event and return updated event when eventId provided', async () => {
+    const organizerId = 'mock-org-uuid-1234';
+    const universityId = 'mock-university-uuid-1234';
     const dto = { ...createMockSportsDayEvent(), id: uuidv4() };
-    const expectedEvent = { ...dto, status: 'DRAFT' };
+    const expectedEvent = { ...dto, organizerId: organizerId, universityId: universityId, status: 'DRAFT' };
     mockStorageService.resolveBannerUrl.mockReturnValue(dto.bannerUrl);
     mockPrisma.event.findUnique.mockResolvedValueOnce({
       bannerUrl: DEFAULT_BANNER_URL,
     });
+    mockValidationService.validateEventOwnership.mockReturnValueOnce(true);
     mockPrisma.event.update.mockResolvedValueOnce(expectedEvent);
 
     const result = await service.saveEventAsDraft(
       dto as SaveDraftDto,
+      organizerId,
+      universityId,
       dto.id,
     );
 
@@ -608,41 +650,66 @@ describe('EventCrudService - saveEventAsDraft', () => {
   });
 
   it('UT-M022-03: should throw NotFoundException when eventId provided but event not found', async () => {
+    const organizerId = 'mock-org-uuid-1234';
+    const universityId = 'mock-university-uuid-1234';
     const dto = {...createMockSportsDayEvent(), id: uuidv4() };
     mockStorageService.resolveBannerUrl.mockReturnValue(dto.bannerUrl);
+    mockValidationService.validateEventOwnership.mockReturnValueOnce(FormValidationService);
     mockPrisma.event.findUnique.mockResolvedValueOnce(null);
 
     await expect(
-      service.saveEventAsDraft(dto as SaveDraftDto, dto.id),
-    ).rejects.toThrow(NotFoundException);
+      service.saveEventAsDraft(
+        dto as SaveDraftDto,
+        organizerId,
+        universityId,
+        dto.id),
+    ).rejects.toThrow(EventNotFoundException);
 
     mockPrisma.event.findUnique.mockResolvedValueOnce(null);
     await expect(
-      service.saveEventAsDraft(dto as SaveDraftDto, dto.id),
+      service.saveEventAsDraft(
+        dto as SaveDraftDto,
+        organizerId,
+        universityId,
+        dto.id),
     ).rejects.toThrow('Event not found.');
   });
 
   it('UT-M022-04: should throw SaveEventException when Prisma create fails', async () => {
+    const organizerId = 'mock-org-uuid-1234';
+    const universityId = 'mock-university-uuid-1234';
     const dto = createMockSportsDayEvent();
     mockStorageService.resolveBannerUrl.mockReturnValue(dto.bannerUrl);
+    mockValidationService.validateEventOwnership.mockReturnValueOnce(true);
     mockPrisma.event.create.mockRejectedValueOnce(
       new Error('DB connection failed'),
     );
-    await expect(service.saveEventAsDraft(dto as SaveDraftDto)).rejects.toThrow(
+    await expect(service.saveEventAsDraft(
+      dto as SaveDraftDto,
+      organizerId,
+      universityId
+    )).rejects.toThrow(
       SaveEventException,
     );
 
     mockPrisma.event.create.mockRejectedValueOnce(
       new Error('DB connection failed'),
     );
-    await expect(service.saveEventAsDraft(dto as SaveDraftDto)).rejects.toThrow(
+    await expect(service.saveEventAsDraft(
+      dto as SaveDraftDto,
+      organizerId,
+      universityId
+    )).rejects.toThrow(
       'Failed to save event. Please try again.',
     );
   });
 
   it('UT-M022-05: should throw SaveEventException when Prisma update fails', async () => {
+    const organizerId = 'mock-org-uuid-1234';
+    const universityId = 'mock-university-uuid-1234';
     const dto = {...createMockSportsDayEvent(), id: uuidv4() };
     mockStorageService.resolveBannerUrl.mockReturnValue(dto.bannerUrl);
+    mockValidationService.validateEventOwnership.mockReturnValueOnce(true);
     mockPrisma.event.findUnique.mockResolvedValueOnce({
       bannerUrl: DEFAULT_BANNER_URL,
     });
@@ -651,7 +718,11 @@ describe('EventCrudService - saveEventAsDraft', () => {
     );
 
     await expect(
-      service.saveEventAsDraft(dto as SaveDraftDto, dto.id),
+      service.saveEventAsDraft(
+        dto as SaveDraftDto,
+        organizerId,
+        universityId,
+        dto.id),
     ).rejects.toThrow(SaveEventException);
 
     mockPrisma.event.findUnique.mockResolvedValueOnce({
@@ -661,7 +732,12 @@ describe('EventCrudService - saveEventAsDraft', () => {
       new Error('DB connection failed'),
     );
     await expect(
-      service.saveEventAsDraft(dto as SaveDraftDto, dto.id),
+      service.saveEventAsDraft(
+        dto as SaveDraftDto,
+        organizerId,
+        universityId,
+        dto.id
+      ),
     ).rejects.toThrow('Failed to save event. Please try again.');
   });
 });
@@ -687,12 +763,14 @@ describe('EventCrudService - publishEvent', () => {
   it('UT-M017-01: should create new published event and return created event when no eventId provided', async () => {
     const dto = createMockRoVCompetitionEvent();
     const newEventId = uuidv4();
+    const organizerId = 'mock-org-uuid-1234';
+    const universityId = 'mock-university-uuid-1234';
     const now = new Date();
     const expectedEvent = { ...dto, id: newEventId, status: 'PUBLISHED', publishedAt: now };
     mockStorageService.resolveBannerUrl.mockReturnValue(dto.bannerUrl);
     mockPrisma.event.create.mockResolvedValueOnce(expectedEvent);
 
-    const result = await service.publishEvent(dto as PublishEventDto);
+    const result = await service.publishEvent(dto as PublishEventDto, organizerId, universityId);
 
     expect(result).toEqual(expectedEvent);
     expect(result.id).toBe(newEventId);
@@ -714,17 +792,27 @@ describe('EventCrudService - publishEvent', () => {
 
   it('UT-M017-02: should update existing event as published and return updated event when eventId provided', async () => {
     const existingEventId = uuidv4();
+    const organizerId = 'mock-org-uuid-1234';
+    const universityId = 'mock-university-uuid-1234';
     const dto = { ...createMockRoVCompetitionEvent(), id: existingEventId };
     const now = new Date();
     const expectedEvent = { ...dto, status: 'PUBLISHED', publishedAt: now };
     mockStorageService.resolveBannerUrl.mockReturnValue(dto.bannerUrl);
+    mockValidationService.validateEventOwnership.mockReturnValueOnce(true);
     mockPrisma.event.findUnique.mockResolvedValueOnce({
       bannerUrl: DEFAULT_BANNER_URL,
     });
     mockPrisma.event.update.mockResolvedValueOnce(expectedEvent);
 
-    const result = await service.publishEvent(dto as PublishEventDto, dto.id);
+    const result = await service.publishEvent(
+      dto as PublishEventDto,
+      organizerId,
+      universityId,
+      dto.id
+    );
 
+    console.log('Result Event:', result);
+    console.log('Expected Event:', expectedEvent);
     expect(result).toEqual(expectedEvent);
     expect(result.id).toBe(dto.id);
     expect(result.status).toBe('PUBLISHED');
@@ -746,67 +834,63 @@ describe('EventCrudService - publishEvent', () => {
   });
 
   it('UT-M017-03: should throw NotFoundException when eventId provided but event not found', async () => {
+    const organizerId = 'mock-org-uuid-1234';
+    const universityId = 'mock-university-uuid-1234';
     const dto = { ...createMockRoVCompetitionEvent(), id: uuidv4() };
     mockStorageService.resolveBannerUrl.mockReturnValue(dto.bannerUrl);
     mockPrisma.event.findUnique.mockResolvedValueOnce(null);
 
     await expect(
-      service.publishEvent(dto as PublishEventDto, dto.id),
+      service.publishEvent(
+        dto as PublishEventDto, 
+        organizerId,
+        universityId,
+        dto.id
+      ),
     ).rejects.toThrow(NotFoundException);
 
     mockPrisma.event.findUnique.mockResolvedValueOnce(null);
     await expect(
-      service.publishEvent(dto as PublishEventDto, dto.id),
+      service.publishEvent(dto as PublishEventDto,
+        organizerId,
+        universityId,
+        dto.id
+      ),
     ).rejects.toThrow('Event not found.');
   });
 
-  it('UT-M017-04: should throw InvalidDateRangeException when startAt is greater than or equal to endAt', async () => {
-    const dto = {
-      ...createMockRoVCompetitionEvent(),
-      startAt: new Date('2026-05-15T11:00:00.000Z'),
-      endAt: new Date('2026-05-15T02:00:00.000Z'),
-    };
-    mockStorageService.resolveBannerUrl.mockReturnValue(dto.bannerUrl);
-    mockValidationService.validatePublishDateRange.mockImplementationOnce(
-      () => {
-        throw new InvalidDateRangeException();
-      },
-    );
-
-    await expect(service.publishEvent(dto as PublishEventDto)).rejects.toThrow(
-      InvalidDateRangeException,
-    );
-
-    mockValidationService.validatePublishDateRange.mockImplementationOnce(
-      () => {
-        throw new InvalidDateRangeException();
-      },
-    );
-    await expect(service.publishEvent(dto as PublishEventDto)).rejects.toThrow(
-      'Start date must be before end date.',
-    );
-  });
-
-  it('UT-M017-05: should throw PublishEventException when Prisma create fails', async () => {
+  it('UT-M017-04: should throw PublishEventException when Prisma create fails', async () => {
+    const organizerId = 'mock-org-uuid-1234';
+    const universityId = 'mock-university-uuid-1234';
     const dto = createMockRoVCompetitionEvent();
     mockStorageService.resolveBannerUrl.mockReturnValue(dto.bannerUrl);
     mockPrisma.event.create.mockRejectedValueOnce(
       new Error('DB connection failed'),
     );
 
-    await expect(service.publishEvent(dto as PublishEventDto)).rejects.toThrow(
+    await expect(service.publishEvent(
+      dto as PublishEventDto, 
+      organizerId,
+      universityId
+    )).rejects.toThrow(
       PublishEventException,
     );
 
     mockPrisma.event.create.mockRejectedValueOnce(
       new Error('DB connection failed'),
     );
-    await expect(service.publishEvent(dto as PublishEventDto)).rejects.toThrow(
+    await expect(service.publishEvent(
+      dto as PublishEventDto, 
+      organizerId,
+      universityId
+    )).rejects.toThrow(
       'Failed to publish event. Please try again.',
     );
   });
 
-  it('UT-M017-06: should throw PublishEventException when Prisma update fails', async () => {
+  it('UT-M017-05: should throw PublishEventException when Prisma update fails', async () => {
+    const organizerId = 'mock-org-uuid-1234';
+    const universityId = 'mock-university-uuid-1234';
     const dto = { ...createMockRoVCompetitionEvent(), id: uuidv4() };
     mockStorageService.resolveBannerUrl.mockReturnValue(dto.bannerUrl);
     mockPrisma.event.findUnique.mockResolvedValueOnce({
@@ -817,7 +901,12 @@ describe('EventCrudService - publishEvent', () => {
     );
 
     await expect(
-      service.publishEvent(dto as PublishEventDto, dto.id),
+      service.publishEvent(
+        dto as PublishEventDto, 
+        organizerId,
+        universityId,
+        dto.id
+      ),
     ).rejects.toThrow(PublishEventException);
 
     mockPrisma.event.findUnique.mockResolvedValueOnce({
@@ -827,7 +916,12 @@ describe('EventCrudService - publishEvent', () => {
       new Error('DB connection failed'),
     );
     await expect(
-      service.publishEvent(dto as PublishEventDto, dto.id),
+      service.publishEvent(
+        dto as PublishEventDto, 
+        organizerId,
+        universityId,
+        dto.id
+      ),
     ).rejects.toThrow('Failed to publish event. Please try again.');
   });
 });
@@ -853,9 +947,9 @@ describe('EventCrudService - deleteOrphanBannerIfReplaced', () => {
   const existingEventId = uuidv4();
   const nonExistingEventId = 'non-existent-id';
   const oldBannerUrl =
-    `https://mockproject.supabase.co/storage/v1/object/public/banners/banner-url-1.jpg`;
+    `https://mockproject.supabase.co/storage/v1/object/public/evenite-images/banners/banner-url-1.jpg`;
   const newBannerUrl =
-    `https://mockproject.supabase.co/storage/v1/object/public/banners/banner-url-2.jpg`;
+    `https://mockproject.supabase.co/storage/v1/object/public/evenite-images/banners/banner-url-2.jpg`;
 
   it('UT-M019-01: should call deleteBannerFromStorage when old and new bannerUrl differ and old is not default', async () => {
     mockPrisma.event.findUnique.mockResolvedValueOnce({

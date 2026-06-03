@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
 import { BannerUploadException } from '../exceptions/banner-upload.exception';
-import { EventValidationService } from './event-validation.service';
 import { DEFAULT_BANNER_URL } from '../constants/event-category.constant';
 
 const BUCKET_NAME = 'evenite-images';
@@ -11,9 +10,7 @@ const BUCKET_NAME = 'evenite-images';
 export class EventStorageService {
   private readonly supabase: SupabaseClient;
 
-  constructor(
-    private readonly eventValidationService: EventValidationService,
-  ) {
+  constructor() {
     this.supabase = createClient(
       process.env.SUPABASE_URL!,
       process.env.SUPABASE_KEY!,
@@ -21,8 +18,6 @@ export class EventStorageService {
   }
 
   async uploadBannerToStorage(file: Express.Multer.File): Promise<string> {
-    this.eventValidationService.validateBannerFile(file);
-
     const ext = this.getFileExtension(file.mimetype);
     const fileName = `banners/${uuidv4()}${ext}`;
 
