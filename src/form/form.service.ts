@@ -65,7 +65,7 @@ export class FormService {
     if (dto.fields) {
       this.formValidationService.validateFormFields(dto.fields);
     }
-    return this.formCrudService.updateFormById(form.id, dto);
+    return this.formCrudService.updateFormByFormId(form.id, dto);
   }
 
   async getFormResponses(
@@ -94,6 +94,7 @@ export class FormService {
     return this.formCrudService.getFormResponsesSummary(eventId, type);
   }
 
+  // TEMP: mock form submission
   async createFormResponse(
     eventId: string,
     type: FormType,
@@ -137,6 +138,7 @@ export class FormService {
     );
   }
 
+  // Temp: dev convenience only
   async deleteForm(
     eventId: string,
     type: FormType,
@@ -152,10 +154,11 @@ export class FormService {
       type,
     );
     await this.formValidationService.validateFormNotLocked(form.id);
-    await this.formValidationService.validateFormHasNoResponses(form.id);
+    await this.formValidationService.validateNoResponsesExist(form.id);
     await this.formCrudService.deleteForm(form.id);
   }
 
+  // Temp: dev convenience only
   async deleteFormResponseById(
     eventId: string,
     type: FormType,
@@ -174,6 +177,7 @@ export class FormService {
     await this.formCrudService.deleteFormResponseById(responseId, form.id);
   }
 
+  // Temp: dev convenience only
   async deleteAllFormResponses(
     eventId: string,
     type: FormType,

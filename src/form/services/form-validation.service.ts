@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { FormType } from '@prisma/client';
 import { FieldType, EventStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -7,7 +7,6 @@ import { FormFieldInvalidException } from '../exceptions/form-field-invalid.exce
 import { FormLockedException } from '../exceptions/form-locked.exception';
 import { FormAlreadyExistsException } from '../exceptions/form-already-exists.exception';
 import { FormNotFoundException } from '../exceptions/form-not-found.exception';
-import { FormHasResponsesException } from '../exceptions/form-has-responses.exception';
 import { FormAlreadyHasResponsesException } from '../exceptions/form-already-has-responses.exception';
 import { CreateFormFieldAnswerDto } from '../dto/create-form-response.dto';
 import { ReturnFormField } from '../dto/return-form-with-fields.dto';
@@ -16,9 +15,11 @@ import { ALLOWED_AUTOFILL_KEYS } from '../constants/form.constants';
 
 @Injectable()
 export class FormValidationService {
-  private readonly logger = new Logger(FormValidationService.name);
 
   constructor(private readonly prisma: PrismaService) {}
+
+  // TODO: enhance by adding mapToDtos for return types, 
+  // currently crud service only return casted types
 
   async validateEventExists(eventId: string): Promise<void> {
     const event = await this.prisma.event.findUnique({
@@ -39,6 +40,7 @@ export class FormValidationService {
     if (existing) throw new FormAlreadyExistsException();
   }
 
+  // form is locked for updating if event is not in DRAFT status
   async validateFormNotLocked(formId: string): Promise<void> {
     const form = await this.prisma.form.findUnique({
       where: { id: formId },
@@ -90,16 +92,6 @@ export class FormValidationService {
     });
   }
 
-  // (me to my future self) following is related to method for dev purposes only
-  async validateFormHasNoResponses(formId: string): Promise<void> {
-    const count = await this.prisma.formResponse.count({
-      where: { formId },
-    });
-    if (count > 0) {
-      throw new FormHasResponsesException();
-    }
-  }
-
   async validateEventOwnership(
     eventId: string,
     organizerProfileId: string,
@@ -120,6 +112,7 @@ export class FormValidationService {
     }
   }
 
+  // (me to my future self) following are related to method for dev purposes only
   validateFormFieldAnswers(
     fields: ReturnFormField[],
     answers: CreateFormFieldAnswerDto[],

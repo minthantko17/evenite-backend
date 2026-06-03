@@ -74,64 +74,7 @@ export class FormCrudService {
     return form as ReturnFormWithFields;
   }
 
-  async updateForm(
-    eventId: string,
-    type: FormType,
-    dto: UpdateFormDto,
-  ): Promise<ReturnFormWithFields> {
-    const form = await this.prisma.form.findUnique({
-      where: { eventId_type: { eventId, type } },
-    });
-    if (!form) throw new FormNotFoundException();
-
-    try {
-      return await this.prisma.$transaction(async (tx) => {
-        // update form title, description
-        await tx.form.update({
-          where: { id: form.id },
-          data: {
-            ...(dto.title !== undefined && { title: dto.title }),
-            ...(dto.description !== undefined && {
-              description: dto.description,
-            }),
-          },
-        });
-
-        // replace-all form fields only if fields are provided
-        // UUID are changed (just warning, but still fine by flow logic heehee)
-        if (dto.fields) {
-          await tx.formField.deleteMany({
-            where: { formId: form.id },
-          });
-
-          await tx.formField.createMany({
-            data: dto.fields.map((field, index) => ({
-              formId: form.id,
-              type: field.type,
-              label: field.label,
-              isRequired: field.isRequired ?? false,
-              order: index,
-              options: field.options ?? [],
-              autoFillKey: field.autoFillKey ?? null,
-            })),
-          });
-        }
-
-        // return updated form with sorted fields
-        return (await tx.form.findUnique({
-          where: { id: form.id },
-          include: {
-            fields: { orderBy: { order: 'asc' } },
-          },
-        })) as ReturnFormWithFields;
-      });
-    } catch (error) {
-      this.logger.error('Failed to update form', error);
-      throw new SaveFormException();
-    }
-  }
-
-  async updateFormById(
+  async updateFormByFormId(
     formId: string,
     dto: UpdateFormDto,
   ): Promise<ReturnFormWithFields> {
@@ -303,7 +246,11 @@ export class FormCrudService {
     }
   }
 
-  // Following is just for dev/testing purpose only.
+
+  
+  // --------------------------------------------------------------
+
+  // Temp: Following is just for dev/testing purpose only.
   async createFormResponse(
     formId: string,
     dto: CreateFormResponseDto,
@@ -360,9 +307,9 @@ export class FormCrudService {
     }
   }
 
+  // TEMP: dev convenience only
+  // Review before production — needs proper authorization
   async deleteForm(formId: string): Promise<void> {
-    // TEMP: dev convenience only
-    // Review before production — needs proper authorization
     try {
       await this.prisma.form.delete({
         where: { id: formId },
@@ -401,10 +348,10 @@ export class FormCrudService {
     }
   }
 
+  // TEMP: dev convenience only
   async deleteAllFormResponses(
     formId: string,
   ): Promise<{ deletedCount: number }> {
-    // TEMP: dev convenience only
     try {
       const result = await this.prisma.formResponse.deleteMany({
         where: { formId },
@@ -416,6 +363,7 @@ export class FormCrudService {
     }
   }
 
+  // TEMP: mock event registration creation for form submission flow
   async createEventRegistration(eventId: string, participantProfileId: string) {
     return this.prisma.eventRegistration.create({
       data: {
@@ -426,6 +374,7 @@ export class FormCrudService {
     });
   }
 
+  // TEMP: mock registration lookup for form submission flow
   async findEventRegistration(eventId: string, participantProfileId: string) {
     return this.prisma.eventRegistration.findUnique({
       where: {
@@ -437,6 +386,7 @@ export class FormCrudService {
     });
   }
 
+  // TEMP: mock form submission with registration flow
   private mapValueToColumn(
     value: string | number | string[] | null | undefined,
     fieldType: FieldType,

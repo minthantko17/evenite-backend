@@ -354,7 +354,7 @@ describe('FormCrudService - getFormByEventAndType', () => {
   });
 });
 
-describe('FormCrudService - updateFormById', () => {
+describe('FormCrudService - updateFormByFormId', () => {
   let service: FormCrudService;
 
   beforeEach(async () => {
@@ -394,7 +394,7 @@ describe('FormCrudService - updateFormById', () => {
     mockTx.formField.createMany.mockResolvedValue({ count: 1 });
     mockTx.form.findUnique.mockResolvedValue(updatedForm);
 
-    const result = await service.updateFormById(
+    const result = await service.updateFormByFormId(
       'f2000000-0000-0000-0000-000000000002',
       {
         title: 'Updated Title',
@@ -420,7 +420,7 @@ describe('FormCrudService - updateFormById', () => {
     mockTx.form.update.mockResolvedValue(undefined);
     mockTx.form.findUnique.mockResolvedValue(updatedForm);
 
-    const result = await service.updateFormById(
+    const result = await service.updateFormByFormId(
       'f2000000-0000-0000-0000-000000000002',
       {
         title: 'New Title Only',
@@ -440,7 +440,7 @@ describe('FormCrudService - updateFormById', () => {
     mockTx.formField.createMany.mockResolvedValue({ count: 0 });
     mockTx.form.findUnique.mockResolvedValue(updatedForm);
 
-    const result = await service.updateFormById(
+    const result = await service.updateFormByFormId(
       'f2000000-0000-0000-0000-000000000002',
       {
         fields: [],
@@ -456,7 +456,7 @@ describe('FormCrudService - updateFormById', () => {
     mockPrisma.$transaction.mockRejectedValueOnce(
       new Error('Transaction failed'),
     );
-    const result = service.updateFormById(
+    const result = service.updateFormByFormId(
       'f1000000-0000-0000-0000-000000000001',
       { title: 'Title' },
     );
