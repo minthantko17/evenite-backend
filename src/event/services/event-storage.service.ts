@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
 import { BannerUploadException } from '../exceptions/banner-upload.exception';
-import { EventValidationService } from './event-validation.service';
 import { DEFAULT_BANNER_URL } from '../constants/event-category.constant';
 
 const BUCKET_NAME = 'evenite-images';
