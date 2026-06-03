@@ -1,9 +1,11 @@
+import { Test, TestingModule } from '@nestjs/testing';
 import { EventValidationService } from './event-validation.service';
 import { InvalidPromptException } from '../exceptions/invalid-prompt.exception';
 import { InvalidImageException } from '../exceptions/invalid-image.exception';
 import { InvalidDateRangeException } from '../exceptions/invalid-date-range.exception';
 import * as fs from 'fs';
 import * as path from 'path';
+import { PrismaService } from '../../prisma/prisma.service';
 
 const fixturesPath = path.join(__dirname, '../../../test/fixtures/images');
 
@@ -24,6 +26,12 @@ const createMockFile = (
   path: '',
   stream: null as any,
 });
+
+const mockPrisma = {
+  event: {
+    findUnique: jest.fn(),
+  },
+};
 
 // mock data files
 const small_jpg_file = createMockFile(
@@ -67,8 +75,16 @@ const large_image_file = createMockFile(
 describe('EventValidationService - validatePromptText', () => {
   let service: EventValidationService;
 
-  beforeEach(() => {
-    service = new EventValidationService();
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        EventValidationService,
+        { provide: PrismaService, useValue: mockPrisma },
+      ],
+    }).compile();
+
+    service = module.get<EventValidationService>(EventValidationService);
+    jest.clearAllMocks();
   });
 
   it('UT-M001-01: should not throw for valid English prompt', () => {
@@ -136,8 +152,16 @@ describe('EventValidationService - validatePromptText', () => {
 describe('EventValidationService - validateImageFile', () => {
   let service: EventValidationService;
 
-  beforeEach(() => {
-    service = new EventValidationService();
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        EventValidationService,
+        { provide: PrismaService, useValue: mockPrisma },
+      ],
+    }).compile();
+
+    service = module.get<EventValidationService>(EventValidationService);
+    jest.clearAllMocks();
   });
 
   it('UT-M013-01: should not throw for valid JPEG file', () => {
@@ -186,8 +210,16 @@ describe('EventValidationService - validateImageFile', () => {
 describe('EventValidationService - validatePublishDateRange', () => {
   let service: EventValidationService;
 
-  beforeEach(() => {
-    service = new EventValidationService();
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        EventValidationService,
+        { provide: PrismaService, useValue: mockPrisma },
+      ],
+    }).compile();
+
+    service = module.get<EventValidationService>(EventValidationService);
+    jest.clearAllMocks();
   });
 
   it('UT-M018-01: should not throw when startAt is before endAt', () => {
