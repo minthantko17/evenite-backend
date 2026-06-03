@@ -29,6 +29,7 @@ export class PublishEventDto {
   location?: BilingualField;
 
   @IsOptional()
+  @ValidateIf((o) => o.mapLink !== "")
   @IsUrl()
   mapLink?: string;
 
@@ -71,6 +72,7 @@ export class PublishEventDto {
   contactName?: string;
 
   @IsOptional()
+  @ValidateIf((o) => o.contactEmail !== "")
   @IsEmail()
   contactEmail?: string;
 
@@ -83,6 +85,7 @@ export class PublishEventDto {
   contactLineId?: string;
 
   @IsOptional()
+  @ValidateIf((o) => o.externalUrl !== "")
   @IsUrl()
   externalUrl?: string;
 

@@ -5,6 +5,7 @@ import {
   IsUrl,
   MinLength,
   MaxLength,
+  ValidateIf,
 } from 'class-validator';
 
 export class UpdateOrganizerProfileDto {
@@ -20,6 +21,7 @@ export class UpdateOrganizerProfileDto {
   bio?: string;
 
   @IsOptional()
+  @ValidateIf((o) => o.contactEmail !== "")
   @IsEmail()
   contactEmail?: string;
 
@@ -34,10 +36,11 @@ export class UpdateOrganizerProfileDto {
   contactLineId?: string;
 
   @IsOptional()
-  @IsUrl()
+  @IsString()
   imageUrl?: string;
 
   @IsOptional()
+  @ValidateIf((o) => o.externalUrl !== "")
   @IsUrl()
   externalUrl?: string;
 }

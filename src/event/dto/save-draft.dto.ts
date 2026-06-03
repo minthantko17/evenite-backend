@@ -1,8 +1,10 @@
 import {
   IsOptional, IsBoolean, IsString, IsInt,
   IsArray, Min, IsUUID, IsUrl, IsEmail, IsEnum,
+  ValidateIf,
+  IsDate,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import type { BilingualField } from './bilingual-field.dto';
 import type { AgendaItem } from './agenda-item.dto';
 import { EventCategory, ALLOWED_CATEGORIES } from '../constants/event-category.constant';
@@ -27,6 +29,7 @@ export class SaveDraftDto {
   location?: BilingualField;
 
   @IsOptional()
+  @ValidateIf((o) => o.mapLink !== "")
   @IsUrl()
   mapLink?: string;
 
@@ -34,12 +37,22 @@ export class SaveDraftDto {
   @IsBoolean()
   isOnline?: boolean;
 
+  @Transform(({ value }) => {
+    if (value === '' || value === null || value === undefined) return undefined;
+    const date = new Date(value);
+    return isNaN(date.getTime()) ? value : date;
+  })
   @IsOptional()
-  @Type(() => Date)
+  @IsDate()
   startAt?: Date;
 
+  @Transform(({ value }) => {
+    if (value === '' || value === null || value === undefined) return undefined;
+    const date = new Date(value);
+    return isNaN(date.getTime()) ? value : date;
+  })
   @IsOptional()
-  @Type(() => Date)
+  @IsDate()
   endAt?: Date;
 
   @IsOptional()
@@ -67,6 +80,7 @@ export class SaveDraftDto {
   contactName?: string;
 
   @IsOptional()
+  @ValidateIf((o) => o.contactEmail !== "")
   @IsEmail()
   contactEmail?: string;
 
@@ -79,6 +93,7 @@ export class SaveDraftDto {
   contactLineId?: string;
 
   @IsOptional()
+  @ValidateIf((o) => o.externalUrl !== "")
   @IsUrl()
   externalUrl?: string;
 
