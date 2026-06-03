@@ -20,6 +20,12 @@ import {
   DEFAULT_PARTICIPANT_IMAGE_URL,
   DEFAULT_ORGANIZER_IMAGE_URL,
 } from '../constants/user-images.constant';
+import { UserNotFoundException } from '../exceptions/user-not-found.exception';
+import { ProfileNotFoundException } from '../exceptions/profile-not-found.exception';
+
+export type EventRegistrationWithEvent = Prisma.EventRegistrationGetPayload<{
+  include: { event: true };
+}>;
 
 @Injectable()
 export class UserCrudService {
@@ -27,14 +33,18 @@ export class UserCrudService {
     private readonly prisma: PrismaService
   ) {}
 
-  async getUserById(userId: string): Promise<UserWithProfiles | null> {
-    return this.prisma.user.findUnique({
+  async getUserById(userId: string): Promise<UserWithProfiles> {
+    const result = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
         participantProfile: true,
         organizerProfile: true,
       },
     });
+    if (!result){
+      throw new UserNotFoundException();
+    }
+    return result;
   }
 
   async updateUserRole(userId: string, role: Role | null): Promise<User> {
@@ -46,10 +56,14 @@ export class UserCrudService {
 
   async getParticipantProfile(
     userId: string,
-  ): Promise<ParticipantProfile | null> {
-    return this.prisma.participantProfile.findUnique({
+  ): Promise<ParticipantProfile> {
+    const result = await this.prisma.participantProfile.findUnique({
       where: { userId },
     });
+    if (!result) {
+      throw new ProfileNotFoundException('Participant profile not found.');
+    }
+    return result;
   }
 
   async createParticipantProfile(
@@ -104,10 +118,14 @@ export class UserCrudService {
     });
   }
 
-  async getOrganizerProfile(userId: string): Promise<OrganizerProfile | null> {
-    return this.prisma.organizerProfile.findUnique({
+  async getOrganizerProfile(userId: string): Promise<OrganizerProfile> {
+    const result = await this.prisma.organizerProfile.findUnique({
       where: { userId },
     });
+    if (!result) {
+      throw new ProfileNotFoundException('Organizer profile not found.');
+    }
+    return result;
   }
 
   async createOrganizerProfile(
@@ -154,11 +172,13 @@ export class UserCrudService {
 
   async getCreatedEvents(
     organizerProfileId: string,
+    universityId: string,
     status?: EventStatus,
   ): Promise<Event[]> {
     return this.prisma.event.findMany({
       where: {
         organizerId: organizerProfileId,
+        universityId,
         ...(status && { status }),
       },
       orderBy: { createdAt: 'desc' },
@@ -168,7 +188,11 @@ export class UserCrudService {
   // TODO: refine in Feature #5
   async getRegisteredEvents(
     participantProfileId: string,
-  ): Promise<EventRegistration[]> {
-    return [];
+  ): Promise<EventRegistrationWithEvent[]> {
+    return this.prisma.eventRegistration.findMany({
+      where: { participantId: participantProfileId },
+      include: { event: true },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 }

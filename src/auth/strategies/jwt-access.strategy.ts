@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { Role } from '@prisma/client';
+import { UnauthorizedException } from '@nestjs/common/exceptions';
 
 // Defines what data is stored inside the access token
 export interface JwtAccessPayload {
@@ -32,6 +33,11 @@ export class JwtAccessStrategy extends PassportStrategy(
   // Called automatically after token is verified
   // Whatever we return here gets attached to request.user
   validate(payload: JwtAccessPayload): JwtAccessPayload {
+    if (!payload.isVerified) {
+      throw new UnauthorizedException(
+        'Please verify your email before accessing this resource.',
+      );
+    }
     return payload;
   }
 }

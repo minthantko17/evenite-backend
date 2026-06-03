@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { ParticipantProfile, OrganizerProfile, Role } from '@prisma/client';
-import { UserCrudService } from './user-crud.service';
 import { UserWithProfiles } from '../../auth/services/auth-crud.service';
 import { UserNotFoundException } from '../exceptions/user-not-found.exception';
 import { ProfileNotFoundException } from '../exceptions/profile-not-found.exception';
@@ -22,53 +21,41 @@ import { InvalidMailException } from '../exceptions/invalid-mail.exception';
 import { InvalidImageException } from '../exceptions/invalid-image.exception';
 import { InvalidUrlException } from '../exceptions/invalid-url.exception';
 import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_SIZE } from '../constants/user-images.constant';
+import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class UserValidationService {
-  constructor(private readonly userCrudService: UserCrudService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async checkUserExists(userId: string): Promise<UserWithProfiles> {
-    const user = await this.userCrudService.getUserById(userId);
+  async validateUserExists(userId: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId }
+    });
     if (!user) {
       throw new UserNotFoundException();
     }
-    return user;
   }
 
-  async checkParticipantProfileNotExists(userId: string): Promise<void> {
-    const profile = await this.userCrudService.getParticipantProfile(userId);
-    if (profile) {
+  async validateParticipantProfileNotExists(userId: string): Promise<void> {
+    const participantProfile = await this.prisma.participantProfile.findUnique({
+      where: { userId },
+    });
+    if (participantProfile) {
       throw new ProfileAlreadyExistsException(
         'Participant profile already exists.',
       );
     }
   }
 
-  async checkParticipantProfileExists(
-    userId: string,
-  ): Promise<ParticipantProfile> {
-    const profile = await this.userCrudService.getParticipantProfile(userId);
-    if (!profile) {
-      throw new ProfileNotFoundException('Participant profile not found.');
-    }
-    return profile;
-  }
-
-  async checkOrganizerProfileNotExists(userId: string): Promise<void> {
-    const profile = await this.userCrudService.getOrganizerProfile(userId);
-    if (profile) {
+  async validateOrganizerProfileNotExists(userId: string): Promise<void> {
+    const organizerProfile = await this.prisma.organizerProfile.findUnique({
+      where: { userId },
+    });
+    if (organizerProfile) {
       throw new ProfileAlreadyExistsException(
         'Organizer profile already exists.',
       );
     }
-  }
-
-  async checkOrganizerProfileExists(userId: string): Promise<OrganizerProfile> {
-    const profile = await this.userCrudService.getOrganizerProfile(userId);
-    if (!profile) {
-      throw new ProfileNotFoundException('Organizer profile not found.');
-    }
-    return profile;
   }
 
   // to prevent switching to same role

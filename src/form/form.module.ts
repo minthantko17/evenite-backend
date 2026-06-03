@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AuthModule } from '../auth/auth.module';
 import { FormService } from './form.service';
 import { FormController } from './form.controller';
 import { PrismaModule } from '../prisma/prisma.module';
@@ -6,7 +7,10 @@ import { FormValidationService } from './services/form-validation.service';
 import { FormCrudService } from './services/form-crud.service';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [
+    PrismaModule,
+    AuthModule
+  ],
   controllers: [FormController],
   providers: [
     FormService,

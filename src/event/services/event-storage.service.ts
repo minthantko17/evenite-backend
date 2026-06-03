@@ -5,7 +5,7 @@ import { BannerUploadException } from '../exceptions/banner-upload.exception';
 import { EventValidationService } from './event-validation.service';
 import { DEFAULT_BANNER_URL } from '../constants/event-category.constant';
 
-const BUCKET_NAME = 'banners';
+const BUCKET_NAME = 'evenite-images';
 
 @Injectable()
 export class EventStorageService {
@@ -24,7 +24,7 @@ export class EventStorageService {
     this.eventValidationService.validateBannerFile(file);
 
     const ext = this.getFileExtension(file.mimetype);
-    const fileName = `${uuidv4()}${ext}`;
+    const fileName = `banners/${uuidv4()}${ext}`;
 
     const { error } = await this.supabase.storage
       .from(BUCKET_NAME)

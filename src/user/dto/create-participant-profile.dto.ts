@@ -6,6 +6,7 @@ import {
   MinLength,
   MaxLength,
   ValidateNested,
+  ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { UpdatePreferencesDto } from './update-preferences.dto';
@@ -37,6 +38,7 @@ export class CreateParticipantProfileDto {
   major?: string;
 
   @IsOptional()
+  @ValidateIf((o) => o.contactEmail !== "")
   @IsEmail()
   contactEmail?: string;
 
@@ -51,7 +53,7 @@ export class CreateParticipantProfileDto {
   contactLineId?: string;
 
   @IsOptional()
-  @IsUrl()
+  @IsString()
   imageUrl?: string;
 
   @IsOptional()

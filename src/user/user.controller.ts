@@ -13,9 +13,11 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Request } from 'express';
-import { EventStatus } from '@prisma/client';
+import { EventStatus, Role } from '@prisma/client';
 import { UserService } from './user.service';
 import { JwtAccessGuard } from '../auth/guards/jwt-access.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAccessPayload } from '../auth/strategies/jwt-access.strategy';
 import { CreateParticipantProfileDto } from './dto/create-participant-profile.dto';
 import { UpdateParticipantProfileDto } from './dto/update-participant-profile.dto';
@@ -27,9 +29,10 @@ import { ReturnParticipantProfileDto } from './dto/return-participant-profile.dt
 import { ReturnOrganizerProfileDto } from './dto/return-organizer-profile.dto';
 import { ReturnSwitchProfileDto } from './dto/return-switch-profile.dto';
 import { Event, EventRegistration } from '@prisma/client';
+import { EventRegistrationWithEvent } from './services/user-crud.service';
 
 @Controller('users')
-@UseGuards(JwtAccessGuard) // all endpoints require auth
+@UseGuards(JwtAccessGuard, RolesGuard) // all endpoints require auth
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
@@ -39,9 +42,19 @@ export class UserController {
     return this.userService.getUserProfile(user.sub);
   }
 
+  @Patch('me/switch-profile')
+  switchCurrentUserProfile(
+    @Req() req: Request,
+    @Body() dto: SwitchRoleDto,
+  ): Promise<ReturnSwitchProfileDto> {
+    const user = req.user as JwtAccessPayload;
+    return this.userService.switchProfile(user.sub, dto);
+  }
+
   // --- Participant Profile Endpoints ---
 
   @Get('me/participant-profile')
+  @Roles(Role.PARTICIPANT)
   getCurrentUserParticipantProfile(
     @Req() req: Request,
   ): Promise<ReturnParticipantProfileDto> {
@@ -59,6 +72,7 @@ export class UserController {
   }
 
   @Patch('me/participant-profile')
+  @Roles(Role.PARTICIPANT)
   updateCurrentUserParticipantProfile(
     @Req() req: Request,
     @Body() dto: UpdateParticipantProfileDto,
@@ -75,9 +89,20 @@ export class UserController {
     return this.userService.uploadParticipantImage(file);
   }
 
+  // TODO: refine in Feature #5
+  @Get('me/registered-events')
+  @Roles(Role.PARTICIPANT)
+  getCurrentUserRegisteredEvents(
+    @Req() req: Request,
+  ): Promise<EventRegistrationWithEvent[]> {
+    const user = req.user as JwtAccessPayload;
+    return this.userService.getRegisteredEvents(user.sub);
+  }
+
   // --- Organizer Profile Endpoints ----
 
   @Get('me/organizer-profile')
+  @Roles(Role.ORGANIZER)
   getCurrentUserOrganizerProfile(
     @Req() req: Request,
   ): Promise<ReturnOrganizerProfileDto> {
@@ -95,6 +120,7 @@ export class UserController {
   }
 
   @Patch('me/organizer-profile')
+  @Roles(Role.ORGANIZER)
   updateCurrentUserOrganizerProfile(
     @Req() req: Request,
     @Body() dto: UpdateOrganizerProfileDto,
@@ -111,18 +137,8 @@ export class UserController {
     return this.userService.uploadOrganizerImage(file);
   }
 
-  // --- Switch Profile Endpoint ---
-  @Patch('me/switch-profile')
-  switchCurrentUserProfile(
-    @Req() req: Request,
-    @Body() dto: SwitchRoleDto,
-  ): Promise<ReturnSwitchProfileDto> {
-    const user = req.user as JwtAccessPayload;
-    return this.userService.switchProfile(user.sub, dto);
-  }
-
-
   @Get('me/created-events')
+  @Roles(Role.ORGANIZER)
   getCurrentUserCreatedEvents(
     @Req() req: Request,
     @Query('status', new ParseEnumPipe(EventStatus, { optional: true }))
@@ -130,12 +146,5 @@ export class UserController {
   ): Promise<Event[]> {
     const user = req.user as JwtAccessPayload;
     return this.userService.getCreatedEvents(user.sub, status);
-  }
-
-  // TODO: refine in Feature #5
-  @Get('me/registered-events')
-  getCurrentUserRegisteredEvents(@Req() req: Request): Promise<EventRegistration[]> {
-    const user = req.user as JwtAccessPayload;
-    return this.userService.getRegisteredEvents(user.sub);
   }
 }
