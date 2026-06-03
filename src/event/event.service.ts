@@ -23,16 +23,19 @@ export class EventService {
   ) {}
 
   async generateEventFromPrompt(prompt: string): Promise<GeneratedEventDto> {
+    this.eventValidationService.validatePromptText(prompt);
     return this.eventAiService.generateEventFromPrompt(prompt);
   }
 
   async generateEventFromImage(
     file: Express.Multer.File,
   ): Promise<GeneratedEventDto> {
+    this.eventValidationService.validateImageFile(file);
     return this.eventAiService.generateEventFromImage(file);
   }
 
   async uploadBannerToStorage(file: Express.Multer.File): Promise<string> {
+    this.eventValidationService.validateBannerFile(file);
     return this.eventStorageService.uploadBannerToStorage(file);
   }
 
@@ -60,6 +63,7 @@ export class EventService {
     organizerProfileId: string,
     universityId: string,
   ): Promise<Event> {
+    this.eventValidationService.validatePublishDateRange(dto.startAt, dto.endAt);
     return this.eventCrudService.publishEvent(
       dto,
       organizerProfileId,

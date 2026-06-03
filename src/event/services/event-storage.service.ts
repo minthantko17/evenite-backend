@@ -11,9 +11,7 @@ const BUCKET_NAME = 'evenite-images';
 export class EventStorageService {
   private readonly supabase: SupabaseClient;
 
-  constructor(
-    private readonly eventValidationService: EventValidationService,
-  ) {
+  constructor() {
     this.supabase = createClient(
       process.env.SUPABASE_URL!,
       process.env.SUPABASE_KEY!,
@@ -21,8 +19,6 @@ export class EventStorageService {
   }
 
   async uploadBannerToStorage(file: Express.Multer.File): Promise<string> {
-    this.eventValidationService.validateBannerFile(file);
-
     const ext = this.getFileExtension(file.mimetype);
     const fileName = `banners/${uuidv4()}${ext}`;
 

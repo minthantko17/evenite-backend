@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { GoogleGenAI } from '@google/genai';
-import { EventValidationService } from './event-validation.service';
 import { EventDataUtils } from '../utils/event-data.utils';
 
 import type { GeneratedEventDto } from '../dto/generated-event.dto';
@@ -19,18 +18,15 @@ export class EventAiService {
   private model: string = 'gemini-2.5-flash';
 
   constructor(
-    private readonly eventValidationService: EventValidationService,
     private readonly utils: EventDataUtils,
   ) {
     this.ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY ?? '' });
   }
 
   // --- generate from prompt ---
-  // I am grandpa method, i got child, i got grandchild, now, test me if you can -.-
   async generateEventFromPrompt(prompt: string): Promise<GeneratedEventDto> {
-    this.eventValidationService.validatePromptText(prompt);
-    const parsed = await this.callGeminiWithPrompt(prompt);
-    const mapped = this.mapAiResponseToEventDto(parsed);
+    const parsedGeminiResponse = await this.callGeminiWithPrompt(prompt);
+    const mapped = this.mapAiResponseToEventDto(parsedGeminiResponse);
     this.logger.log('After mapping: ', mapped);
     const sanitized = this.sanitizeAiEventResponse(mapped);
     this.logger.log('After sanitization: ', sanitized);
@@ -215,10 +211,8 @@ export class EventAiService {
   async generateEventFromImage(
     file: Express.Multer.File,
   ): Promise<GeneratedEventDto> {
-    this.eventValidationService.validateImageFile(file);
-    const parsed = await this.callGeminiWithImage(file);
-    this.logger.log("Before mapping: ", parsed);
-    const mapped = this.mapAiResponseToEventDto(parsed);
+    const parsedGeminiResponse = await this.callGeminiWithImage(file);
+    const mapped = this.mapAiResponseToEventDto(parsedGeminiResponse);
     this.logger.log('Mapped AI response before sanitization:', mapped);
     const sanitized = this.sanitizeAiEventResponse(mapped);
     this.logger.log('Sanitized AI response:', sanitized);
