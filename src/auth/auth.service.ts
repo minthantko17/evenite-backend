@@ -42,48 +42,20 @@ export class AuthService {
 
   async verifyEmail(token: string): Promise<{
     message: string;
-    accessToken: string;
-    refreshToken: string;
   }> {
     const verification =
       await this.authValidationService.checkVerificationToken(token);
 
     const user = await this.authCrudService.findUserById(verification.userId);
     if (!user) throw new InvalidTokenException();
+    
     await this.authCrudService.updateUser(verification.userId, {
       isVerified: true,
     });
-
     await this.authCrudService.deleteVerificationByToken(token);
 
-    // create payload
-    const accessPayload: JwtAccessPayload = {
-      sub: user.id,
-      email: user.email,
-      currentRole: user.currentRole,
-      isVerified: true,
-      universityId: user.universityId,
-      participantProfileId: user.participantProfile?.id ?? null,
-      organizerProfileId: user.organizerProfile?.id ?? null,
-      hasCreatedProfile:
-        user.participantProfile !== null || user.organizerProfile !== null,
-    };
-    const refreshPayload: JwtRefreshPayload = {
-      sub: user.id,
-      email: user.email,
-    };
-
-    const accessToken =
-      this.authTokenService.generateAccessToken(accessPayload);
-    const refreshToken =
-      this.authTokenService.generateRefreshToken(refreshPayload);
-
-    await this.authTokenService.hashAndStoreRefreshToken(user.id, refreshToken);
-
     return {
-      message: 'Email verified successfully.',
-      accessToken,
-      refreshToken,
+      message: 'Email verified successfully.'
     };
   }
 
