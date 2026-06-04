@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, ForbiddenException } from '@nestjs/common';
 import { FormType } from '@prisma/client';
 import { FieldType, EventStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -26,7 +26,7 @@ export class FormValidationService {
       where: { id: eventId },
     });
     if (!event) {
-      throw new NotFoundException('Event not found.');
+      throw new EventNotFoundException();
     }
   }
 

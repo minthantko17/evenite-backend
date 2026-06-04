@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { ImageUploadException } from '../exceptions/image-upload.exception';
 import { PrismaService } from '../../prisma/prisma.service';
 import { DEFAULT_ORGANIZER_IMAGE_URL, DEFAULT_PARTICIPANT_IMAGE_URL } from '../constants/user-images.constant';
+import { ProfileNotFoundException } from '../exceptions/profile-not-found.exception';
 
 export type ProfileImageType = 'participant' | 'organizer';
 
@@ -68,7 +69,7 @@ export class UserStorageService {
     });
 
     if (!existing) {
-      throw new NotFoundException(' Participant profile not found.');
+      throw new ProfileNotFoundException(' Participant profile not found.');
     }
 
     const oldImageUrl = existing.imageUrl;
@@ -91,7 +92,7 @@ export class UserStorageService {
     });
 
     if (!existing) {
-      throw new NotFoundException(' Organizer profile not found.');
+      throw new ProfileNotFoundException(' Organizer profile not found.');
     }
 
     const oldImageUrl = existing.imageUrl;
