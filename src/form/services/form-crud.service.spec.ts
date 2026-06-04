@@ -195,8 +195,8 @@ describe('FormCrudService - createForm', () => {
 
     const result = await service.createForm(
       'e1000000-0000-0000-0000-000000000001',
+      FormType.REGISTRATION,
       {
-        type: FormType.REGISTRATION,
         title: 'Workshop Registration',
         description: 'Fill this form',
         fields: [
@@ -239,8 +239,8 @@ describe('FormCrudService - createForm', () => {
 
     const result = await service.createForm(
       'e1000000-0000-0000-0000-000000000001',
+      FormType.FEEDBACK,
       {
-        type: FormType.FEEDBACK,
         fields: [
           {
             type: FieldType.TEXT,
@@ -270,8 +270,8 @@ describe('FormCrudService - createForm', () => {
 
     const result = await service.createForm(
       'e1000000-0000-0000-0000-000000000001',
+      FormType.REGISTRATION,
       {
-        type: FormType.REGISTRATION,
         title: 'Empty Form',
         description: 'form with empty field',
         fields: [],
@@ -285,12 +285,14 @@ describe('FormCrudService - createForm', () => {
     mockPrisma.form.create.mockRejectedValueOnce(
       new Error('DB connection lost'),
     );
-    const result = service.createForm('e1000000-0000-0000-0000-000000000001', {
-      type: FormType.REGISTRATION,
-      fields: [
-        { type: FieldType.TEXT, label: 'Name', isRequired: true, options: [] },
-      ],
-    });
+    const result = service.createForm(
+      'e1000000-0000-0000-0000-000000000001', 
+      FormType.REGISTRATION,
+      {
+        fields: [
+          { type: FieldType.TEXT, label: 'Name', isRequired: true, options: [] },
+        ],
+      });
     await expect(result).rejects.toThrow(SaveFormException);
     await expect(result).rejects.toThrow(
       'Failed to save form. Please try again.',

@@ -23,9 +23,6 @@ export class FormFieldInputDto {
 }
 
 export class CreateFormDto {
-  @IsEnum(FormType)
-  type!: FormType;
-
   @IsOptional()
   @IsString()
   title?: string;

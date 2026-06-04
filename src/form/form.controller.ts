@@ -31,17 +31,6 @@ import { JwtAccessPayload } from '../auth/strategies/jwt-access.strategy';
 export class FormController {
   constructor(private readonly formService: FormService) {}
 
-  @Post()
-  @Roles(Role.ORGANIZER)
-  async createForm(
-    @Param('eventId', ParseUUIDPipe) eventId: string,
-    @Body() dto: CreateFormDto,
-    @Req() req: Request,
-  ): Promise<ReturnFormWithFields> {
-    const user = req.user as JwtAccessPayload;
-    return this.formService.createForm(eventId, dto, user.organizerProfileId!);
-  }
-
   @Get()
   async getFormsByEventId(
     @Param('eventId', ParseUUIDPipe) eventId: string,
@@ -141,6 +130,23 @@ export class FormController {
     @Param('type', new ParseEnumPipe(FormType)) type: FormType,
   ): Promise<ReturnFormWithFields> {
     return this.formService.getFormByEventAndType(eventId, type);
+  }
+
+  @Post(':type')
+  @Roles(Role.ORGANIZER)
+  async createForm(
+    @Param('eventId', ParseUUIDPipe) eventId: string,
+    @Param('type', new ParseEnumPipe(FormType)) type: FormType,
+    @Body() dto: CreateFormDto,
+    @Req() req: Request,
+  ): Promise<ReturnFormWithFields> {
+    const user = req.user as JwtAccessPayload;
+    return this.formService.createForm(
+      eventId,
+      type,
+      dto,
+      user.organizerProfileId!
+    );
   }
 
   @Patch(':type')
