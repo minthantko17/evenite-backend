@@ -2,8 +2,10 @@ import { Controller, Post, Body, Query, UseGuards, Req } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { JwtAccessGuard } from './guards/jwt-access.guard';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
 import type { Request } from 'express';
+import { JwtAccessPayload } from './strategies/jwt-access.strategy';
 import { JwtRefreshPayload } from './strategies/jwt-refresh.strategy';
 
 @Controller('auth')
@@ -42,10 +44,10 @@ export class AuthController {
   }
 
   // Requires: Authorization: Bearer <accessToken>
-  @UseGuards(JwtRefreshGuard)
+  @UseGuards(JwtAccessGuard)
   @Post('logout')
   logout(@Req() req: Request): Promise<{ message: string }> {
-    const user = req.user as JwtRefreshPayload;
+    const user = req.user as JwtAccessPayload;
     return this.authService.logout(user.sub);
   }
 
