@@ -19,6 +19,7 @@ export class FormService {
 
   async createForm(
     eventId: string,
+    type: FormType,
     dto: CreateFormDto,
     organizerProfileId: string,
   ): Promise<ReturnFormWithFields> {
@@ -29,10 +30,10 @@ export class FormService {
     );
     await this.formValidationService.validateFormTypeNotDuplicated(
       eventId,
-      dto.type,
+      type,
     );
     this.formValidationService.validateFormFields(dto.fields);
-    return this.formCrudService.createForm(eventId, dto);
+    return this.formCrudService.createForm(eventId, type, dto);
   }
 
   async getFormsByEventId(eventId: string): Promise<ReturnFormWithFields[]> {

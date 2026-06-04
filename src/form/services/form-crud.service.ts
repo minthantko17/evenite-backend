@@ -21,13 +21,14 @@ export class FormCrudService {
 
   async createForm(
     eventId: string,
+    type: FormType,
     dto: CreateFormDto,
   ): Promise<ReturnFormWithFields> {
     try {
       return (await this.prisma.form.create({
         data: {
           eventId,
-          type: dto.type,
+          type: type,
           title: dto.title ?? '',
           description: dto.description ?? '',
           fields: {
