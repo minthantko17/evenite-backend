@@ -169,7 +169,7 @@ describe('FormCrudService - createForm', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M031-01: should return ReturnFormWithFields when dto is valid with fields', async () => {
+  it('UT-M040-01: should return ReturnFormWithFields when dto is valid with fields', async () => {
     const formId = uuidv4();
     const formFieldId = uuidv4();
     const expectedForm = {
@@ -213,7 +213,7 @@ describe('FormCrudService - createForm', () => {
     expect(result).toEqual(expectedForm);
   });
 
-  it('UT-M031-02: should create form with title "" and description "" when dto has no title or description', async () => {
+  it('UT-M040-02: should create form with title "" and description "" when dto has no title or description', async () => {
     const formId = uuidv4();
     const formFieldId = uuidv4();
     const expectedForm = {
@@ -256,7 +256,7 @@ describe('FormCrudService - createForm', () => {
     expect(result.description).toBe('');
   });
 
-  it('UT-M031-03: should create form with no fields when dto has empty fields array', async () => {
+  it('UT-M040-03: should create form with no fields when dto has empty fields array', async () => {
     const formId = uuidv4();
     const expectedForm = {
       id: formId,
@@ -281,7 +281,7 @@ describe('FormCrudService - createForm', () => {
     expect(result.fields).toEqual([]);
   });
 
-  it('UT-M031-04: should throw SaveFormException with message when database is disconnected', async () => {
+  it('UT-M040-04: should throw SaveFormException with message when database is disconnected', async () => {
     mockPrisma.form.create.mockRejectedValueOnce(
       new Error('DB connection lost'),
     );
@@ -315,7 +315,7 @@ describe('FormCrudService - getFormByEventAndType', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M032-01: should return ReturnFormWithFields when form is found', async () => {
+  it('UT-M041-01: should return ReturnFormWithFields when form is found', async () => {
     const expectedForm = {
       id: 'f1000000-0000-0000-0000-000000000001',
       eventId: 'e1000000-0000-0000-0000-000000000001',
@@ -345,7 +345,7 @@ describe('FormCrudService - getFormByEventAndType', () => {
     expect(result).toEqual(expectedForm);
   });
 
-  it('UT-M032-02: should throw FormNotFoundException with message when form is not found', async () => {
+  it('UT-M041-02: should throw FormNotFoundException with message when form is not found', async () => {
     mockPrisma.form.findUnique.mockResolvedValueOnce(null);
     const result = service.getFormByEventAndType(
       'e1000000-0000-0000-0000-000000000003',
@@ -371,7 +371,7 @@ describe('FormCrudService - updateFormByFormId', () => {
     mockPrisma.$transaction.mockImplementation(async (cb: any) => cb(mockTx));
   });
 
-  it('UT-M037-01: should delete old fields, create new fields, and return updated form when dto has title, description, and fields', async () => {
+  it('UT-M046-01: should delete old fields, create new fields, and return updated form when dto has title, description, and fields', async () => {
     const updatedForm = {
       id: 'f2000000-0000-0000-0000-000000000002',
       eventId: 'e1000000-0000-0000-0000-000000000002',
@@ -417,7 +417,7 @@ describe('FormCrudService - updateFormByFormId', () => {
     expect(mockTx.formField.createMany).toHaveBeenCalled();
   });
 
-  it('UT-M037-02: should update only title and leave fields unchanged when dto.fields is undefined', async () => {
+  it('UT-M046-02: should update only title and leave fields unchanged when dto.fields is undefined', async () => {
     const updatedForm = { ...mockForm1(), title: 'New Title Only' };
     mockTx.form.update.mockResolvedValue(undefined);
     mockTx.form.findUnique.mockResolvedValue(updatedForm);
@@ -435,7 +435,7 @@ describe('FormCrudService - updateFormByFormId', () => {
     expect(mockTx.formField.createMany).not.toHaveBeenCalled();
   });
 
-  it('UT-M037-03: should call deleteMany and return form with no fields when dto.fields is empty array', async () => {
+  it('UT-M046-03: should call deleteMany and return form with no fields when dto.fields is empty array', async () => {
     const updatedForm = { ...mockForm1(), fields: [] };
     mockTx.form.update.mockResolvedValue(undefined);
     mockTx.formField.deleteMany.mockResolvedValue({ count: 1 });
@@ -448,13 +448,14 @@ describe('FormCrudService - updateFormByFormId', () => {
         fields: [],
       },
     );
+    console.log('result:', result);
 
     expect(result.fields).toEqual([]);
     expect(mockTx.formField.deleteMany).toHaveBeenCalled();
     expect(mockTx.formField.createMany).toHaveBeenCalledWith({ data: [] });
   });
 
-  it('UT-M037-04: should throw SaveFormException with message when database is disconnected', async () => {
+  it('UT-M046-04: should throw SaveFormException with message when database is disconnected', async () => {
     mockPrisma.$transaction.mockRejectedValueOnce(
       new Error('Transaction failed'),
     );
@@ -483,7 +484,7 @@ describe('FormCrudService - getFormResponses', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M041-01: should throw FormNotFoundException with message when form is not found', async () => {
+  it('UT-M050-01: should throw FormNotFoundException with message when form is not found', async () => {
     mockPrisma.form.findUnique.mockResolvedValueOnce(null);
     const result = service.getFormResponses(
       'e1000000-0000-0000-0000-000000000009',
@@ -493,7 +494,7 @@ describe('FormCrudService - getFormResponses', () => {
     await expect(result).rejects.toThrow('Form not found.');
   });
 
-  it('UT-M041-02: should return totalResponses 0 and empty responses array when form has no responses', async () => {
+  it('UT-M050-02: should return totalResponses 0 and empty responses array when form has no responses', async () => {
     mockPrisma.form.findUnique.mockResolvedValue({
       id: 'f1000000-0000-0000-0000-000000000001',
       fields: [
@@ -519,7 +520,7 @@ describe('FormCrudService - getFormResponses', () => {
     expect(result.responses).toEqual([]);
   });
 
-  it('UT-M041-03: should return MockFormResponse1 when form has responses with all fields answered', async () => {
+  it('UT-M050-03: should return MockFormResponse1 when form has responses with all fields answered', async () => {
     mockPrisma.form.findUnique.mockResolvedValue({
       id: 'f4000000-0000-0000-0000-000000000001',
       fields: [
@@ -606,7 +607,7 @@ describe('FormCrudService - getFormResponses', () => {
     expect(result).toEqual(mockFormResponse1());
   });
 
-  it('UT-M041-04: should return type-appropriate default values for fields missing fieldResponse', async () => {
+  it('UT-M050-04: should return type-appropriate default values for fields missing fieldResponse', async () => {
     mockPrisma.form.findUnique.mockResolvedValue({
       id: 'f4000000-0000-0000-0000-000000000001',
       fields: [
@@ -694,7 +695,7 @@ describe('FormCrudService - getFormResponsesSummary', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M038-01: should throw FormNotFoundException with message when form is not found', async () => {
+  it('UT-M047-01: should throw FormNotFoundException with message when form is not found', async () => {
     mockPrisma.form.findUnique.mockResolvedValueOnce(null);
     const result = service.getFormResponsesSummary(
       'e1000000-0000-0000-0000-000000000005',
@@ -704,7 +705,7 @@ describe('FormCrudService - getFormResponsesSummary', () => {
     await expect(result).rejects.toThrow('Form not found.');
   });
 
-  it('UT-M038-02: should return totalResponses 0 and empty answers for each field when form has no responses', async () => {
+  it('UT-M047-02: should return totalResponses 0 and empty answers for each field when form has no responses', async () => {
     mockPrisma.form.findUnique.mockResolvedValue({
       id: 'f5000000-0000-0000-0000-000000000001',
       fields: [
@@ -730,7 +731,7 @@ describe('FormCrudService - getFormResponsesSummary', () => {
     expect(result.summary[0].answers).toEqual([]);
   });
 
-  it('UT-M038-03: should return MockFormResponseSummary1 when form has 2 responses', async () => {
+  it('UT-M047-03: should return MockFormResponseSummary1 when form has 2 responses', async () => {
     mockPrisma.form.findUnique.mockResolvedValue({
       id: 'f3000000-0000-0000-0000-000000000001',
       fields: [
@@ -806,7 +807,7 @@ describe('FormCrudService - getFormResponsesSummary', () => {
     // console.dir(result, { depth: null })
   });
 
-  it('UT-M038-04: should return null as answer value for RATING field with no matching fieldResponse', async () => {
+  it('UT-M047-04: should return null as answer value for RATING field with no matching fieldResponse', async () => {
     mockPrisma.form.findUnique.mockResolvedValue({
       id: 'f3000000-0000-0000-0000-000000000001',
       fields: [
