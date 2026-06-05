@@ -6,6 +6,8 @@ import { InvalidDateRangeException } from '../exceptions/invalid-date-range.exce
 import * as fs from 'fs';
 import * as path from 'path';
 import { PrismaService } from '../../prisma/prisma.service';
+import { ForbiddenException } from '@nestjs/common';
+import { EventNotFoundException } from '../exceptions/event-not-found.exception';
 
 const fixturesPath = path.join(__dirname, '../../../test/fixtures/images');
 
@@ -250,5 +252,61 @@ describe('EventValidationService - validatePublishDateRange', () => {
     expect(() => service.validatePublishDateRange(startAt, endAt)).toThrow(
       'Start date must be before end date.',
     );
+  });
+
+  describe('EventValidationService - validateEventOwnership', () => {
+    let service: EventValidationService;
+
+    beforeEach(async () => {
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          EventValidationService,
+          { provide: PrismaService, useValue: mockPrisma },
+        ],
+      }).compile();
+
+      service = module.get<EventValidationService>(EventValidationService);
+      jest.clearAllMocks();
+    });
+
+    it('UT-M027-01: should resolve without error when organizer owns the event', async () => {
+      const organizerId = 'mock-org-uuid-1234';
+      const eventId = 'mock-event-uuid-1234';
+
+      mockPrisma.event.findUnique.mockResolvedValueOnce({ organizerId });
+
+      await expect(
+        service.validateEventOwnership(eventId, organizerId),
+      ).resolves.toBeUndefined();
+
+      expect(mockPrisma.event.findUnique).toHaveBeenCalledWith({
+        where: { id: eventId },
+        select: { organizerId: true },
+      });
+    });
+
+    it('UT-M027-02: should throw EventNotFoundException when event does not exist', async () => {
+      const eventId = 'mock-event-uuid-1234';
+
+      mockPrisma.event.findUnique.mockResolvedValueOnce(null);
+
+      const result = service.validateEventOwnership(eventId, 'any-organizer-id');
+
+      await expect(result).rejects.toThrow(EventNotFoundException);
+      await expect(result).rejects.toThrow('Event not found.');
+    });
+
+    it('UT-M027-03: should throw ForbiddenException when organizer does not own the event', async () => {
+      const eventId = 'mock-event-uuid-1234';
+      const actualOwnerId = 'mock-owner-uuid-1234';
+      const requestingOrganizerId = 'mock-non-matching-org-uuid-5678';
+
+      mockPrisma.event.findUnique.mockResolvedValueOnce({ organizerId: actualOwnerId });
+
+      const result = service.validateEventOwnership(eventId, requestingOrganizerId);
+
+      await expect(result).rejects.toThrow(ForbiddenException);
+      await expect(result).rejects.toThrow('You do not have permission to edit this event.');
+    });
   });
 });

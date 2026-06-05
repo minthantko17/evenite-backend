@@ -15,7 +15,6 @@ import { EventNotFoundException } from './exceptions/event-not-found.exception';
 @Injectable()
 export class EventService {
   constructor(
-    private readonly prisma: PrismaService,
     private readonly eventValidationService: EventValidationService,
     private readonly eventAiService: EventAiService,
     private readonly eventStorageService: EventStorageService,

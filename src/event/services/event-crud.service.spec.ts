@@ -15,6 +15,7 @@ import { InvalidDateRangeException } from '../exceptions/invalid-date-range.exce
 import { EventStatus } from '@prisma/client';
 import { EventNotFoundException } from '../exceptions/event-not-found.exception';
 import { FormValidationService } from '../../form/services/form-validation.service';
+import { ForbiddenException } from '@nestjs/common';
 
 const mockPrisma = {
   event: {
@@ -103,7 +104,7 @@ const mockEvent2 = {
   contactLineId: '@cmucultural',
   externalUrl: 'https://reg.cmu.ac.th/loykrathong2026',
   remarks: { en: 'All materials provided', th: 'มีวัสดุอุปกรณ์ให้ครบ' },
-  bannerUrl: 'https://mockproject.supabase.co/storage/v1/object/public/banners/loykrathong-uuid.jpg',
+  bannerUrl: 'https://mockproject.supabase.co/storage/v1/object/public/evenite-images/banners/loykrathong-uuid.jpg',
   status: 'DRAFT',
   createdAt: new Date('2026-10-01T00:00:00.000Z'),
   updatedAt: new Date('2026-10-01T00:00:00.000Z'),
@@ -149,7 +150,7 @@ const createMockOrientationEvent = () => ({
   startAt: new Date('2026-07-01T02:00:00.000Z'),
   endAt: new Date('2026-07-01T08:00:00.000Z'),
   bannerUrl:
-    'https://mockproject.supabase.co/storage/v1/object/public/banners/uuid.jpg',
+    'https://mockproject.supabase.co/storage/v1/object/public/evenite-images/banners/uuid.jpg',
 });
 
 const createMockSportsDayEvent = () => ({
@@ -194,7 +195,7 @@ const createMockSportsDayEvent = () => ({
   startAt: new Date('2026-03-15T01:00:00.000Z'),
   endAt: new Date('2026-03-15T10:00:00.000Z'),
   bannerUrl:
-    'https://mockproject.supabase.co/storage/v1/object/public/banners/uuid.jpg',
+    'https://mockproject.supabase.co/storage/v1/object/public/evenite-images/banners/uuid.jpg',
 });
 
 const createMockRoVCompetitionEvent = () => ({
@@ -254,7 +255,7 @@ const createMockRoVCompetitionEvent = () => ({
   startAt: new Date('2026-05-15T02:00:00.000Z'),
   endAt: new Date('2026-05-15T11:00:00.000Z'),
   bannerUrl:
-    'https://mockproject.supabase.co/storage/v1/object/public/banners/rov-uuid.jpg',
+    'https://mockproject.supabase.co/storage/v1/object/public/evenite-images/banners/rov-uuid.jpg',
 });
 
 // testing
@@ -521,6 +522,29 @@ describe('EventCrudService - getEvents', () => {
     expect(result).toEqual([]);
     expect(mockPrisma.event.findMany).toHaveBeenCalledTimes(1);
   });
+
+  it('UT-M025-05: should return events matching any of the provided statuses when multiple statuses provided', async () => {
+    const universityId = 'mock-university-uuid-1234';
+    const status = [EventStatus.PUBLISHED, EventStatus.DRAFT];
+    mockPrisma.event.findMany.mockResolvedValueOnce([mockEvent, mockEvent2]);
+
+    const result = await service.getEvents(universityId, status);
+
+    expect(result).toEqual([mockEvent, mockEvent2]);
+    expect(mockPrisma.event.findMany).toHaveBeenCalledWith({
+      where: {
+        universityId,
+        status: { in: status }
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        forms: {
+          select:{ id: true, type: true }
+        }
+      }
+    });
+    expect(mockPrisma.event.findMany).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('EventCrudService - getEventById', () => {
@@ -740,6 +764,26 @@ describe('EventCrudService - saveEventAsDraft', () => {
       ),
     ).rejects.toThrow('Failed to save event. Please try again.');
   });
+
+  it('UT-M022-06: should throw ForbiddenException when user does not own the event while updating', async () => {
+    const organizerId = 'mock-non-matching-org-uuid-5678';
+    const universityId = 'mock-university-uuid-1234';
+    const dto = { ...createMockSportsDayEvent(), id: uuidv4() };
+
+    mockValidationService.validateEventOwnership.mockRejectedValueOnce(
+      new ForbiddenException('You do not have permission to manage this event.'),
+    );
+
+    const result = service.saveEventAsDraft(dto as SaveDraftDto, organizerId, universityId, dto.id);
+
+    await expect(result).rejects.toThrow(ForbiddenException);
+    await expect(result).rejects.toThrow('You do not have permission to manage this event.');
+
+    expect(mockValidationService.validateEventOwnership).toHaveBeenCalledWith(dto.id, organizerId);
+    expect(mockPrisma.event.update).not.toHaveBeenCalled();
+    expect(mockPrisma.event.create).not.toHaveBeenCalled();
+  });
+
 });
 
 describe('EventCrudService - publishEvent', () => {
@@ -859,7 +903,26 @@ describe('EventCrudService - publishEvent', () => {
     ).rejects.toThrow('Event not found.');
   });
 
-  it('UT-M017-04: should throw PublishEventException when Prisma create fails', async () => {
+  it('UT-M017-04: should throw ForbiddenException when user does not own the event while updating', async () => {
+    const organizerId = 'mock-non-matching-org-uuid-5678';
+    const universityId = 'mock-university-uuid-1234';
+    const dto = { ...createMockRoVCompetitionEvent(), id: uuidv4() };
+
+    mockValidationService.validateEventOwnership.mockRejectedValueOnce(
+      new ForbiddenException('You do not have permission to manage this event.'),
+    );
+
+    const result = service.publishEvent(dto as PublishEventDto, organizerId, universityId, dto.id);
+
+    await expect(result).rejects.toThrow(ForbiddenException);
+    await expect(result).rejects.toThrow('You do not have permission to manage this event.');
+
+    expect(mockValidationService.validateEventOwnership).toHaveBeenCalledWith(dto.id, organizerId);
+    expect(mockPrisma.event.update).not.toHaveBeenCalled();
+    expect(mockPrisma.event.create).not.toHaveBeenCalled();
+  });
+
+  it('UT-M017-05: should throw PublishEventException when Prisma create fails', async () => {
     const organizerId = 'mock-org-uuid-1234';
     const universityId = 'mock-university-uuid-1234';
     const dto = createMockRoVCompetitionEvent();
@@ -888,11 +951,12 @@ describe('EventCrudService - publishEvent', () => {
     );
   });
 
-  it('UT-M017-05: should throw PublishEventException when Prisma update fails', async () => {
+  it('UT-M017-06: should throw PublishEventException when Prisma update fails', async () => {
     const organizerId = 'mock-org-uuid-1234';
     const universityId = 'mock-university-uuid-1234';
     const dto = { ...createMockRoVCompetitionEvent(), id: uuidv4() };
     mockStorageService.resolveBannerUrl.mockReturnValue(dto.bannerUrl);
+    mockValidationService.validateEventOwnership.mockReturnValueOnce(true);
     mockPrisma.event.findUnique.mockResolvedValueOnce({
       bannerUrl: DEFAULT_BANNER_URL,
     });
