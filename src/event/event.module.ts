@@ -10,9 +10,12 @@ import { EventStorageService } from './services/event-storage.service';
 import { EventCrudService } from './services/event-crud.service';
 import { EventDataUtils } from './utils/event-data.utils';
 import { AuthModule } from '../auth/auth.module';
+import { ScheduleModule } from "@nestjs/schedule";
+import { EventSchedulerService } from './services/event-scheduler.service';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     PrismaModule,
     AuthModule,
     MulterModule.register({
@@ -30,6 +33,7 @@ import { AuthModule } from '../auth/auth.module';
     EventStorageService,
     EventCrudService,
     EventDataUtils,
+    EventSchedulerService,
   ],
 })
 export class EventModule {}
