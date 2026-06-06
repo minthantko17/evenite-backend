@@ -7,9 +7,12 @@ import { FormModule } from './form/form.module';
 import { AuthModule } from './auth/auth.module';
 import { UniversityModule } from './university/university.module';
 import { UserModule } from './user/user.module';
+import { ScheduleModule } from "@nestjs/schedule";
 
 @Module({
-  imports: [PrismaModule,
+  imports: [
+    ScheduleModule.forRoot(),
+    PrismaModule,
     EventModule,
     FormModule,
     AuthModule,

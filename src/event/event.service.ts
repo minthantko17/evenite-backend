@@ -71,6 +71,25 @@ export class EventService {
     );
   }
 
+  async updateEventStatus(
+    eventId: string,
+    newStatus: EventStatus,
+    organizerProfileId: string,
+  ): Promise<EventResponseDto> {
+    await this.eventValidationService.validateEventOwnership(
+      eventId,
+      organizerProfileId,
+    );
+    const event = await this.eventCrudService.getEventById(eventId);
+
+    this.eventValidationService.validateStatusTransition(
+      event.status,
+      newStatus,
+    );
+
+    return this.eventCrudService.updateEventStatus(eventId, newStatus);
+  }
+  
   async getPublicEvents(
     universityId: string,
     status?: EventStatus,
