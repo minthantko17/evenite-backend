@@ -188,9 +188,17 @@ export class UserCrudService {
   // TODO: refine in Feature #5
   async getRegisteredEvents(
     participantProfileId: string,
+    universityId: string,
+    status?: EventStatus,
   ): Promise<EventRegistrationWithEvent[]> {
     return this.prisma.eventRegistration.findMany({
-      where: { participantId: participantProfileId },
+      where: { 
+        participantId: participantProfileId,
+        event: {
+          universityId,
+          ...(status && { status })
+        }
+      },
       include: { event: true },
       orderBy: { createdAt: 'desc' },
     });

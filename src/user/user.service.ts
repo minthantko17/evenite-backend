@@ -245,12 +245,17 @@ export class UserService {
   // need to review again in feature #5
   async getRegisteredEvents(
     userId: string,
+    status?: EventStatus,
   ): Promise<EventRegistrationWithEvent[]> {
-    await this.userValidationService.validateUserExists(userId);
+    const user = await this.userCrudService.getUserById(userId);
     const participantProfile =
       await this.userCrudService.getParticipantProfile(userId);
     
-    return this.userCrudService.getRegisteredEvents(participantProfile.id);
+    return this.userCrudService.getRegisteredEvents(
+      participantProfile.id,
+      user.universityId,
+      status
+    );
   }
 
 
