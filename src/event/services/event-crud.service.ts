@@ -15,6 +15,7 @@ import { PublishEventException } from '../exceptions/publish-event.exception';
 import { InvalidDateRangeException } from '../exceptions/invalid-date-range.exception';
 import { DEFAULT_BANNER_URL } from '../constants/event-category.constant';
 import { EventNotFoundException } from '../exceptions/event-not-found.exception';
+import { EventStatusChangeException } from '../exceptions/event-status-change.exception';
 
 @Injectable()
 export class EventCrudService {
@@ -173,6 +174,24 @@ export class EventCrudService {
     }
 
     return this.mapToEventResponseDto(event);
+  }
+
+  async updateEventStatus(
+    eventId: string,
+    status: EventStatus,
+  ): Promise<EventResponseDto> {
+    try {
+      const updatedEvent = await this.prisma.event.update({
+        where: { id: eventId },
+        data: { status },
+        include: {
+          forms: { select: { id: true, type: true } },
+        }
+      });
+      return this.mapToEventResponseDto(updatedEvent);
+    } catch (error) {
+      throw new EventStatusChangeException();
+    }
   }
 
   // --- helper methods ---

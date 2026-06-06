@@ -1,6 +1,6 @@
 import {
   Controller,
-  Get, Post, Body,
+  Get, Post, Body, Patch,
   Param, UploadedFile, UseInterceptors,
   ParseUUIDPipe, HttpCode, HttpStatus,
   Query, ParseEnumPipe,
@@ -102,6 +102,22 @@ export class EventController {
     return this.eventService.getPublicEvents(
       user.universityId,
       status,
+    );
+  }
+
+
+  @Patch(':id/status')
+  @Roles(Role.ORGANIZER)
+  async updateEventStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('status', new ParseEnumPipe(EventStatus)) status: EventStatus,
+    @Req() req: Request,
+  ): Promise<EventResponseDto> {
+    const user = req.user as JwtAccessPayload;
+    return this.eventService.updateEventStatus(
+      id,
+      status,
+      user.organizerProfileId!,
     );
   }
 

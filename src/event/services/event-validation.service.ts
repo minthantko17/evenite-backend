@@ -5,6 +5,8 @@ import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_SIZE } from '../constants/event-category
 import { InvalidDateRangeException } from '../exceptions/invalid-date-range.exception';
 import { EventNotFoundException } from '../exceptions/event-not-found.exception';
 import { PrismaService } from '../../prisma/prisma.service';
+import { EventStatusChangeException } from '../exceptions/event-status-change.exception';
+import { EventStatus } from '@prisma/client';
 
 @Injectable()
 export class EventValidationService {
@@ -72,6 +74,30 @@ export class EventValidationService {
     if (event.organizerId !== organizerProfileId) {
       throw new ForbiddenException(
         'You do not have permission to edit this event.',
+      );
+    }
+  }
+
+  validateStatusTransition(
+    currentStatus: EventStatus,
+    newStatus: EventStatus,
+  ): void {
+    const allowedTransitions: Partial<Record<EventStatus, EventStatus[]>> = {
+      [EventStatus.PUBLISHED]: [
+        EventStatus.ONGOING, 
+        EventStatus.CONCLUDED,
+        EventStatus.CANCELLED],
+      [EventStatus.ONGOING]: [
+        EventStatus.PUBLISHED,
+        EventStatus.CONCLUDED,
+        EventStatus.CANCELLED,
+      ],
+    };
+
+    const allowed = allowedTransitions[currentStatus] ?? [];
+    if (!allowed.includes(newStatus)) {
+      throw new EventStatusChangeException(
+        `Cannot transition from ${currentStatus} to ${newStatus}.`,
       );
     }
   }
