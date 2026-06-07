@@ -59,7 +59,7 @@ export class UserStorageService {
     return imageUrl;
   }
 
-  async deleteOrphanProfileImageIfReplaced(
+  async deleteOrphanParticipantImageIfReplaced(
     userId: string,
     newImageUrl: string,
   ): Promise<void> {
