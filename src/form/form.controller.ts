@@ -81,7 +81,7 @@ export class FormController {
       eventId,
       type,
       dto,
-      user.participantProfileId,  // ← ADD
+      user.participantProfileId,
     );
   }
 
