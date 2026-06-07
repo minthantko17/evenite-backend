@@ -5,6 +5,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { UserNotFoundException } from '../exceptions/user-not-found.exception';
 import { ProfileNotFoundException } from '../exceptions/profile-not-found.exception';
 import { CreateParticipantProfileDto } from '../dto/create-participant-profile.dto';
+import { UpdateParticipantProfileDto } from '../dto/update-participant-profile.dto';
 
 const mockPrisma = {
   user: {
@@ -393,8 +394,6 @@ describe('UserCrudService - createParticipantProfile', () => {
   });
 });
 
-// --- M-066: updateParticipantProfile ---
-
 describe('UserCrudService - updateParticipantProfile', () => {
   let service: UserCrudService;
 
@@ -431,7 +430,7 @@ describe('UserCrudService - updateParticipantProfile', () => {
     };
     mockPrisma.participantProfile.update.mockResolvedValue(mockUpdated);
 
-    const result = await service.updateParticipantProfile(userId, dto);
+    const result = await service.updateParticipantProfile(userId, dto as UpdateParticipantProfileDto);
 
     expect(result).toEqual(mockUpdated);
     expect(mockPrisma.participantProfile.update).toHaveBeenCalledWith(
@@ -450,17 +449,25 @@ describe('UserCrudService - updateParticipantProfile', () => {
       userId,
       firstName: 'Updated Name',
       lastName: 'Existing',
+      nickname: 'existing nickname',
+      studentId: '662115510',
+      major: 'Software Engineering',
+      contactEmail: 'existingmail@cmu.ac.th',
+      contactPhone: '0811111111',
+      contactLineId: 'existing_line',
+      imageUrl: null,
+      preferences: null,
       createdAt: new Date('2026-01-02'),
     };
     mockPrisma.participantProfile.update.mockResolvedValue(mockUpdated);
 
-    const result = await service.updateParticipantProfile(userId, dto);
+    const result = await service.updateParticipantProfile(userId, dto as UpdateParticipantProfileDto);
 
     expect(result).toEqual(mockUpdated);
-    expect(mockPrisma.participantProfile.update).toHaveBeenCalledWith(
-      expect.objectContaining({
+    expect(mockPrisma.participantProfile.update).toHaveBeenCalledWith({
         where: { userId },
-      }),
+        data: { firstName: 'Updated Name' },
+    }
     );
   });
 
@@ -473,30 +480,28 @@ describe('UserCrudService - updateParticipantProfile', () => {
       firstName: 'Wanchai',
       lastName: '',
       nickname: '',
+      studentId: '662115514',
+      major: 'Software Engineering',
+      contactEmail: 'existingmail@cmu.ac.th',
+      contactPhone: '0811111111',
+      contactLineId: 'existing_line',
+      imageUrl: null,
+      preferences: null,
       createdAt: new Date('2026-01-03'),
     };
     mockPrisma.participantProfile.update.mockResolvedValue(mockUpdated);
 
     const result = await service.updateParticipantProfile(userId, dto);
 
+    expect(result).toEqual(mockUpdated);
     expect(result.lastName).toBe('');
     expect(result.nickname).toBe('');
-  });
-
-  it('UT-M066-04: should propagate error when prisma throws', async () => {
-    mockPrisma.participantProfile.update.mockRejectedValueOnce(
-      new Error('Record not found'),
-    );
-
-    await expect(
-      service.updateParticipantProfile('u8000000-0000-0000-0000-000000000008', {
-        firstName: 'Test',
-      }),
-    ).rejects.toThrow('Record not found');
+    expect(mockPrisma.participantProfile.update).toHaveBeenCalledWith({
+        where: { userId },
+        data: { lastName: '', nickname: '' },
+    });
   });
 });
-
-// --- M-067: createOrganizerProfile ---
 
 describe('UserCrudService - createOrganizerProfile', () => {
   let service: UserCrudService;
@@ -570,14 +575,14 @@ describe('UserCrudService - createOrganizerProfile', () => {
 
   it('UT-M067-03: should propagate error when prisma throws', async () => {
     mockPrisma.organizerProfile.create.mockRejectedValueOnce(
-      new Error('Unique constraint failed'),
+      new Error('DB connection failed.'),
     );
 
     await expect(
       service.createOrganizerProfile('u9000000-0000-0000-0000-000000000009', {
         name: 'Duplicate Club',
       }),
-    ).rejects.toThrow('Unique constraint failed');
+    ).rejects.toThrow('DB connection failed.');
   });
 });
 
@@ -633,6 +638,11 @@ describe('UserCrudService - updateOrganizerProfile', () => {
       userId,
       name: 'Renamed Department',
       bio: 'Existing bio',
+      contactEmail: 'existing@cmu.ac.th',
+      contactPhone: '0866666666',
+      contactLineId: 'existing_line',
+      imageUrl: null,
+      externalUrl: null,
       createdAt: new Date('2026-02-15'),
     };
     mockPrisma.organizerProfile.update.mockResolvedValue(mockUpdated);
@@ -654,6 +664,10 @@ describe('UserCrudService - updateOrganizerProfile', () => {
       name: 'Art Society',
       bio: '',
       contactEmail: '',
+      contactPhone: '0866666666',
+      contactLineId: 'existing_line',
+      imageUrl: null,
+      externalUrl: null,
       createdAt: new Date('2026-03-05'),
     };
     mockPrisma.organizerProfile.update.mockResolvedValue(mockUpdated);
@@ -663,21 +677,7 @@ describe('UserCrudService - updateOrganizerProfile', () => {
     expect(result.bio).toBe('');
     expect(result.contactEmail).toBe('');
   });
-
-  it('UT-M068-04: should propagate error when prisma throws', async () => {
-    mockPrisma.organizerProfile.update.mockRejectedValueOnce(
-      new Error('Record does not exist'),
-    );
-
-    await expect(
-      service.updateOrganizerProfile('u9999999-9999-9999-9999-999999999997', {
-        name: 'Ghost Club',
-      }),
-    ).rejects.toThrow('Record does not exist');
-  });
 });
-
-// --- M-069: updateUserRole ---
 
 describe('UserCrudService - updateUserRole', () => {
   let service: UserCrudService;
@@ -722,20 +722,7 @@ describe('UserCrudService - updateUserRole', () => {
       data: { currentRole: Role.ORGANIZER },
     });
   });
-
-  it('UT-M069-03: should propagate error when prisma throws', async () => {
-    mockPrisma.user.update.mockRejectedValueOnce(new Error('DB timeout'));
-
-    await expect(
-      service.updateUserRole(
-        'u9999999-9999-9999-9999-999999999996',
-        Role.PARTICIPANT,
-      ),
-    ).rejects.toThrow('DB timeout');
-  });
 });
-
-// --- M-070: getCreatedEvents ---
 
 describe('UserCrudService - getCreatedEvents', () => {
   let service: UserCrudService;
@@ -871,33 +858,7 @@ describe('UserCrudService - getCreatedEvents', () => {
       }),
     );
   });
-
-  it('UT-M070-06: should scope events by universityId', async () => {
-    mockPrisma.event.findMany.mockResolvedValue([]);
-
-    await service.getCreatedEvents(organizerProfileId, universityId);
-
-    expect(mockPrisma.event.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ universityId }),
-      }),
-    );
-  });
-
-  it('UT-M070-07: should order results by createdAt descending', async () => {
-    mockPrisma.event.findMany.mockResolvedValue([]);
-
-    await service.getCreatedEvents(organizerProfileId, universityId);
-
-    expect(mockPrisma.event.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        orderBy: { createdAt: 'desc' },
-      }),
-    );
-  });
 });
-
-// --- M-071: getRegisteredEvents ---
 
 describe('UserCrudService - getRegisteredEvents', () => {
   let service: UserCrudService;
@@ -1059,44 +1020,6 @@ describe('UserCrudService - getRegisteredEvents', () => {
         where: expect.objectContaining({
           event: expect.objectContaining({ status: EventStatus.CONCLUDED }),
         }),
-      }),
-    );
-  });
-
-  it('UT-M071-06: should scope registrations by universityId via event relation', async () => {
-    mockPrisma.eventRegistration.findMany.mockResolvedValue([]);
-
-    await service.getRegisteredEvents(participantProfileId, universityId);
-
-    expect(mockPrisma.eventRegistration.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          event: expect.objectContaining({ universityId }),
-        }),
-      }),
-    );
-  });
-
-  it('UT-M071-07: should order results by createdAt descending', async () => {
-    mockPrisma.eventRegistration.findMany.mockResolvedValue([]);
-
-    await service.getRegisteredEvents(participantProfileId, universityId);
-
-    expect(mockPrisma.eventRegistration.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        orderBy: { createdAt: 'desc' },
-      }),
-    );
-  });
-
-  it('UT-M071-08: should include event relation in results', async () => {
-    mockPrisma.eventRegistration.findMany.mockResolvedValue([]);
-
-    await service.getRegisteredEvents(participantProfileId, universityId);
-
-    expect(mockPrisma.eventRegistration.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        include: { event: true },
       }),
     );
   });

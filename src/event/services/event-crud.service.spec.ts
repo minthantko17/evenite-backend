@@ -811,8 +811,6 @@ describe('EventCrudService - publishEvent', () => {
       dto.id
     );
 
-    console.log('Result Event:', result);
-    console.log('Expected Event:', expectedEvent);
     expect(result).toEqual(expectedEvent);
     expect(result.id).toBe(dto.id);
     expect(result.status).toBe('PUBLISHED');

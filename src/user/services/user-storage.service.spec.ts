@@ -192,7 +192,7 @@ describe('UserStorageService - resolveImageUrl', () => {
   });
 
   it('UT-M073-01: should return provided URL when valid participant image URL is given', () => {
-    const mockUuid = uuidv4();
+    const mockUuid = 'mock-participant-uuid-1234';
     const validUrl = `${MOCK_SUPABASE_BASE_URL}/participant/${mockUuid}.jpg`;
     expect(
       service.resolveImageUrl(validUrl, DEFAULT_PARTICIPANT_IMAGE_URL),
@@ -200,7 +200,7 @@ describe('UserStorageService - resolveImageUrl', () => {
   });
 
   it('UT-M073-02: should return provided URL when valid organizer image URL is given', () => {
-    const mockUuid = uuidv4();
+    const mockUuid = 'mock-organizer-uuid-1234';
     const validUrl = `${MOCK_SUPABASE_BASE_URL}/organizer/${mockUuid}.png`;
     expect(
       service.resolveImageUrl(validUrl, DEFAULT_ORGANIZER_IMAGE_URL),
@@ -247,8 +247,8 @@ describe('UserStorageService - deleteOrphanParticipantImageIfReplaced', () => {
   });
 
   it('UT-M074-01: should call remove when old participant image URL differs from new URL', async () => {
-    const oldUuid = uuidv4();
-    const newUuid = uuidv4();
+    const oldUuid = 'mock-participant-uuid-1234';
+    const newUuid = 'mock-participant-uuid-5678';
     const oldUrl = `${MOCK_SUPABASE_BASE_URL}/participant/${oldUuid}.jpg`;
     const newUrl = `${MOCK_SUPABASE_BASE_URL}/participant/${newUuid}.png`;
 
@@ -269,7 +269,7 @@ describe('UserStorageService - deleteOrphanParticipantImageIfReplaced', () => {
   });
 
   it('UT-M074-02: should not call remove when old URL is same as new URL', async () => {
-    const mockUuid = uuidv4();
+    const mockUuid = 'mock-participant-uuid-1234';
     const sameUrl = `${MOCK_SUPABASE_BASE_URL}/participant/${mockUuid}.jpg`;
 
     mockPrisma.participantProfile.findUnique.mockResolvedValueOnce({
@@ -285,7 +285,7 @@ describe('UserStorageService - deleteOrphanParticipantImageIfReplaced', () => {
   });
 
   it('UT-M074-03: should not call remove when old URL is DEFAULT_PARTICIPANT_IMAGE_URL', async () => {
-    const newUuid = uuidv4();
+    const newUuid = 'mock-participant-uuid-5678';
     const newUrl = `${MOCK_SUPABASE_BASE_URL}/participant/${newUuid}.webp`;
 
     mockPrisma.participantProfile.findUnique.mockResolvedValueOnce({
@@ -301,7 +301,7 @@ describe('UserStorageService - deleteOrphanParticipantImageIfReplaced', () => {
   });
 
   it('UT-M074-04: should not call remove when old URL is null', async () => {
-    const newUuid = uuidv4();
+    const newUuid = 'mock-participant-uuid-5678';
     const newUrl = `${MOCK_SUPABASE_BASE_URL}/participant/${newUuid}.jpg`;
 
     mockPrisma.participantProfile.findUnique.mockResolvedValueOnce({
@@ -317,7 +317,7 @@ describe('UserStorageService - deleteOrphanParticipantImageIfReplaced', () => {
   });
 
   it('UT-M074-05: should throw ProfileNotFoundException when participant profile does not exist', async () => {
-    const newUuid = uuidv4();
+    const newUuid = 'mock-participant-uuid-5678';
     const newUrl = `${MOCK_SUPABASE_BASE_URL}/participant/${newUuid}.png`;
 
     mockPrisma.participantProfile.findUnique.mockResolvedValueOnce(null);
@@ -327,7 +327,7 @@ describe('UserStorageService - deleteOrphanParticipantImageIfReplaced', () => {
         newUrl,
     );
     await expect(result).rejects.toThrow(ProfileNotFoundException);
-    await expect(result).rejects.toThrow(' Participant profile not found.');
+    await expect(result).rejects.toThrow('Participant profile not found.');
   });
 });
 
@@ -346,8 +346,8 @@ describe('UserStorageService - deleteOrphanOrganizerImageIfReplaced', () => {
   });
 
   it('UT-M075-01: should call remove when old organizer image URL differs from new URL', async () => {
-    const oldUuid = uuidv4();
-    const newUuid = uuidv4();
+    const oldUuid = 'mock-organizer-uuid-1234';
+    const newUuid = 'mock-organizer-uuid-5678';
     const oldUrl = `${MOCK_SUPABASE_BASE_URL}/organizer/${oldUuid}.png`;
     const newUrl = `${MOCK_SUPABASE_BASE_URL}/organizer/${newUuid}.jpg`;
 
@@ -368,7 +368,7 @@ describe('UserStorageService - deleteOrphanOrganizerImageIfReplaced', () => {
   });
 
   it('UT-M075-02: should not call remove when old organizer URL is same as new URL', async () => {
-    const mockUuid = uuidv4();
+    const mockUuid = 'mock-organizer-uuid-1234';
     const sameUrl = `${MOCK_SUPABASE_BASE_URL}/organizer/${mockUuid}.png`;
 
     mockPrisma.organizerProfile.findUnique.mockResolvedValueOnce({
@@ -384,7 +384,7 @@ describe('UserStorageService - deleteOrphanOrganizerImageIfReplaced', () => {
   });
 
   it('UT-M075-03: should not call remove when old URL is DEFAULT_ORGANIZER_IMAGE_URL', async () => {
-    const newUuid = uuidv4();
+    const newUuid = 'mock-organizer-uuid-5678';
     const newUrl = `${MOCK_SUPABASE_BASE_URL}/organizer/${newUuid}.webp`;
 
     mockPrisma.organizerProfile.findUnique.mockResolvedValueOnce({
@@ -400,7 +400,7 @@ describe('UserStorageService - deleteOrphanOrganizerImageIfReplaced', () => {
   });
 
   it('UT-M075-04: should not call remove when old organizer URL is null', async () => {
-    const newUuid = uuidv4();
+    const newUuid = 'mock-organizer-uuid-5678';
     const newUrl = `${MOCK_SUPABASE_BASE_URL}/organizer/${newUuid}.png`;
 
     mockPrisma.organizerProfile.findUnique.mockResolvedValueOnce({
@@ -416,7 +416,7 @@ describe('UserStorageService - deleteOrphanOrganizerImageIfReplaced', () => {
   });
 
   it('UT-M075-05: should throw ProfileNotFoundException when organizer profile does not exist', async () => {
-    const newUuid = uuidv4();
+    const newUuid = 'mock-organizer-uuid-5678';
     const newUrl = `${MOCK_SUPABASE_BASE_URL}/organizer/${newUuid}.jpg`;
 
     mockPrisma.organizerProfile.findUnique.mockResolvedValueOnce(null);
@@ -426,6 +426,6 @@ describe('UserStorageService - deleteOrphanOrganizerImageIfReplaced', () => {
         newUrl,
     );
     await expect(result).rejects.toThrow(ProfileNotFoundException);
-    await expect(result).rejects.toThrow(' Organizer profile not found.');
+    await expect(result).rejects.toThrow('Organizer profile not found.');
   });
 });

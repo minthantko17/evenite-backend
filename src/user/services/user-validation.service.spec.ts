@@ -43,6 +43,7 @@ describe('UserValidationService - validateUserExists', () => {
       'u1000000-0000-0000-0000-000000000001',
     );
     await expect(result).resolves.toBeUndefined();
+    await expect(()=>result).not.toThrow();
   });
 
   it('UT-M055-02: should throw UserNotFoundException with message when user not found', async () => {
@@ -304,6 +305,7 @@ describe('UserValidationService - validateOrganizerProfileData', () => {
       service.validateOrganizerProfileData({
         name: 'CAMT Student Club',
         contactEmail: 'club@cmu.ac.th',
+        imageUrl: 'https://placehold.co/200x200?text=Image',
         externalUrl: 'https://camt.cmu.ac.th',
       }),
     ).not.toThrow();
@@ -349,12 +351,14 @@ describe('UserValidationService - validateOrganizerProfileData', () => {
     const call = () =>
       service.validateOrganizerProfileData({ name: '' });
     expect(call).toThrow(NameEmptyException);
+    expect(call).toThrow('Organizer name cannot be empty.');
   });
 
   it('UT-M059-07: should throw NameEmptyException when name is whitespace only', () => {
     const call = () =>
       service.validateOrganizerProfileData({ name: '   ' });
     expect(call).toThrow(NameEmptyException);
+    expect(call).toThrow('Organizer name cannot be empty.');
   });
 
   it('UT-M059-08: should throw NameEmptyException when name is undefined', () => {
@@ -371,6 +375,7 @@ describe('UserValidationService - validateOrganizerProfileData', () => {
         contactEmail: 'invalid-email',
       });
     expect(call).toThrow(InvalidMailException);
+    expect(call).toThrow('Invalid contact email format.');
   });
 
   it('UT-M059-10: should throw InvalidUrlException when externalUrl has invalid format', () => {
@@ -380,6 +385,7 @@ describe('UserValidationService - validateOrganizerProfileData', () => {
         externalUrl: 'not-a-valid-url',
       });
     expect(call).toThrow(InvalidUrlException);
+    expect(call).toThrow('Invalid external URL format.');
   });
 
   it('UT-M059-11: should throw InvalidUrlException when externalUrl is missing protocol', () => {
@@ -389,6 +395,7 @@ describe('UserValidationService - validateOrganizerProfileData', () => {
         externalUrl: 'www.codingclub.com',
       });
     expect(call).toThrow(InvalidUrlException);
+    expect(call).toThrow('Invalid external URL format.');
   });
 });
 
