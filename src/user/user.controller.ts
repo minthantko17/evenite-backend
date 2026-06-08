@@ -94,9 +94,11 @@ export class UserController {
   @Roles(Role.PARTICIPANT)
   getCurrentUserRegisteredEvents(
     @Req() req: Request,
+    @Query('status', new ParseEnumPipe(EventStatus, { optional: true }))
+    status?: EventStatus,
   ): Promise<EventRegistrationWithEvent[]> {
     const user = req.user as JwtAccessPayload;
-    return this.userService.getRegisteredEvents(user.sub);
+    return this.userService.getRegisteredEvents(user.sub, status);
   }
 
   // --- Organizer Profile Endpoints ----
