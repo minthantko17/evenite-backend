@@ -90,7 +90,7 @@ export class UserService {
       DEFAULT_PARTICIPANT_IMAGE_URL,
     );
     if (hasImageUrlField) {
-      await this.userStorageService.deleteOrphanProfileImageIfReplaced(
+      await this.userStorageService.deleteOrphanParticipantImageIfReplaced(
         userId,
         dto.imageUrl,
       );

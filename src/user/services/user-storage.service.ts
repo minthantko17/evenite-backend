@@ -59,7 +59,7 @@ export class UserStorageService {
     return imageUrl;
   }
 
-  async deleteOrphanProfileImageIfReplaced(
+  async deleteOrphanParticipantImageIfReplaced(
     userId: string,
     newImageUrl: string,
   ): Promise<void> {
@@ -69,7 +69,7 @@ export class UserStorageService {
     });
 
     if (!existing) {
-      throw new ProfileNotFoundException(' Participant profile not found.');
+      throw new ProfileNotFoundException('Participant profile not found.');
     }
 
     const oldImageUrl = existing.imageUrl;
@@ -92,7 +92,7 @@ export class UserStorageService {
     });
 
     if (!existing) {
-      throw new ProfileNotFoundException(' Organizer profile not found.');
+      throw new ProfileNotFoundException('Organizer profile not found.');
     }
 
     const oldImageUrl = existing.imageUrl;

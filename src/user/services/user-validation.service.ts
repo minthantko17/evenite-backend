@@ -68,10 +68,8 @@ export class UserValidationService {
   validateParticipantProfileData(
     dto: CreateParticipantProfileDto | UpdateParticipantProfileDto,
   ): void {
-    if ('firstName' in dto && dto.firstName !== undefined) {
-      if (dto.firstName.trim().length === 0) {
-        throw new NameEmptyException('First name cannot be empty.');
-      }
+    if (dto.firstName === undefined || dto.firstName === null || dto.firstName.trim().length === 0) {
+      throw new NameEmptyException('First name cannot be empty.');
     }
 
     if (dto.contactEmail !== undefined && dto.contactEmail !== '') {
@@ -94,10 +92,8 @@ export class UserValidationService {
   validateOrganizerProfileData(
     dto: CreateOrganizerProfileDto | UpdateOrganizerProfileDto,
   ): void {
-    if ('name' in dto && dto.name !== undefined) {
-      if (dto.name.trim().length === 0) {
-        throw new NameEmptyException('Organizer name cannot be empty.');
-      }
+    if (dto.name === undefined || dto.name === null || dto.name.trim().length === 0) {
+      throw new NameEmptyException('Organizer name cannot be empty.');
     }
 
     if (dto.contactEmail !== undefined && dto.contactEmail !== '') {
