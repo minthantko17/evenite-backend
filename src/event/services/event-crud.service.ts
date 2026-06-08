@@ -126,7 +126,6 @@ export class EventCrudService {
         data: jsonEventData,
       });
     } catch (error) {
-      if (error instanceof InvalidDateRangeException) throw error;
       if (error instanceof EventNotFoundException) throw error;
       if (error instanceof ForbiddenException) throw error;
       throw new PublishEventException();
