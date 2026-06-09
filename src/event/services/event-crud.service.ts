@@ -10,10 +10,8 @@ import type { BilingualField } from '../dto/bilingual-field.dto';
 import type { AgendaItem } from '../dto/agenda-item.dto';
 
 import { SaveEventException } from '../exceptions/save-event.exception';
-import { DEFAULT_BANNER_URL } from '../constants/event-category.constant';
 import { EventNotFoundException } from '../exceptions/event-not-found.exception';
 import { EventStatusChangeException } from '../exceptions/event-status-change.exception';
-import { PublishEventException } from '../exceptions/publish-event.exception';
 
 @Injectable()
 export class EventCrudService {
@@ -70,9 +68,6 @@ export class EventCrudService {
       }
       return await this.prisma.event.create({ data });
     } catch {
-      if (status === EventStatus.PUBLISHED) {
-        throw new PublishEventException();
-      }
       throw new SaveEventException();
     }
   }

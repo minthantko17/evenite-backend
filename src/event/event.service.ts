@@ -1,6 +1,5 @@
 import { Injectable, ForbiddenException } from '@nestjs/common';
-import { Event, EventStatus, Role } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { Event, EventStatus } from '@prisma/client';
 import { EventValidationService } from './services/event-validation.service';
 import { EventAiService } from './services/event-ai.service';
 import { EventStorageService } from './services/event-storage.service';
@@ -34,7 +33,7 @@ export class EventService {
   }
 
   async uploadBannerToStorage(file: Express.Multer.File): Promise<string> {
-    this.eventValidationService.validateBannerFile(file);
+    this.eventValidationService.validateImageFile(file);
     return this.eventStorageService.uploadBannerToStorage(file);
   }
 
@@ -49,12 +48,29 @@ export class EventService {
     organizerProfileId: string,
     universityId: string,
   ): Promise<Event> {
-    return this.eventCrudService.saveEventAsDraft(
+    let oldBannerUrl: string | null = null;
+
+    if (dto.id) {
+      await this.eventValidationService.validateEventOwnership(
+        dto.id,
+        organizerProfileId,
+      );
+      oldBannerUrl = await this.eventCrudService.getBannerUrl(dto.id);
+    }
+
+    const savedEvent = await this.eventCrudService.saveEvent(
       dto,
       organizerProfileId,
       universityId,
+      EventStatus.DRAFT,
       dto.id,
     );
+    await this.eventStorageService.deleteOrphanBannerIfReplaced(
+      oldBannerUrl,
+      dto.bannerUrl,
+    );
+
+    return savedEvent;
   }
 
   async publishEvent(
@@ -62,13 +78,34 @@ export class EventService {
     organizerProfileId: string,
     universityId: string,
   ): Promise<Event> {
-    this.eventValidationService.validatePublishDateRange(dto.startAt, dto.endAt);
-    return this.eventCrudService.publishEvent(
+    this.eventValidationService.validatePublishDateRange(
+      dto.startAt,
+      dto.endAt,
+    );
+    let oldBannerUrl: string | null = null;
+
+    if (dto.id) {
+      await this.eventValidationService.validateEventOwnership(
+        dto.id,
+        organizerProfileId,
+      );
+      oldBannerUrl = await this.eventCrudService.getBannerUrl(dto.id);
+    }
+
+    const publishedEvent = await this.eventCrudService.saveEvent(
       dto,
       organizerProfileId,
       universityId,
+      EventStatus.PUBLISHED,
       dto.id,
     );
+
+    await this.eventStorageService.deleteOrphanBannerIfReplaced(
+      oldBannerUrl,
+      dto.bannerUrl,
+    );
+
+    return publishedEvent;
   }
 
   async updateEventStatus(
@@ -89,12 +126,11 @@ export class EventService {
 
     return this.eventCrudService.updateEventStatus(eventId, newStatus);
   }
-  
+
   async getPublicEvents(
     universityId: string,
     status?: EventStatus,
   ): Promise<EventResponseDto[]> {
-
     const visibleStatuses = [
       EventStatus.PUBLISHED,
       EventStatus.ONGOING,
@@ -102,11 +138,16 @@ export class EventService {
     ] as EventStatus[];
 
     // to prevent participant from filtering by DRAFT etc.
-    if(status && !visibleStatuses.includes(status)){
-      throw new ForbiddenException('You are not allowed to filter by this status');
+    if (status && !visibleStatuses.includes(status)) {
+      throw new ForbiddenException(
+        'You are not allowed to filter by this status',
+      );
     }
 
-    return this.eventCrudService.getEvents(universityId, status ?? visibleStatuses);
+    return this.eventCrudService.getEvents(
+      universityId,
+      status ?? visibleStatuses,
+    );
   }
 
   async getEventById(
