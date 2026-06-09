@@ -13,6 +13,7 @@ import {
   ALLOWED_CATEGORIES,
   EventCategory,
 } from '../constants/event-category.constant';
+import { isValidUrl } from '../../common/utils/url.utils';
 
 const EVENT_EXTRACTION_INSTRUCTION = `
     You are an expert event data extractor.
@@ -275,10 +276,10 @@ export class EventAiService {
       dto.seatLimit = undefined;
     }
 
-    if (dto.mapLink && !this.utils.isValidUrl(dto.mapLink)){
+    if (dto.mapLink && !isValidUrl(dto.mapLink)){
       dto.mapLink = '';
     }
-    if (dto.externalUrl && !this.utils.isValidUrl(dto.externalUrl)){
+    if (dto.externalUrl && !isValidUrl(dto.externalUrl)){
       dto.externalUrl = '';
     }
     if (dto.contactEmail && !dto.contactEmail.includes('@')){

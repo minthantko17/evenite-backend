@@ -1,8 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ParticipantProfile, OrganizerProfile, Role } from '@prisma/client';
-import { UserWithProfiles } from '../../auth/services/auth-crud.service';
 import { UserNotFoundException } from '../exceptions/user-not-found.exception';
-import { ProfileNotFoundException } from '../exceptions/profile-not-found.exception';
 import { ProfileAlreadyExistsException } from '../exceptions/profile-already-exists.exception';
 import { InvalidRoleTransitionException } from '../exceptions/invalid-role-transition.exception';
 import {
@@ -18,10 +16,9 @@ import { UpdateOrganizerProfileDto } from '../dto/update-organizer-profile.dto';
 import { InvalidPreferencesException } from '../exceptions/invalid-preferences.exception';
 import { NameEmptyException } from '../exceptions/name-empty.exception';
 import { InvalidMailException } from '../exceptions/invalid-mail.exception';
-import { InvalidImageException } from '../exceptions/invalid-image.exception';
 import { InvalidUrlException } from '../exceptions/invalid-url.exception';
-import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_SIZE } from '../constants/user-images.constant';
 import { PrismaService } from '../../prisma/prisma.service';
+import { isValidUrl } from '../../common/utils/url.utils';
 
 @Injectable()
 export class UserValidationService {
@@ -79,7 +76,7 @@ export class UserValidationService {
     }
 
     if (dto.imageUrl !== undefined && dto.imageUrl !== '') {
-      if (!this.isValidUrl(dto.imageUrl)) {
+      if (!isValidUrl(dto.imageUrl)) {
         throw new InvalidUrlException('Invalid image URL format.');
       }
     }
@@ -103,13 +100,13 @@ export class UserValidationService {
     }
 
     if (dto.imageUrl !== undefined && dto.imageUrl !== '') {
-      if (!this.isValidUrl(dto.imageUrl)) {
+      if (!isValidUrl(dto.imageUrl)) {
         throw new InvalidUrlException('Invalid image URL format.');
       }
     }
 
     if (dto.externalUrl !== undefined && dto.externalUrl !== '') {
-      if (!this.isValidUrl(dto.externalUrl)) {
+      if (!isValidUrl(dto.externalUrl)) {
         throw new InvalidUrlException('Invalid external URL format.');
       }
     }
@@ -156,28 +153,6 @@ export class UserValidationService {
           `Invalid language preferences: ${invalidLanguage.join(', ')}`,
         );
       }
-    }
-  }
-
-  validateImageFile(file: Express.Multer.File): void {
-    if (!file) {
-      throw new InvalidImageException('No input file provided');
-    }
-    if (!ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
-      throw new InvalidImageException('Unsupported image format');
-    }
-
-    if (file.size > MAX_IMAGE_SIZE) {
-      throw new InvalidImageException('File size must not exceed 5MB.');
-    }
-  }
-
-  isValidUrl(url: string): boolean {
-    try {
-      new URL(url);
-      return true;
-    } catch {
-      return false;
     }
   }
 }

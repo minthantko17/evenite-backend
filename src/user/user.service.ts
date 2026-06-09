@@ -23,6 +23,7 @@ import { DEFAULT_PREFERENCES } from './constants/user-preferences.constant';
 import type { ReturnSwitchProfileDto } from './dto/return-switch-profile.dto';
 import { EventRegistrationWithEvent } from './services/user-crud.service';
 import { UserNotFoundException } from './exceptions/user-not-found.exception';
+import { validateImageFile } from '../common/utils/file.utils';
 
 @Injectable()
 export class UserService {
@@ -107,7 +108,7 @@ export class UserService {
   async uploadParticipantImage(
     file: Express.Multer.File,
   ): Promise<{ imageUrl: string }> {
-    this.userValidationService.validateImageFile(file);
+    validateImageFile(file);
     const imageUrl = await this.userStorageService.uploadImageToStorage(
       file,
       'participant',
@@ -184,7 +185,7 @@ export class UserService {
   async uploadOrganizerImage(
     file: Express.Multer.File,
   ): Promise<{ imageUrl: string }> {
-    this.userValidationService.validateImageFile(file);
+    validateImageFile(file);
     const imageUrl = await this.userStorageService.uploadImageToStorage(
       file,
       'organizer',

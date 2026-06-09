@@ -10,6 +10,7 @@ import { PublishEventDto } from './dto/publish-event.dto';
 import type { TranslateBilingualFieldsDto } from './dto/translate-bilingual-fields.dto';
 import { EventResponseDto } from './dto/event-response.dto';
 import { EventNotFoundException } from './exceptions/event-not-found.exception';
+import { validateImageFile } from '../common/utils/file.utils';
 
 @Injectable()
 export class EventService {
@@ -28,12 +29,12 @@ export class EventService {
   async generateEventFromImage(
     file: Express.Multer.File,
   ): Promise<GeneratedEventDto> {
-    this.eventValidationService.validateImageFile(file);
+    validateImageFile(file);
     return this.eventAiService.generateEventFromImage(file);
   }
 
   async uploadBannerToStorage(file: Express.Multer.File): Promise<string> {
-    this.eventValidationService.validateImageFile(file);
+    validateImageFile(file);
     return this.eventStorageService.uploadBannerToStorage(file);
   }
 
