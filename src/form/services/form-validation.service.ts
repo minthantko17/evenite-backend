@@ -1,6 +1,5 @@
 import { Injectable, ForbiddenException } from '@nestjs/common';
-import { FormType } from '@prisma/client';
-import { FieldType, EventStatus } from '@prisma/client';
+import { FormType, FieldType, EventStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { FormFieldInputDto } from '../dto/create-form.dto';
 import { FormFieldInvalidException } from '../exceptions/form-field-invalid.exception';
@@ -10,25 +9,12 @@ import { FormNotFoundException } from '../exceptions/form-not-found.exception';
 import { FormAlreadyHasResponsesException } from '../exceptions/form-already-has-responses.exception';
 import { CreateFormFieldAnswerDto } from '../dto/create-form-response.dto';
 import { ReturnFormField } from '../dto/return-form-with-fields.dto';
-import { EventNotFoundException } from '../../event/exceptions/event-not-found.exception';
 import { ALLOWED_AUTOFILL_KEYS } from '../constants/form.constants';
 
 @Injectable()
 export class FormValidationService {
 
   constructor(private readonly prisma: PrismaService) {}
-
-  // TODO: enhance by adding mapToDtos for return types, 
-  // currently crud service only return casted types
-
-  async validateEventExists(eventId: string): Promise<void> {
-    const event = await this.prisma.event.findUnique({
-      where: { id: eventId },
-    });
-    if (!event) {
-      throw new EventNotFoundException();
-    }
-  }
 
   async validateFormTypeNotDuplicated(
     eventId: string,
@@ -90,26 +76,6 @@ export class FormValidationService {
         );
       }
     });
-  }
-
-  async validateEventOwnership(
-    eventId: string,
-    organizerProfileId: string,
-  ): Promise<void> {
-    const event = await this.prisma.event.findUnique({
-      where: { id: eventId },
-      select: { organizerId: true },
-    });
-
-    if (!event) {
-      throw new EventNotFoundException();
-    }
-
-    if (event.organizerId !== organizerProfileId) {
-      throw new ForbiddenException(
-        'You do not have permission to manage this event.',
-      );
-    }
   }
 
   // (me to my future self) following are related to method for dev purposes only

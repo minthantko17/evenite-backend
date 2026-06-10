@@ -28,6 +28,15 @@ export class EventValidationService {
     }
   }
 
+  async validateEventExists(eventId: string): Promise<void> {
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+    });
+    if (!event) {
+      throw new EventNotFoundException();
+    }
+  }
+
   async validateEventOwnership(
     eventId: string,
     organizerProfileId: string,
