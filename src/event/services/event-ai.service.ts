@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { GoogleGenAI } from '@google/genai';
 import { OpenAI } from 'openai';
+import Groq from 'groq-sdk';
 import { EventDataUtils } from '../utils/event-data.utils';
 
 import type { GeneratedEventDto } from '../dto/generated-event.dto';
@@ -98,10 +99,9 @@ export class EventAiService {
   private readonly logger = new Logger(EventAiService.name);
   private readonly googleGenAi: GoogleGenAI;
   private readonly zaiClient: OpenAI;
-  private readonly textModel = 'glm-4.7';
-  private readonly imageModel = 'glm-4.6v';
+  private readonly groq: Groq;
 
-  /**
+  /** Model selection:
    * For gemini
    * - text generation: gemini-2.5-flash
    * - image generation: gemini-2.5-flash
@@ -111,8 +111,11 @@ export class EventAiService {
    * - image generation: glm-4.6v
    *
    * For groq
-   *
+   * - text generation: openai/gpt-oss-120b
+   * - image generation: meta-llama/llama-4-scout-17b-16e-instruct
    */
+  private readonly textModel = 'openai/gpt-oss-120b';
+  private readonly imageModel = 'meta-llama/llama-4-scout-17b-16e-instruct';
 
   constructor(private readonly utils: EventDataUtils) {
     this.googleGenAi = new GoogleGenAI({
@@ -122,13 +125,16 @@ export class EventAiService {
       apiKey: process.env.ZAI_API_KEY ?? '',
       baseURL: 'https://api.z.ai/api/coding/paas/v4/',
     });
+    this.groq = new Groq({
+      apiKey: process.env.GROQ_API_KEY ?? '',
+    });
   }
 
   async generateEventFromPrompt(prompt: string): Promise<GeneratedEventDto> {
     const fullPrompt = `${TEXT_TO_EVENT_INSTRUCTION}\n\nEvent information:\n${prompt}`;
     this.logger.log('Sending prompt to AI:', fullPrompt);
 
-    const rawResponse = await this.callZai(
+    const rawResponse = await this.callGroq(
       fullPrompt,
       this.textModel,
       'generation',
@@ -143,7 +149,7 @@ export class EventAiService {
     file: Express.Multer.File,
   ): Promise<GeneratedEventDto> {
     this.logger.log('Sending image to AI');
-    const rawResponse = await this.callZai(
+    const rawResponse = await this.callGroq(
       IMAGE_TO_EVENT_INSTRUCTION,
       this.imageModel,
       'generation',
@@ -161,7 +167,7 @@ export class EventAiService {
     const fullPrompt = `${TRANSLATION_INSTRUCTION}\n\nFields to translate:\n${JSON.stringify(originalDto, null, 2)}`;
     this.logger.log('Sending prompt to AI:', fullPrompt);
 
-    const rawResponse = await this.callZai(
+    const rawResponse = await this.callGroq(
       fullPrompt,
       this.textModel,
       'translation',
@@ -170,7 +176,7 @@ export class EventAiService {
     return this.mapTranslationResponseToDto(parsedResponse, originalDto);
   }
 
-  // --- private helpers ---
+  // --- ai services ---
 
   protected async callGemini(
     prompt: string,
@@ -202,7 +208,8 @@ export class EventAiService {
       });
       const latency = Date.now() - startAt;
       this.logger.log(`Gemini response received in ${latency}ms`);
-      // this.logger.log('Raw response from Gemini:', result);
+      this.logger.log('Raw response from Gemini:', result);
+
       return result?.text ?? '';
     } catch (error) {
       this.logger.error('Gemini raw error:', error);
@@ -239,10 +246,11 @@ export class EventAiService {
             content,
           },
         ],
+        response_format: { type: 'json_object' },
       });
       const latency = Date.now() - startAt;
       this.logger.log(`Zai response received in ${latency}ms`);
-      // this.logger.log('Raw response from Zai:', result);
+      this.logger.log('Raw response from Zai:', result);
 
       return result?.choices?.[0]?.message?.content ?? '';
     } catch (error) {
@@ -251,6 +259,45 @@ export class EventAiService {
       throw new AiGenerationException();
     }
   }
+
+  protected async callGroq(
+    prompt: string,
+    model: string = 'openai/gpt-oss-120b',
+    context: 'generation' | 'translation',
+    image?: Express.Multer.File,
+  ): Promise<string> {
+    try {
+      const content: any = image
+        ? [
+            { type: 'text', text: prompt },
+            {
+              type: 'image_url',
+              image_url: {
+                url: `data:${image.mimetype};base64,${image.buffer.toString('base64')}`,
+              },
+            },
+          ]
+        : prompt;
+
+      const startAt = Date.now();
+      const result = await this.groq.chat.completions.create({
+        model: model,
+        messages: [{ role: 'user', content }],
+        response_format: { type: 'json_object' },
+      });
+      const latency = Date.now() - startAt;
+      this.logger.log(`Groq response received in ${latency}ms`);
+      this.logger.log('Raw response from Groq:', result);
+
+      return result?.choices?.[0]?.message?.content ?? '';
+    } catch (error) {
+      this.logger.error('Groq raw error:', error);
+      if (context === 'translation') throw new AiTranslationException();
+      throw new AiGenerationException();
+    }
+  }
+
+  // --- helpers ---
 
   private parseJson(text: string): Record<string, any> {
     try {
