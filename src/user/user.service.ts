@@ -3,8 +3,6 @@ import { EventStatus } from '@prisma/client';
 import { UserCrudService } from './services/user-crud.service';
 import { UserValidationService } from './services/user-validation.service';
 import { UserStorageService } from './services/user-storage.service';
-import { AuthTokenService } from '../auth/services/auth-token.service';
-import { AuthCrudService } from '../auth/services/auth-crud.service';
 import { CreateParticipantProfileDto } from './dto/create-participant-profile.dto';
 import { UpdateParticipantProfileDto } from './dto/update-participant-profile.dto';
 import { CreateOrganizerProfileDto } from './dto/create-organizer-profile.dto';
@@ -13,7 +11,6 @@ import { SwitchRoleDto } from './dto/switch-role.dto';
 import { ReturnUserDto } from './dto/return-user.dto';
 import { ReturnParticipantProfileDto } from './dto/return-participant-profile.dto';
 import { ReturnOrganizerProfileDto } from './dto/return-organizer-profile.dto';
-import { JwtAccessPayload } from '../auth/strategies/jwt-access.strategy';
 import { Event, EventRegistration } from '@prisma/client';
 import {
   DEFAULT_PARTICIPANT_IMAGE_URL,
@@ -26,6 +23,7 @@ import { validateImageFile } from '../common/utils/file.utils';
 import { EventService } from '../event/event.service';
 import { EventResponseDto } from '../event/dto/event-response.dto';
 import { EventRegistrationWithEvent } from '../event/services/event-crud.service';
+import { AuthService } from '../auth/auth.service';
 
 @Injectable()
 export class UserService {
@@ -33,9 +31,8 @@ export class UserService {
     private readonly userCrudService: UserCrudService,
     private readonly userValidationService: UserValidationService,
     private readonly userStorageService: UserStorageService,
-    private readonly authTokenService: AuthTokenService,
-    private readonly authCrudService: AuthCrudService,
     private readonly eventService: EventService,
+    private readonly authService: AuthService,
   ) {}
 
   async getUserProfile(userId: string): Promise<ReturnUserDto> {
@@ -72,7 +69,7 @@ export class UserService {
       dto,
     );
     await this.userCrudService.updateUserRole(userId, 'PARTICIPANT');
-    const accessToken = await this.issueNewAccessToken(userId);
+    const accessToken = await this.authService.issueAccessTokenForUser(userId);
 
     return {
       ...this.mapToReturnParticipantProfileDto(participantProfile),
@@ -149,7 +146,7 @@ export class UserService {
       dto,
     );
     await this.userCrudService.updateUserRole(userId, 'ORGANIZER');
-    const accessToken = await this.issueNewAccessToken(userId);
+    const accessToken = await this.authService.issueAccessTokenForUser(userId);
 
     return {
       ...this.mapToReturnOrganizerProfileDto(organizerProfile),
@@ -222,7 +219,7 @@ export class UserService {
     }
 
     await this.userCrudService.updateUserRole(userId, dto.targetRole);
-    const accessToken = await this.issueNewAccessToken(userId);
+    const accessToken = await this.authService.issueAccessTokenForUser(userId);
 
     return {
       message: `Switched to ${dto.targetRole.toLowerCase()} mode successfully.`,
@@ -262,25 +259,6 @@ export class UserService {
 
 
   // --- helper methods ---
-
-  private async issueNewAccessToken(userId: string): Promise<string> {
-    const user = await this.authCrudService.findUserById(userId);
-    if (!user) throw new UserNotFoundException();
-
-    const accessPayload: JwtAccessPayload = {
-      sub: user.id,
-      email: user.email,
-      currentRole: user.currentRole,
-      isVerified: user.isVerified,
-      universityId: user.universityId,
-      participantProfileId: user.participantProfile?.id ?? null,
-      organizerProfileId: user.organizerProfile?.id ?? null,
-      hasCreatedProfile:
-        user.participantProfile !== null || user.organizerProfile !== null,
-    };
-
-    return this.authTokenService.generateAccessToken(accessPayload);
-  }
 
   private mapToReturnUserDto(user: any): ReturnUserDto {
     return {
