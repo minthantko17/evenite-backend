@@ -46,16 +46,29 @@ export class EventStorageService {
     return bannerUrl;
   }
 
-  async deleteBannerFromStorage(bannerUrl: string): Promise<void>{
-    const filePath = this.extractFilePathFromUrl(bannerUrl);
-    if (!filePath){
-      return;
+  async deleteOrphanBannerIfReplaced(
+    oldBannerUrl: string | null,
+    newBannerUrl: string | undefined,
+  ): Promise<void> {
+    const resolvedNew = this.resolveBannerUrl(newBannerUrl);
+
+    if (
+      oldBannerUrl &&
+      oldBannerUrl !== resolvedNew &&
+      oldBannerUrl !== DEFAULT_BANNER_URL
+    ) {
+      await this.deleteBannerFromStorage(oldBannerUrl);
     }
+  }
+
+  async deleteBannerFromStorage(bannerUrl: string): Promise<void> {
+    const filePath = this.extractFilePathFromUrl(bannerUrl);
+    if (!filePath) return;
     await this.supabase.storage.from(BUCKET_NAME).remove([filePath]);
   }
 
+  // --- private helpers ---
 
-  // helper
   private getFileExtension(mimetype: string): string {
     const map: Record<string, string> = {
       'image/jpeg': '.jpg',
@@ -67,7 +80,7 @@ export class EventStorageService {
   }
 
   private extractFilePathFromUrl(publicUrl: string): string | null {
-    try{
+    try {
       const url = new URL(publicUrl);
       const marker = `/object/public/${BUCKET_NAME}/`;
       const index = url.pathname.indexOf(marker);
@@ -76,7 +89,7 @@ export class EventStorageService {
       }
       // will return only file name
       return decodeURIComponent(url.pathname.substring(index + marker.length));
-    }catch(error){
+    } catch {
       return null;
     }
   }

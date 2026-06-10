@@ -1,7 +1,5 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { InvalidPromptException } from '../exceptions/invalid-prompt.exception';
-import { InvalidImageException } from '../exceptions/invalid-image.exception';
-import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_SIZE } from '../constants/event-category.constant';
 import { InvalidDateRangeException } from '../exceptions/invalid-date-range.exception';
 import { EventNotFoundException } from '../exceptions/event-not-found.exception';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -10,9 +8,7 @@ import { EventStatus } from '@prisma/client';
 
 @Injectable()
 export class EventValidationService {
-  constructor(
-    private readonly prisma: PrismaService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   validatePromptText(prompt: string): void {
     const trimmed = prompt.trim();
@@ -26,35 +22,18 @@ export class EventValidationService {
     }
   }
 
-  validateImageFile(file: Express.Multer.File): void {
-    if (!file) {
-      throw new InvalidImageException('No input file provided');
-    }
-    if (!ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
-      throw new InvalidImageException('Unsupported image format');
-    }
-
-    if (file.size > MAX_IMAGE_SIZE) {
-      throw new InvalidImageException('File size must not exceed 5MB.');
-    }
-  }
-
-  validateBannerFile(file: Express.Multer.File): void {
-    if (!file) {
-      throw new InvalidImageException('No input file provided');
-    }
-    if (!ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
-      throw new InvalidImageException('Unsupported image format');
-    }
-
-    if (file.size > MAX_IMAGE_SIZE) {
-      throw new InvalidImageException('File size must not exceed 5MB.');
-    }
-  }
-
   validatePublishDateRange(startAt: Date, endAt: Date): void {
     if (startAt >= endAt) {
       throw new InvalidDateRangeException();
+    }
+  }
+
+  async validateEventExists(eventId: string): Promise<void> {
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+    });
+    if (!event) {
+      throw new EventNotFoundException();
     }
   }
 
@@ -84,9 +63,10 @@ export class EventValidationService {
   ): void {
     const allowedTransitions: Partial<Record<EventStatus, EventStatus[]>> = {
       [EventStatus.PUBLISHED]: [
-        EventStatus.ONGOING, 
+        EventStatus.ONGOING,
         EventStatus.CONCLUDED,
-        EventStatus.CANCELLED],
+        EventStatus.CANCELLED,
+      ],
       [EventStatus.ONGOING]: [
         EventStatus.PUBLISHED,
         EventStatus.CONCLUDED,

@@ -6,11 +6,13 @@ import { UserController } from './user.controller';
 import { UserCrudService } from './services/user-crud.service';
 import { UserValidationService } from './services/user-validation.service';
 import { UserStorageService } from './services/user-storage.service';
+import { EventModule } from '../event/event.module';
 
 @Module({
   imports: [
     PrismaModule,
     AuthModule,
+    EventModule,
   ],
   controllers: [UserController],
   providers: [

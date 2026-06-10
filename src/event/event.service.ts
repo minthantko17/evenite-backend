@@ -1,16 +1,17 @@
 import { Injectable, ForbiddenException } from '@nestjs/common';
-import { Event, EventStatus, Role } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { Event, EventStatus } from '@prisma/client';
 import { EventValidationService } from './services/event-validation.service';
 import { EventAiService } from './services/event-ai.service';
 import { EventStorageService } from './services/event-storage.service';
 import { EventCrudService } from './services/event-crud.service';
+import { EventRegistrationWithEvent } from './types/event.types';
 import { GeneratedEventDto } from './dto/generated-event.dto';
 import { SaveDraftDto } from './dto/save-draft.dto';
 import { PublishEventDto } from './dto/publish-event.dto';
 import type { TranslateBilingualFieldsDto } from './dto/translate-bilingual-fields.dto';
 import { EventResponseDto } from './dto/event-response.dto';
 import { EventNotFoundException } from './exceptions/event-not-found.exception';
+import { validateImageFile } from '../common/utils/file.utils';
 
 @Injectable()
 export class EventService {
@@ -29,12 +30,12 @@ export class EventService {
   async generateEventFromImage(
     file: Express.Multer.File,
   ): Promise<GeneratedEventDto> {
-    this.eventValidationService.validateImageFile(file);
+    validateImageFile(file);
     return this.eventAiService.generateEventFromImage(file);
   }
 
   async uploadBannerToStorage(file: Express.Multer.File): Promise<string> {
-    this.eventValidationService.validateBannerFile(file);
+    validateImageFile(file);
     return this.eventStorageService.uploadBannerToStorage(file);
   }
 
@@ -49,12 +50,29 @@ export class EventService {
     organizerProfileId: string,
     universityId: string,
   ): Promise<Event> {
-    return this.eventCrudService.saveEventAsDraft(
+    let oldBannerUrl: string | null = null;
+
+    if (dto.id) {
+      await this.eventValidationService.validateEventOwnership(
+        dto.id,
+        organizerProfileId,
+      );
+      oldBannerUrl = await this.eventCrudService.getBannerUrl(dto.id);
+    }
+
+    const savedEvent = await this.eventCrudService.saveEvent(
       dto,
       organizerProfileId,
       universityId,
+      EventStatus.DRAFT,
       dto.id,
     );
+    await this.eventStorageService.deleteOrphanBannerIfReplaced(
+      oldBannerUrl,
+      dto.bannerUrl,
+    );
+
+    return savedEvent;
   }
 
   async publishEvent(
@@ -62,13 +80,34 @@ export class EventService {
     organizerProfileId: string,
     universityId: string,
   ): Promise<Event> {
-    this.eventValidationService.validatePublishDateRange(dto.startAt, dto.endAt);
-    return this.eventCrudService.publishEvent(
+    this.eventValidationService.validatePublishDateRange(
+      dto.startAt,
+      dto.endAt,
+    );
+    let oldBannerUrl: string | null = null;
+
+    if (dto.id) {
+      await this.eventValidationService.validateEventOwnership(
+        dto.id,
+        organizerProfileId,
+      );
+      oldBannerUrl = await this.eventCrudService.getBannerUrl(dto.id);
+    }
+
+    const publishedEvent = await this.eventCrudService.saveEvent(
       dto,
       organizerProfileId,
       universityId,
+      EventStatus.PUBLISHED,
       dto.id,
     );
+
+    await this.eventStorageService.deleteOrphanBannerIfReplaced(
+      oldBannerUrl,
+      dto.bannerUrl,
+    );
+
+    return publishedEvent;
   }
 
   async updateEventStatus(
@@ -89,12 +128,11 @@ export class EventService {
 
     return this.eventCrudService.updateEventStatus(eventId, newStatus);
   }
-  
+
   async getPublicEvents(
     universityId: string,
     status?: EventStatus,
   ): Promise<EventResponseDto[]> {
-
     const visibleStatuses = [
       EventStatus.PUBLISHED,
       EventStatus.ONGOING,
@@ -102,11 +140,16 @@ export class EventService {
     ] as EventStatus[];
 
     // to prevent participant from filtering by DRAFT etc.
-    if(status && !visibleStatuses.includes(status)){
-      throw new ForbiddenException('You are not allowed to filter by this status');
+    if (status && !visibleStatuses.includes(status)) {
+      throw new ForbiddenException(
+        'You are not allowed to filter by this status',
+      );
     }
 
-    return this.eventCrudService.getEvents(universityId, status ?? visibleStatuses);
+    return this.eventCrudService.getEvents(
+      universityId,
+      status ?? visibleStatuses,
+    );
   }
 
   async getEventById(
@@ -130,5 +173,30 @@ export class EventService {
     }
 
     return event;
+  }
+
+  async getCreatedEvents(
+    organizerProfileId: string,
+    universityId: string,
+    status?: EventStatus,
+  ): Promise<EventResponseDto[]> {
+    return this.eventCrudService.getEventsByOrganizerId(
+      organizerProfileId,
+      universityId,
+      status,
+    );
+  }
+
+  // TODO: refine in Feature #5
+  async getRegisteredEvents(
+    participantProfileId: string,
+    universityId: string,
+    status?: EventStatus,
+  ): Promise<EventRegistrationWithEvent[]> {
+    return this.eventCrudService.getRegisteredEventsByParticipantId(
+      participantProfileId,
+      universityId,
+      status,
+    );
   }
 }

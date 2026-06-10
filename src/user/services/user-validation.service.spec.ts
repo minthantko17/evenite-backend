@@ -8,7 +8,6 @@ import { UserNotFoundException } from '../exceptions/user-not-found.exception';
 import { ProfileAlreadyExistsException } from '../exceptions/profile-already-exists.exception';
 import { InvalidMailException } from '../exceptions/invalid-mail.exception';
 import { InvalidPreferencesException } from '../exceptions/invalid-preferences.exception';
-import { InvalidImageException } from '../exceptions/invalid-image.exception';
 import { InvalidRoleTransitionException } from '../exceptions/invalid-role-transition.exception';
 import { NameEmptyException } from '../exceptions/name-empty.exception';
 import { InvalidUrlException } from '../exceptions/invalid-url.exception';

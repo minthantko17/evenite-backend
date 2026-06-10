@@ -49,14 +49,4 @@ export class EventDataUtils {
 
     return { startAt, endAt };
   }
-
-  // check by creating URL object, instead of checking with regex
-  isValidUrl(url: string): boolean {
-    try {
-      new URL(url);
-      return true;
-    } catch {
-      return false;
-    }
-  }
 }

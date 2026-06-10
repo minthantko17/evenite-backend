@@ -9,12 +9,14 @@ import { ReturnFormSubmissions } from './dto/return-form-submissions.dto';
 import { ReturnFormSummary } from './dto/return-form-summary.dto';
 import { CreateFormResponseDto } from './dto/create-form-response.dto';
 import { ReturnFormSubmissionItem } from './dto/return-form-submissions.dto';
+import { EventValidationService } from '../event/services/event-validation.service';
 
 @Injectable()
 export class FormService {
   constructor(
     private readonly formValidationService: FormValidationService,
     private readonly formCrudService: FormCrudService,
+    private readonly eventValidationService: EventValidationService,
   ) {}
 
   async createForm(
@@ -23,8 +25,7 @@ export class FormService {
     dto: CreateFormDto,
     organizerProfileId: string,
   ): Promise<ReturnFormWithFields> {
-    await this.formValidationService.validateEventExists(eventId);
-    await this.formValidationService.validateEventOwnership(
+    await this.eventValidationService.validateEventOwnership(
       eventId,
       organizerProfileId,
     );
@@ -37,16 +38,16 @@ export class FormService {
   }
 
   async getFormsByEventId(eventId: string): Promise<ReturnFormWithFields[]> {
-    await this.formValidationService.validateEventExists(eventId);
-    return await this.formCrudService.getFormsByEventId(eventId);
+    await this.eventValidationService.validateEventExists(eventId);
+    return this.formCrudService.getFormsByEventId(eventId);
   }
 
   async getFormByEventAndType(
     eventId: string,
     type: FormType,
   ): Promise<ReturnFormWithFields> {
-    await this.formValidationService.validateEventExists(eventId);
-    return await this.formCrudService.getFormByEventAndType(eventId, type);
+    await this.eventValidationService.validateEventExists(eventId);
+    return this.formCrudService.getFormByEventAndType(eventId, type);
   }
 
   async updateForm(
@@ -55,8 +56,7 @@ export class FormService {
     dto: UpdateFormDto,
     organizerProfileId: string,
   ): Promise<ReturnFormWithFields> {
-    await this.formValidationService.validateEventExists(eventId);
-    await this.formValidationService.validateEventOwnership(
+    await this.eventValidationService.validateEventOwnership(
       eventId,
       organizerProfileId,
     );
@@ -74,8 +74,7 @@ export class FormService {
     type: FormType,
     organizerProfileId: string,
   ): Promise<ReturnFormSubmissions> {
-    await this.formValidationService.validateEventExists(eventId);
-    await this.formValidationService.validateEventOwnership(
+    await this.eventValidationService.validateEventOwnership(
       eventId,
       organizerProfileId,
     );
@@ -87,8 +86,7 @@ export class FormService {
     type: FormType,
     organizerProfileId: string,
   ): Promise<ReturnFormSummary> {
-    await this.formValidationService.validateEventExists(eventId);
-    await this.formValidationService.validateEventOwnership(
+    await this.eventValidationService.validateEventOwnership(
       eventId,
       organizerProfileId,
     );
@@ -102,7 +100,7 @@ export class FormService {
     dto: CreateFormResponseDto,
     participantProfileId: string | null,
   ): Promise<ReturnFormSubmissionItem> {
-    await this.formValidationService.validateEventExists(eventId);
+    await this.eventValidationService.validateEventExists(eventId);
     const form = await this.formCrudService.getFormByEventAndType(
       eventId,
       type,
@@ -145,8 +143,7 @@ export class FormService {
     type: FormType,
     organizerProfileId: string,
   ): Promise<void> {
-    await this.formValidationService.validateEventExists(eventId);
-    await this.formValidationService.validateEventOwnership(
+    await this.eventValidationService.validateEventOwnership(
       eventId,
       organizerProfileId,
     );
@@ -166,8 +163,7 @@ export class FormService {
     responseId: string,
     organizerProfileId: string,
   ): Promise<void> {
-    await this.formValidationService.validateEventExists(eventId);
-    await this.formValidationService.validateEventOwnership(
+    await this.eventValidationService.validateEventOwnership(
       eventId,
       organizerProfileId,
     );
@@ -184,8 +180,7 @@ export class FormService {
     type: FormType,
     organizerProfileId: string,
   ): Promise<{ deletedCount: number }> {
-    await this.formValidationService.validateEventExists(eventId);
-    await this.formValidationService.validateEventOwnership(
+    await this.eventValidationService.validateEventOwnership(
       eventId,
       organizerProfileId,
     );

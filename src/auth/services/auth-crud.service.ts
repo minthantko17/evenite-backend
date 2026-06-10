@@ -1,13 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { User, Role, EmailVerification, Prisma } from '@prisma/client';
-
-export type UserWithProfiles = Prisma.UserGetPayload<{
-  include: {
-    participantProfile: true;
-    organizerProfile: true;
-  };
-}>;
+import { User, Role, EmailVerification } from '@prisma/client';
+import { UserWithProfiles } from '../../user/types/user.types';
 
 @Injectable()
 export class AuthCrudService {

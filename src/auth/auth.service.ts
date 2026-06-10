@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { AuthCrudService, UserWithProfiles } from './services/auth-crud.service';
+import { AuthCrudService } from './services/auth-crud.service';
 import { AuthValidationService } from './services/auth-validation.service';
 import { AuthTokenService } from './services/auth-token.service';
 import { AuthEmailService } from './services/auth-email.service';
@@ -10,6 +10,8 @@ import { JwtRefreshPayload } from './strategies/jwt-refresh.strategy';
 import { InvalidCredentialsException } from './exceptions/invalid-credentials.exception';
 import { InvalidTokenException } from './exceptions/invalid-token.exception';
 import * as bcrypt from 'bcrypt';
+import { UserNotFoundException } from './exceptions/user-not-found.exception';
+import { UserWithProfiles } from '../user/types/user.types';
 
 @Injectable()
 export class AuthService {
@@ -48,14 +50,14 @@ export class AuthService {
 
     const user = await this.authCrudService.findUserById(verification.userId);
     if (!user) throw new InvalidTokenException();
-    
+
     await this.authCrudService.updateUser(verification.userId, {
       isVerified: true,
     });
     await this.authCrudService.deleteVerificationByToken(token);
 
     return {
-      message: 'Email verified successfully.'
+      message: 'Email verified successfully.',
     };
   }
 
@@ -74,27 +76,12 @@ export class AuthService {
 
     this.authValidationService.checkIsVerified(user.isVerified);
 
-    // Build token payloads
-    const accessPayload: JwtAccessPayload = {
-      sub: user.id,
-      email: user.email,
-      currentRole: user.currentRole,
-      isVerified: user.isVerified,
-      universityId: user.universityId,
-      participantProfileId: user.participantProfile?.id ?? null,
-      organizerProfileId: user.organizerProfile?.id ?? null,
-      hasCreatedProfile:
-        user.participantProfile !== null || user.organizerProfile !== null,
-    };
-    const refreshPayload: JwtRefreshPayload = {
-      sub: user.id,
-      email: user.email,
-    };
-
-    const accessToken =
-      this.authTokenService.generateAccessToken(accessPayload);
-    const refreshToken =
-      this.authTokenService.generateRefreshToken(refreshPayload);
+    const accessToken = this.authTokenService.generateAccessToken(
+      this.buildAccessPayload(user),
+    );
+    const refreshToken = this.authTokenService.generateRefreshToken(
+      this.buildRefreshPayload(user),
+    );
 
     await this.authTokenService.hashAndStoreRefreshToken(user.id, refreshToken);
     return { accessToken, refreshToken };
@@ -114,21 +101,10 @@ export class AuthService {
       user.refreshToken,
     );
 
-    // Issue new access token
-    const accessPayload: JwtAccessPayload = {
-      sub: user.id,
-      email: user.email,
-      currentRole: user.currentRole,
-      isVerified: user.isVerified,
-      universityId: user.universityId,
-      participantProfileId: user.participantProfile?.id ?? null,
-      organizerProfileId: user.organizerProfile?.id ?? null,
-      hasCreatedProfile:
-        user.participantProfile !== null || user.organizerProfile !== null,
-    };
-
     return {
-      accessToken: this.authTokenService.generateAccessToken(accessPayload),
+      accessToken: this.authTokenService.generateAccessToken(
+        this.buildAccessPayload(user),
+      ),
     };
   }
 
@@ -153,5 +129,35 @@ export class AuthService {
     await this.authEmailService.sendVerificationEmail(user.id, user.email);
 
     return genericMessage;
+  }
+
+  async issueAccessTokenForUser(userId: string): Promise<string> {
+    const user = await this.authCrudService.findUserById(userId);
+    if (!user) throw new UserNotFoundException();
+    return this.authTokenService.generateAccessToken(
+      this.buildAccessPayload(user),
+    );
+  }
+
+  // helper
+  private buildAccessPayload(user: UserWithProfiles): JwtAccessPayload {
+    return {
+      sub: user.id,
+      email: user.email,
+      currentRole: user.currentRole,
+      isVerified: user.isVerified,
+      universityId: user.universityId,
+      participantProfileId: user.participantProfile?.id ?? null,
+      organizerProfileId: user.organizerProfile?.id ?? null,
+      hasCreatedProfile:
+        user.participantProfile !== null || user.organizerProfile !== null,
+    };
+  }
+
+  private buildRefreshPayload(user: UserWithProfiles): JwtRefreshPayload {
+    return {
+      sub: user.id,
+      email: user.email,
+    };
   }
 }

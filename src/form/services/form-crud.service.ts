@@ -5,7 +5,7 @@ import { CreateFormDto } from '../dto/create-form.dto';
 import { UpdateFormDto } from '../dto/update-form.dto';
 import { FormNotFoundException } from '../exceptions/form-not-found.exception';
 import { SaveFormException } from '../exceptions/save-form.exception';
-import { ReturnFormWithFields } from '../dto/return-form-with-fields.dto';
+import { ReturnFormField, ReturnFormWithFields } from '../dto/return-form-with-fields.dto';
 import { ReturnFormSubmissions } from '../dto/return-form-submissions.dto';
 import { ReturnFormFieldSummary, ReturnFormSummary, ReturnSummaryAnswer } from '../dto/return-form-summary.dto';
 import { CreateFormResponseDto } from '../dto/create-form-response.dto';
@@ -25,7 +25,7 @@ export class FormCrudService {
     dto: CreateFormDto,
   ): Promise<ReturnFormWithFields> {
     try {
-      return (await this.prisma.form.create({
+      const result = await this.prisma.form.create({
         data: {
           eventId,
           type: type,
@@ -45,7 +45,8 @@ export class FormCrudService {
         include: {
           fields: { orderBy: { order: 'asc' } },
         },
-      })) as ReturnFormWithFields;
+      });
+      return this.mapToReturnFormWithFields(result);
     } catch (error) {
       this.logger.error('Failed to create form', error);
       throw new SaveFormException();
@@ -53,12 +54,13 @@ export class FormCrudService {
   }
 
   async getFormsByEventId(eventId: string): Promise<ReturnFormWithFields[]> {
-    return (await this.prisma.form.findMany({
+    const forms = await this.prisma.form.findMany({
       where: { eventId },
       include: {
         fields: { orderBy: { order: 'asc' } },
       },
-    })) as ReturnFormWithFields[];
+    });
+    return forms.map((form) => this.mapToReturnFormWithFields(form));
   }
 
   async getFormByEventAndType(
@@ -72,7 +74,7 @@ export class FormCrudService {
       },
     });
     if (!form) throw new FormNotFoundException();
-    return form as ReturnFormWithFields;
+    return this.mapToReturnFormWithFields(form);
   }
 
   async updateFormByFormId(
@@ -106,17 +108,21 @@ export class FormCrudService {
           });
         }
 
-        return (await tx.form.findUnique({
+        const result = await tx.form.findUnique({
           where: { id: formId },
           include: { fields: { orderBy: { order: 'asc' } } },
-        })) as ReturnFormWithFields;
+        });
+        if (!result) throw new SaveFormException();
+        return this.mapToReturnFormWithFields(result);
       });
     } catch (error) {
+      if (error instanceof SaveFormException) throw error;
       this.logger.error('Failed to update form by id', error);
       throw new SaveFormException();
     }
   }
 
+  // WARN: getFormResponses and getFormResponsesSummary structures responese inside and no explicit mapping is implemented rn.
   async getFormResponses(
     eventId: string,
     type: FormType,
@@ -247,6 +253,31 @@ export class FormCrudService {
     }
   }
 
+  private mapToReturnFormField(field: any): ReturnFormField {
+    return {
+      id: field.id,
+      formId: field.formId,
+      type: field.type,
+      label: field.label,
+      isRequired: field.isRequired,
+      order: field.order,
+      options: field.options ?? [],
+      autoFillKey: field.autoFillKey ?? null,
+    };
+  }
+
+  private mapToReturnFormWithFields(form: any): ReturnFormWithFields {
+    return {
+      id: form.id,
+      eventId: form.eventId,
+      type: form.type,
+      title: form.title ?? null,
+      description: form.description ?? null,
+      fields: Array.isArray(form.fields)
+        ? form.fields.map((field: any) => this.mapToReturnFormField(field))
+        : [],
+    };
+  }
 
   
   // --------------------------------------------------------------

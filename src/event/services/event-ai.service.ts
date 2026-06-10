@@ -9,38 +9,18 @@ import type { TranslateBilingualFieldsDto } from '../dto/translate-bilingual-fie
 import { AiGenerationException } from '../exceptions/ai-generation.exception';
 import { AiTranslationException } from '../exceptions/ai-translation.exception';
 import { AiResponseParseException } from '../exceptions/ai-response-parse.exception';
-import { ALLOWED_CATEGORIES, EventCategory } from '../constants/event-category.constant';
+import {
+  ALLOWED_CATEGORIES,
+  EventCategory,
+} from '../constants/event-category.constant';
+import { isValidUrl } from '../../common/utils/url.utils';
 
-@Injectable()
-export class EventAiService {
-  private readonly logger = new Logger(EventAiService.name);
-  private readonly ai: GoogleGenAI;
-  private model: string = 'gemini-2.5-flash';
+const EVENT_EXTRACTION_INSTRUCTION = `
+    You are an expert event data extractor.
+    Extract event details from the provided {INPUT_TYPE} and return a JSON object.
 
-  constructor(
-    private readonly utils: EventDataUtils,
-  ) {
-    this.ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY ?? '' });
-  }
-
-  // --- generate from prompt ---
-  async generateEventFromPrompt(prompt: string): Promise<GeneratedEventDto> {
-    const parsedGeminiResponse = await this.callGeminiWithPrompt(prompt);
-    const mapped = this.mapAiResponseToEventDto(parsedGeminiResponse);
-    this.logger.log('After mapping: ', mapped);
-    const sanitized = this.sanitizeAiEventResponse(mapped);
-    this.logger.log('After sanitization: ', sanitized);
-    return sanitized;
-  } // I think this method will propagate / bubble up without explicit throw
-
-  // make gemini api call from organizer+system prompt and get JSON event data.
-  async callGeminiWithPrompt(prompt: string): Promise<Record<string, any>> {
-    const systemInstruction = `
-      You are an expert event data extractor.
-      Extract event details from the provided text and return a JSON object.
-
-      CRITICAL INSTRUCTIONS:
-      - Output STRICT JSON only.
+    CRITICAL INSTRUCTIONS:
+    - Output STRICT JSON only.
       - For text fields, provide BOTH English ("en") and Thai ("th") translations.
       - If a specific piece of info is missing:
         - Use "" for string fields
@@ -83,44 +63,143 @@ export class EventAiService {
       COMPETITION, CLUB_ACTIVITY, ORIENTATION, VOLUNTEER, TRIP, SPORT,
       CULTURAL, FESTIVAL, NETWORKING, CAREER_FAIR, PARTY, INTERNSHIP, OTHER.
       Omit startAt and endAt fields entirely if they cannot be extracted.
-    `;
+`;
 
-    const fullPrompt = `${systemInstruction}\n\nEvent information:\n${prompt}`;
-    let responseText: string;
+const TEXT_TO_EVENT_INSTRUCTION = EVENT_EXTRACTION_INSTRUCTION.replace(
+  '{INPUT_TYPE}',
+  'text',
+);
 
+const IMAGE_TO_EVENT_INSTRUCTION = EVENT_EXTRACTION_INSTRUCTION.replace(
+  '{INPUT_TYPE}',
+  'image',
+);
+
+const TRANSLATION_INSTRUCTION = `
+    You are an expert English-Thai translator for event data.
+    You will receive a JSON object containing bilingual fields.
+    Each field has "en" (English) and "th" (Thai) values.
+
+    TRANSLATION RULES — apply to every bilingual field:
+    - If only "en" exists (th is empty "") → translate EN to TH, keep EN as is
+    - If only "th" exists (en is empty "") → translate TH to EN, keep TH as is
+    - If both exist (neither is empty) → return both unchanged
+    - If both are empty → return both as ""
+
+    For agenda items, apply the same rules to each item's "activity" field.
+    The "time" field in agenda items should always be returned unchanged.
+
+    Return STRICT JSON only, same structure as input.
+`;
+
+@Injectable()
+export class EventAiService {
+  private readonly logger = new Logger(EventAiService.name);
+  private readonly googleGenAi: GoogleGenAI;
+
+  constructor(private readonly utils: EventDataUtils) {
+    this.googleGenAi = new GoogleGenAI({
+      apiKey: process.env.GEMINI_API_KEY ?? '',
+    });
+  }
+
+  async generateEventFromPrompt(prompt: string): Promise<GeneratedEventDto> {
+    const fullPrompt = `${TEXT_TO_EVENT_INSTRUCTION}\n\nEvent information:\n${prompt}`;
+    this.logger.log('Sending prompt to AI:', fullPrompt);
+
+    const rawResponse = await this.callGemini(
+      fullPrompt,
+      'generation',
+    );
+    const parsedResponse = this.parseJson(rawResponse);
+    const mappedResponse = this.mapAiResponseToEventDto(parsedResponse);
+    const sanitizedResponse = this.sanitizeAiEventResponse(mappedResponse);
+    return sanitizedResponse;
+  }
+
+  async generateEventFromImage(
+    file: Express.Multer.File,
+  ): Promise<GeneratedEventDto> {
+    this.logger.log('Sending image to AI');
+    const rawResponse = await this.callGemini(
+      IMAGE_TO_EVENT_INSTRUCTION,
+      'generation',
+      file,
+    );
+    const parsedResponse = this.parseJson(rawResponse);
+    const mappedResponse = this.mapAiResponseToEventDto(parsedResponse);
+    const sanitizedResponse = this.sanitizeAiEventResponse(mappedResponse);
+    this.logger.log('After sanitization:', sanitizedResponse);
+    return sanitizedResponse;
+  }
+
+  async translateEventFields(
+    originalDto: TranslateBilingualFieldsDto,
+  ): Promise<TranslateBilingualFieldsDto> {
+    const fullPrompt = `${TRANSLATION_INSTRUCTION}\n\nFields to translate:\n${JSON.stringify(originalDto, null, 2)}`;
+    this.logger.log('Sending prompt to AI:', fullPrompt);
+
+    const rawResponse = await this.callGemini(
+      fullPrompt,
+      'translation',
+    );
+    const parsedResponse = this.parseJson(rawResponse);
+    return this.mapTranslationResponseToDto(parsedResponse, originalDto);
+  }
+
+  // --- private helpers ---
+
+  protected async callGemini(
+    prompt: string,
+    context: 'generation' | 'translation',
+    image?: Express.Multer.File,
+  ): Promise<string> {
     try {
-      this.logger.log('Sending prompt to Gemini:', fullPrompt);
-      const result = await this.ai.models.generateContent({
-        model: this.model,
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: fullPrompt }],
+      const parts: any[] = [{ text: prompt }];
+      
+      if (image) {
+        const base64Image = image.buffer.toString('base64');
+        parts.push({
+          inlineData: {
+            mimeType: image.mimetype,
+            data: base64Image,
           },
-        ],
+        });
+      }
+
+      const result = await this.googleGenAi.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: {
+          role: 'user',
+          parts: parts,
+        },
         config: { responseMimeType: 'application/json' },
       });
       this.logger.log('Raw response from Gemini:', result);
-      responseText = result?.text ?? '';
-      this.logger.log('Response text from Gemini:', responseText);
+      return result?.text ?? '';
     } catch (error) {
       this.logger.error('Gemini raw error:', error);
+      if (context === 'translation') throw new AiTranslationException();
       throw new AiGenerationException();
     }
+  }
 
+  private parseJson(text: string): Record<string, any> {
     try {
-      return JSON.parse(responseText);
-    } catch (error) {
+      const cleaned = text
+        .replace(/^```json\s*/i, '')
+        .replace(/^```\s*/i, '')
+        .replace(/```\s*$/i, '')
+        .trim();
+      return JSON.parse(cleaned);
+    } catch {
       throw new AiResponseParseException();
     }
   }
 
   mapAiResponseToEventDto(response: Record<string, any>): GeneratedEventDto {
     return {
-      title: {
-        en: response.title?.en ?? '',
-        th: response.title?.th ?? '',
-      },
+      title: { en: response.title?.en ?? '', th: response.title?.th ?? '' },
       description: {
         en: response.description?.en ?? '',
         th: response.description?.th ?? '',
@@ -150,8 +229,8 @@ export class EventAiService {
             )
           : [],
       category: Array.isArray(response.category)
-        ? response.category.filter((c: string) =>
-            ALLOWED_CATEGORIES.includes(c as EventCategory),
+        ? response.category.filter((category: string) =>
+            ALLOWED_CATEGORIES.includes(category as EventCategory),
           )
         : [],
       startAt: response.startAt ? new Date(response.startAt) : undefined,
@@ -177,14 +256,16 @@ export class EventAiService {
       dto.cateringDescription,
     );
     dto.remarks = this.utils.sanitizeBilingualField(dto.remarks);
-
     dto.agenda = this.utils.sanitizeAgendaItems(dto.agenda);
 
-    if (!Array.isArray(dto.category) || dto.category.length === 0) {
+    if (!Array.isArray(dto.category) || dto.category.length === 0){
       dto.category = [];
     }
 
-    const { startAt, endAt } = this.utils.sanitizeDateRange(dto.startAt, dto.endAt);
+    const { startAt, endAt } = this.utils.sanitizeDateRange(
+      dto.startAt,
+      dto.endAt,
+    );
     dto.startAt = startAt;
     dto.endAt = endAt;
 
@@ -195,176 +276,17 @@ export class EventAiService {
       dto.seatLimit = undefined;
     }
 
-    if (dto.mapLink && !this.utils.isValidUrl(dto.mapLink)) dto.mapLink = '';
-    if (dto.externalUrl && !this.utils.isValidUrl(dto.externalUrl))
+    if (dto.mapLink && !isValidUrl(dto.mapLink)){
+      dto.mapLink = '';
+    }
+    if (dto.externalUrl && !isValidUrl(dto.externalUrl)){
       dto.externalUrl = '';
-
-    if (dto.contactEmail && !dto.contactEmail.includes('@')) {
+    }
+    if (dto.contactEmail && !dto.contactEmail.includes('@')){
       dto.contactEmail = '';
     }
-
+    this.logger.log('After sanitization:', dto);
     return dto;
-  }
-
-
-  // --- generate from image ---
-  async generateEventFromImage(
-    file: Express.Multer.File,
-  ): Promise<GeneratedEventDto> {
-    const parsedGeminiResponse = await this.callGeminiWithImage(file);
-    const mapped = this.mapAiResponseToEventDto(parsedGeminiResponse);
-    this.logger.log('Mapped AI response before sanitization:', mapped);
-    const sanitized = this.sanitizeAiEventResponse(mapped);
-    this.logger.log('Sanitized AI response:', sanitized);
-    return sanitized;
-  }
-
-  async callGeminiWithImage(
-    file: Express.Multer.File,
-  ): Promise<Record<string, any>> {
-    const systemInstruction = `
-      You are an expert event data extractor.
-      Extract event details from the provided image and return a JSON object.
-
-      CRITICAL INSTRUCTIONS:
-      - Output STRICT JSON only.
-      - For text fields, provide BOTH English ("en") and Thai ("th") translations.
-      - If a specific piece of info is missing:
-        - Use "" for string fields
-        - Use false for boolean fields
-        - Use [] for array fields
-        - Omit datetime fields entirely if not found
-        - Use 30 for seatLimit if not found
-      - The event platform is based in Thailand (UTC+7, Asia/Bangkok)
-      - Assume all times in the input are Bangkok time (UTC+7) unless explicitly stated otherwise
-      - Convert all dates to UTC ISO 8601 format with 'Z' suffix
-      - Example: 8:00 AM Bangkok time (UTC+7) = "2026-10-31T01:00:00.000Z"
-      - NEVER use +07:00 or any other timezone offset
-
-      JSON Structure:
-      {
-        "title": { "en": "...", "th": "..." },
-        "description": { "en": "...", "th": "..." },
-        "category": ["SEMINAR", "WORKSHOP", ...],
-        "location": { "en": "...", "th": "..." },
-        "mapLink": "...",
-        "isOnline": false,
-        "startAt": "2026-10-31T10:30:00.000Z",
-        "endAt": "2026-10-31T14:30:00.000Z",
-        "seatLimit": 0,
-        "hasCatering": false,
-        "isCateringFree": false,
-        "cateringDescription": { "en": "...", "th": "..." },
-        "agenda": [
-          { "time": "09:00", "activity": { "en": "...", "th": "..." } }
-        ],
-        "contactName": "...",
-        "contactEmail": "...",
-        "contactPhone": "...",
-        "contactLineId": "...",
-        "externalUrl": "...",
-        "remarks": { "en": "...", "th": "..." }
-      }
-
-      Allowed categories: SEMINAR, WORKSHOP, LECTURE, CONFERENCE, HACKATHON,
-      COMPETITION, CLUB_ACTIVITY, ORIENTATION, VOLUNTEER, TRIP, SPORT,
-      CULTURAL, FESTIVAL, NETWORKING, CAREER_FAIR, PARTY, INTERNSHIP, OTHER.
-      Omit startAt and endAt fields entirely if they cannot be extracted.
-    `;
-
-    const base64Image = file.buffer.toString('base64');
-    let responseText: string;
-
-    try {
-      const result = await this.ai.models.generateContent({
-        model: this.model,
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              { text: systemInstruction },
-              {
-                inlineData: {
-                  mimeType: file.mimetype,
-                  data: base64Image,
-                },
-              },
-            ],
-          },
-        ],
-        config: { responseMimeType: 'application/json' },
-      });
-      this.logger.log('Raw response from Gemini:', result);
-      responseText = result?.text ?? '';
-      this.logger.log('Response text from Gemini:', responseText);
-    } catch (error) {
-      this.logger.error('Gemini raw error:', error);
-      throw new AiGenerationException();
-    }
-
-    try {
-      return JSON.parse(responseText);
-    } catch {
-      throw new AiResponseParseException();
-    }
-  }
-
-
-  // --- translate ---
-  async translateEventFields(
-    originalDto: TranslateBilingualFieldsDto,
-  ): Promise<TranslateBilingualFieldsDto> {
-    const translatedJson = await this.callGeminiForTranslation(originalDto);
-    return this.mapTranslationResponseToDto(translatedJson, originalDto);
-  }
-
-  private async callGeminiForTranslation(
-    originalDto: TranslateBilingualFieldsDto,
-  ): Promise<Record<string, any>> {
-    const systemInstruction = `
-    You are an expert English-Thai translator for event data.
-    You will receive a JSON object containing bilingual fields.
-    Each field has "en" (English) and "th" (Thai) values.
-
-    TRANSLATION RULES — apply to every bilingual field:
-    - If only "en" exists (th is empty "") → translate EN to TH, keep EN as is
-    - If only "th" exists (en is empty "") → translate TH to EN, keep TH as is
-    - If both exist (neither is empty) → return both unchanged
-    - If both are empty → return both as ""
-
-    For agenda items, apply the same rules to each item's "activity" field.
-    The "time" field in agenda items should always be returned unchanged.
-
-    Return STRICT JSON only, same structure as input.
-  `;
-
-    const fullPrompt = `${systemInstruction}\n\nFields to translate:\n${JSON.stringify(originalDto, null, 2)}`;
-    let responseText: string;
-
-    try {
-      this.logger.log('Sending prompt to Gemini:', fullPrompt);
-      const result = await this.ai.models.generateContent({
-        model: this.model,
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: fullPrompt }],
-          },
-        ],
-        config: { responseMimeType: 'application/json' },
-      });
-      this.logger.log('Raw response from Gemini:', result);
-      responseText = result?.text ?? '';
-    } catch (error) {
-      this.logger.error('Gemini raw error:', error);
-      throw new AiTranslationException();
-    }
-
-    try {
-      return JSON.parse(responseText);
-    } catch (error) {
-      throw new AiResponseParseException();
-    }
   }
 
   private mapTranslationResponseToDto(
@@ -410,5 +332,4 @@ export class EventAiService {
           : original.agenda,
     };
   }
-
 }

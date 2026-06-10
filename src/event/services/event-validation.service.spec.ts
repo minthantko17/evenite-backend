@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventValidationService } from './event-validation.service';
 import { InvalidPromptException } from '../exceptions/invalid-prompt.exception';
-import { InvalidImageException } from '../exceptions/invalid-image.exception';
+import { InvalidImageException } from '../../common/exceptions/invalid-image.exception';
 import { InvalidDateRangeException } from '../exceptions/invalid-date-range.exception';
 import * as fs from 'fs';
 import * as path from 'path';

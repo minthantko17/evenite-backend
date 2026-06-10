@@ -1,8 +1,7 @@
-import { Injectable, ForbiddenException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Prisma, Event, EventStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventStorageService } from './event-storage.service';
-import { EventValidationService } from './event-validation.service';
 import { EventDataUtils } from '../utils/event-data.utils';
 import { SaveDraftDto } from '../dto/save-draft.dto';
 import { PublishEventDto } from '../dto/publish-event.dto';
@@ -11,11 +10,9 @@ import type { BilingualField } from '../dto/bilingual-field.dto';
 import type { AgendaItem } from '../dto/agenda-item.dto';
 
 import { SaveEventException } from '../exceptions/save-event.exception';
-import { PublishEventException } from '../exceptions/publish-event.exception';
-import { InvalidDateRangeException } from '../exceptions/invalid-date-range.exception';
-import { DEFAULT_BANNER_URL } from '../constants/event-category.constant';
 import { EventNotFoundException } from '../exceptions/event-not-found.exception';
 import { EventStatusChangeException } from '../exceptions/event-status-change.exception';
+import { EventRegistrationWithEvent } from '../types/event.types';
 
 @Injectable()
 export class EventCrudService {
@@ -23,112 +20,56 @@ export class EventCrudService {
     private readonly prisma: PrismaService,
     private readonly eventStorageService: EventStorageService,
     private readonly utils: EventDataUtils,
-    private readonly eventValidationService: EventValidationService,
   ) {}
 
-  async saveEventAsDraft(
-    dto: SaveDraftDto,
+  async saveEvent(
+    dto: SaveDraftDto | PublishEventDto,
     organizerProfileId: string,
     universityId: string,
+    status: EventStatus,
     eventId?: string,
   ): Promise<Event> {
-    const sanitizedEventData = this.sanitizeEventData(dto);
-    const jsonEventData = {
+    const sanitized = this.sanitizeEventData(dto);
+    const publishedAt =
+      status === EventStatus.PUBLISHED ? new Date() : undefined;
+
+    const data = {
       organizerId: organizerProfileId,
-      universityId: universityId,
-      title: this.toJson(sanitizedEventData.title),
-      description: this.toJson(sanitizedEventData.description),
-      category: sanitizedEventData.category,
-      location: this.toJson(sanitizedEventData.location),
-      mapLink: sanitizedEventData.mapLink,
-      isOnline: sanitizedEventData.isOnline,
-      startAt: sanitizedEventData.startAt,
-      endAt: sanitizedEventData.endAt,
-      seatLimit: sanitizedEventData.seatLimit,
-      hasCatering: sanitizedEventData.hasCatering,
-      isCateringFree: sanitizedEventData.isCateringFree,
-      cateringDescription: this.toJson(sanitizedEventData.cateringDescription),
-      agenda: this.toJson(sanitizedEventData.agenda),
-      contactName: sanitizedEventData.contactName,
-      contactEmail: sanitizedEventData.contactEmail,
-      contactPhone: sanitizedEventData.contactPhone,
-      contactLineId: sanitizedEventData.contactLineId,
-      externalUrl: sanitizedEventData.externalUrl,
-      remarks: this.toJson(sanitizedEventData.remarks),
-      bannerUrl: sanitizedEventData.bannerUrl,
-      status: EventStatus.DRAFT,
+      universityId,
+      title: this.toJson(sanitized.title),
+      description: this.toJson(sanitized.description),
+      category: sanitized.category,
+      location: this.toJson(sanitized.location),
+      mapLink: sanitized.mapLink,
+      isOnline: sanitized.isOnline,
+      startAt: sanitized.startAt,
+      endAt: sanitized.endAt,
+      seatLimit: sanitized.seatLimit,
+      hasCatering: sanitized.hasCatering,
+      isCateringFree: sanitized.isCateringFree,
+      cateringDescription: this.toJson(sanitized.cateringDescription),
+      agenda: this.toJson(sanitized.agenda),
+      contactName: sanitized.contactName,
+      contactEmail: sanitized.contactEmail,
+      contactPhone: sanitized.contactPhone,
+      contactLineId: sanitized.contactLineId,
+      externalUrl: sanitized.externalUrl,
+      remarks: this.toJson(sanitized.remarks),
+      bannerUrl: sanitized.bannerUrl,
+      status,
+      ...(publishedAt && { publishedAt }),
     };
+
     try {
       if (eventId) {
-        await this.eventValidationService.validateEventOwnership(eventId, organizerProfileId);
-        await this.deleteOrphanBannerIfReplaced(eventId, jsonEventData.bannerUrl);
         return await this.prisma.event.update({
           where: { id: eventId },
-          data: jsonEventData,
+          data,
         });
       }
-      return await this.prisma.event.create({
-        data: jsonEventData,
-      });
-    } catch (error) {
-      if (error instanceof EventNotFoundException) throw error;
-      if (error instanceof ForbiddenException) throw error;
+      return await this.prisma.event.create({ data });
+    } catch {
       throw new SaveEventException();
-    }
-  }
-
-  async publishEvent(
-    dto: PublishEventDto,
-    organizerProfileId: string,
-    universityId: string,
-    eventId?: string,
-  ): Promise<Event> {
-    const sanitizedEventData = this.sanitizeEventData(dto);
-    const now = new Date();
-
-    const jsonEventData = {
-      organizerId: organizerProfileId,
-      universityId: universityId,
-      title: this.toJson(sanitizedEventData.title),
-      description: this.toJson(sanitizedEventData.description),
-      category: sanitizedEventData.category,
-      location: this.toJson(sanitizedEventData.location),
-      mapLink: sanitizedEventData.mapLink,
-      isOnline: sanitizedEventData.isOnline,
-      startAt: sanitizedEventData.startAt,
-      endAt: sanitizedEventData.endAt,
-      seatLimit: sanitizedEventData.seatLimit,
-      hasCatering: sanitizedEventData.hasCatering,
-      isCateringFree: sanitizedEventData.isCateringFree,
-      cateringDescription: this.toJson(sanitizedEventData.cateringDescription),
-      agenda: this.toJson(sanitizedEventData.agenda),
-      contactName: sanitizedEventData.contactName,
-      contactEmail: sanitizedEventData.contactEmail,
-      contactPhone: sanitizedEventData.contactPhone,
-      contactLineId: sanitizedEventData.contactLineId,
-      externalUrl: sanitizedEventData.externalUrl,
-      remarks: this.toJson(sanitizedEventData.remarks),
-      bannerUrl: sanitizedEventData.bannerUrl,
-      status: EventStatus.PUBLISHED,
-      publishedAt: now,
-    };
-
-    try {
-      if (eventId) {
-        await this.eventValidationService.validateEventOwnership(eventId, organizerProfileId);
-        await this.deleteOrphanBannerIfReplaced(eventId, jsonEventData.bannerUrl);
-        return await this.prisma.event.update({
-          where: { id: eventId },
-          data: jsonEventData,
-        });
-      }
-      return await this.prisma.event.create({
-        data: jsonEventData,
-      });
-    } catch (error) {
-      if (error instanceof EventNotFoundException) throw error;
-      if (error instanceof ForbiddenException) throw error;
-      throw new PublishEventException();
     }
   }
 
@@ -136,23 +77,19 @@ export class EventCrudService {
     universityId: string,
     status?: EventStatus | EventStatus[],
   ): Promise<EventResponseDto[]> {
-    console.log('Getting events with status:', status);
     const events = await this.prisma.event.findMany({
       where: {
         universityId,
-        ...(status 
+        ...(status
           ? Array.isArray(status)
             ? { status: { in: status } }
             : { status }
-          : {}
-        ),
+          : {}),
       },
       orderBy: { createdAt: 'desc' },
       include: {
-        forms: {
-          select:{ id: true, type: true }
-        }
-      }
+        forms: { select: { id: true, type: true } },
+      },
     });
 
     return events.map((event) => this.mapToEventResponseDto(event));
@@ -162,10 +99,8 @@ export class EventCrudService {
     const event = await this.prisma.event.findUnique({
       where: { id },
       include: {
-        forms: {
-          select:{ id: true, type: true }
-        }
-      }
+        forms: { select: { id: true, type: true } },
+      },
     });
 
     if (!event) {
@@ -175,25 +110,73 @@ export class EventCrudService {
     return this.mapToEventResponseDto(event);
   }
 
+  async getEventsByOrganizerId(
+    organizerProfileId: string,
+    universityId: string,
+    status?: EventStatus,
+  ): Promise<EventResponseDto[]> {
+    const events = await this.prisma.event.findMany({
+      where: {
+        organizerId: organizerProfileId,
+        universityId,
+        ...(status && { status }),
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        forms: { select: { id: true, type: true } },
+      },
+    });
+    return events.map((event) => this.mapToEventResponseDto(event));
+  }
+
+  // TODO: refine in Feature #5
+  async getRegisteredEventsByParticipantId(
+    participantProfileId: string,
+    universityId: string,
+    status?: EventStatus,
+  ): Promise<EventRegistrationWithEvent[]> {
+    return this.prisma.eventRegistration.findMany({
+      where: {
+        participantId: participantProfileId,
+        event: {
+          universityId,
+          ...(status && { status }),
+        },
+      },
+      include: { event: true },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async updateEventStatus(
     eventId: string,
     status: EventStatus,
   ): Promise<EventResponseDto> {
     try {
-      const updatedEvent = await this.prisma.event.update({
+      const updated = await this.prisma.event.update({
         where: { id: eventId },
         data: { status },
         include: {
           forms: { select: { id: true, type: true } },
-        }
+        },
       });
-      return this.mapToEventResponseDto(updatedEvent);
-    } catch (error) {
+      return this.mapToEventResponseDto(updated);
+    } catch {
       throw new EventStatusChangeException();
     }
   }
 
+  async getBannerUrl(eventId: string): Promise<string | null> {
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+      select: { bannerUrl: true },
+    });
+    if (!event) throw new EventNotFoundException();
+    return event.bannerUrl;
+  }
+
   // --- helper methods ---
+
   sanitizeEventData(dto: SaveDraftDto | PublishEventDto) {
     return {
       title: this.utils.sanitizeBilingualField(dto.title),
@@ -207,7 +190,9 @@ export class EventCrudService {
       seatLimit: dto.seatLimit,
       hasCatering: dto.hasCatering ?? false,
       isCateringFree: dto.isCateringFree ?? false,
-      cateringDescription: this.utils.sanitizeBilingualField(dto.cateringDescription),
+      cateringDescription: this.utils.sanitizeBilingualField(
+        dto.cateringDescription,
+      ),
       agenda: this.utils.sanitizeAgendaItems(dto.agenda),
       contactName: dto.contactName ?? '',
       contactEmail: dto.contactEmail ?? '',
@@ -222,28 +207,6 @@ export class EventCrudService {
   private toJson(value: any): Prisma.InputJsonValue | undefined {
     if (value === undefined) return undefined;
     return value as Prisma.InputJsonValue;
-  }
-
-  private async deleteOrphanBannerIfReplaced(
-    eventId: string,
-    newBannerUrl: string,
-  ): Promise<void> {
-    const existing = await this.prisma.event.findUnique({
-      where: { id: eventId },
-      select: { bannerUrl: true },
-    });
-
-    if (!existing) throw new EventNotFoundException();
-
-    const oldBannerUrl = existing.bannerUrl;
-
-    if (
-      oldBannerUrl &&
-      oldBannerUrl !== newBannerUrl &&
-      oldBannerUrl !== DEFAULT_BANNER_URL
-    ) {
-      await this.eventStorageService.deleteBannerFromStorage(oldBannerUrl);
-    }
   }
 
   private mapToEventResponseDto(event: any): EventResponseDto {

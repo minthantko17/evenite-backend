@@ -5,11 +5,13 @@ import { FormController } from './form.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { FormValidationService } from './services/form-validation.service';
 import { FormCrudService } from './services/form-crud.service';
+import { EventModule } from '../event/event.module';
 
 @Module({
   imports: [
     PrismaModule,
-    AuthModule
+    AuthModule,
+    EventModule,
   ],
   controllers: [FormController],
   providers: [
