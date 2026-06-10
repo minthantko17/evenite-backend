@@ -32,6 +32,7 @@ import { RolesGuard } from './guards/roles.guard';
     RolesGuard,
   ],
   exports: [
+    AuthService,
     AuthCrudService,
     AuthTokenService,
     JwtAccessStrategy,
