@@ -69,17 +69,6 @@ export class UserCrudService {
     return this.mapToReturnParticipantProfileDto(result);
   }
 
-  async getParticipantProfileImageUrl(userId: string): Promise<string | null> {
-    const result = await this.prisma.participantProfile.findUnique({
-      where: { userId },
-      select: { imageUrl: true },
-    });
-    if (!result) {
-      throw new ProfileNotFoundException('Participant profile not found.');
-    }
-    return result.imageUrl;
-  }
-
   async createParticipantProfile(
     userId: string,
     dto: CreateParticipantProfileDto,
@@ -158,17 +147,6 @@ export class UserCrudService {
       throw new ProfileNotFoundException('Organizer profile not found.');
     }
     return this.mapToReturnOrganizerProfileDto(result);
-  }
-
-  async getOrganizerProfileImageUrl(userId: string): Promise<string | null> {
-    const result = await this.prisma.organizerProfile.findUnique({
-      where: { userId },
-      select: { imageUrl: true },
-    });
-    if (!result) {
-      throw new ProfileNotFoundException('Organizer profile not found.');
-    }
-    return result.imageUrl;
   }
 
   async createOrganizerProfile(
