@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { AuthCrudService, UserWithProfiles } from './services/auth-crud.service';
+import { AuthCrudService } from './services/auth-crud.service';
 import { AuthValidationService } from './services/auth-validation.service';
 import { AuthTokenService } from './services/auth-token.service';
 import { AuthEmailService } from './services/auth-email.service';
