@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { GoogleGenAI } from '@google/genai';
+import { OpenAI } from 'openai';
 import { EventDataUtils } from '../utils/event-data.utils';
 
 import type { GeneratedEventDto } from '../dto/generated-event.dto';
@@ -96,12 +97,30 @@ const TRANSLATION_INSTRUCTION = `
 export class EventAiService {
   private readonly logger = new Logger(EventAiService.name);
   private readonly googleGenAi: GoogleGenAI;
-  private readonly textModel = 'gemini-2.5-flash';
-  private readonly imageModel = 'gemini-2.5-flash';
+  private readonly zaiClient: OpenAI;
+  private readonly textModel = 'glm-4.7';
+  private readonly imageModel = 'glm-4.6v';
+
+  /**
+   * For gemini
+   * - text generation: gemini-2.5-flash
+   * - image generation: gemini-2.5-flash
+   *
+   * For zai
+   * - text generation: glm-5-turbo or glm-4.7
+   * - image generation: glm-4.6v
+   *
+   * For groq
+   *
+   */
 
   constructor(private readonly utils: EventDataUtils) {
     this.googleGenAi = new GoogleGenAI({
       apiKey: process.env.GEMINI_API_KEY ?? '',
+    });
+    this.zaiClient = new OpenAI({
+      apiKey: process.env.ZAI_API_KEY ?? '',
+      baseURL: 'https://api.z.ai/api/coding/paas/v4/',
     });
   }
 
@@ -109,7 +128,7 @@ export class EventAiService {
     const fullPrompt = `${TEXT_TO_EVENT_INSTRUCTION}\n\nEvent information:\n${prompt}`;
     this.logger.log('Sending prompt to AI:', fullPrompt);
 
-    const rawResponse = await this.callGemini(
+    const rawResponse = await this.callZai(
       fullPrompt,
       this.textModel,
       'generation',
@@ -124,7 +143,7 @@ export class EventAiService {
     file: Express.Multer.File,
   ): Promise<GeneratedEventDto> {
     this.logger.log('Sending image to AI');
-    const rawResponse = await this.callGemini(
+    const rawResponse = await this.callZai(
       IMAGE_TO_EVENT_INSTRUCTION,
       this.imageModel,
       'generation',
@@ -133,7 +152,6 @@ export class EventAiService {
     const parsedResponse = this.parseJson(rawResponse);
     const mappedResponse = this.mapAiResponseToEventDto(parsedResponse);
     const sanitizedResponse = this.sanitizeAiEventResponse(mappedResponse);
-    this.logger.log('After sanitization:', sanitizedResponse);
     return sanitizedResponse;
   }
 
@@ -143,7 +161,7 @@ export class EventAiService {
     const fullPrompt = `${TRANSLATION_INSTRUCTION}\n\nFields to translate:\n${JSON.stringify(originalDto, null, 2)}`;
     this.logger.log('Sending prompt to AI:', fullPrompt);
 
-    const rawResponse = await this.callGemini(
+    const rawResponse = await this.callZai(
       fullPrompt,
       this.textModel,
       'translation',
@@ -162,7 +180,7 @@ export class EventAiService {
   ): Promise<string> {
     try {
       const parts: any[] = [{ text: prompt }];
-      
+
       if (image) {
         const base64Image = image.buffer.toString('base64');
         parts.push({
@@ -184,10 +202,51 @@ export class EventAiService {
       });
       const latency = Date.now() - startAt;
       this.logger.log(`Gemini response received in ${latency}ms`);
-      this.logger.log('Raw response from Gemini:', result);
+      // this.logger.log('Raw response from Gemini:', result);
       return result?.text ?? '';
     } catch (error) {
       this.logger.error('Gemini raw error:', error);
+      if (context === 'translation') throw new AiTranslationException();
+      throw new AiGenerationException();
+    }
+  }
+
+  protected async callZai(
+    prompt: string,
+    model: string = 'glm-5-turbo',
+    context: 'generation' | 'translation',
+    image?: Express.Multer.File,
+  ): Promise<string> {
+    try {
+      const content: any = image
+        ? [
+            { type: 'text', text: prompt },
+            {
+              type: 'image_url',
+              image_url: {
+                url: `data:${image.mimetype};base64,${image.buffer.toString('base64')}`,
+              },
+            },
+          ]
+        : prompt;
+
+      const startAt = Date.now();
+      const result = await this.zaiClient.chat.completions.create({
+        model: model,
+        messages: [
+          {
+            role: 'user',
+            content,
+          },
+        ],
+      });
+      const latency = Date.now() - startAt;
+      this.logger.log(`Zai response received in ${latency}ms`);
+      // this.logger.log('Raw response from Zai:', result);
+
+      return result?.choices?.[0]?.message?.content ?? '';
+    } catch (error) {
+      this.logger.error('Zai raw error:', error);
       if (context === 'translation') throw new AiTranslationException();
       throw new AiGenerationException();
     }
@@ -267,7 +326,7 @@ export class EventAiService {
     dto.remarks = this.utils.sanitizeBilingualField(dto.remarks);
     dto.agenda = this.utils.sanitizeAgendaItems(dto.agenda);
 
-    if (!Array.isArray(dto.category) || dto.category.length === 0){
+    if (!Array.isArray(dto.category) || dto.category.length === 0) {
       dto.category = [];
     }
 
@@ -285,16 +344,16 @@ export class EventAiService {
       dto.seatLimit = undefined;
     }
 
-    if (dto.mapLink && !isValidUrl(dto.mapLink)){
+    if (dto.mapLink && !isValidUrl(dto.mapLink)) {
       dto.mapLink = '';
     }
-    if (dto.externalUrl && !isValidUrl(dto.externalUrl)){
+    if (dto.externalUrl && !isValidUrl(dto.externalUrl)) {
       dto.externalUrl = '';
     }
-    if (dto.contactEmail && !dto.contactEmail.includes('@')){
+    if (dto.contactEmail && !dto.contactEmail.includes('@')) {
       dto.contactEmail = '';
     }
-    this.logger.log('After sanitization:', dto);
+    // this.logger.log('After sanitization:', dto);
     return dto;
   }
 
