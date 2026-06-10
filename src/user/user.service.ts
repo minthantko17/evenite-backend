@@ -21,9 +21,11 @@ import {
 } from './constants/user-images.constant';
 import { DEFAULT_PREFERENCES } from './constants/user-preferences.constant';
 import type { ReturnSwitchProfileDto } from './dto/return-switch-profile.dto';
-import { EventRegistrationWithEvent } from './services/user-crud.service';
 import { UserNotFoundException } from './exceptions/user-not-found.exception';
 import { validateImageFile } from '../common/utils/file.utils';
+import { EventService } from '../event/event.service';
+import { EventResponseDto } from '../event/dto/event-response.dto';
+import { EventRegistrationWithEvent } from '../event/services/event-crud.service';
 
 @Injectable()
 export class UserService {
@@ -33,6 +35,7 @@ export class UserService {
     private readonly userStorageService: UserStorageService,
     private readonly authTokenService: AuthTokenService,
     private readonly authCrudService: AuthCrudService,
+    private readonly eventService: EventService,
   ) {}
 
   async getUserProfile(userId: string): Promise<ReturnUserDto> {
@@ -231,19 +234,18 @@ export class UserService {
   async getCreatedEvents(
     userId: string,
     status?: EventStatus,
-  ): Promise<Event[]> {
+  ): Promise<EventResponseDto[]> {
     const user = await this.userCrudService.getUserById(userId);
     const organizerProfile =
       await this.userCrudService.getOrganizerProfile(userId);
-
-    return this.userCrudService.getCreatedEvents(
+    return this.eventService.getCreatedEvents(
       organizerProfile.id,
       user.universityId,
       status,
     );
   }
 
-  // need to review again in feature #5
+  // TODO: refine in Feature #5
   async getRegisteredEvents(
     userId: string,
     status?: EventStatus,
@@ -251,11 +253,10 @@ export class UserService {
     const user = await this.userCrudService.getUserById(userId);
     const participantProfile =
       await this.userCrudService.getParticipantProfile(userId);
-    
-    return this.userCrudService.getRegisteredEvents(
+    return this.eventService.getRegisteredEvents(
       participantProfile.id,
       user.universityId,
-      status
+      status,
     );
   }
 

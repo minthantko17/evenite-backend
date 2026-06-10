@@ -4,9 +4,6 @@ import {
   User,
   ParticipantProfile,
   OrganizerProfile,
-  EventRegistration,
-  Event,
-  EventStatus,
   Role,
   Prisma,
 } from '@prisma/client';
@@ -15,17 +12,13 @@ import { UpdateParticipantProfileDto } from '../dto/update-participant-profile.d
 import { CreateOrganizerProfileDto } from '../dto/create-organizer-profile.dto';
 import { UpdateOrganizerProfileDto } from '../dto/update-organizer-profile.dto';
 import { UserWithProfiles } from '../../auth/services/auth-crud.service';
-import { UserPreferences, DEFAULT_PREFERENCES } from '../constants/user-preferences.constant';
+import { DEFAULT_PREFERENCES } from '../constants/user-preferences.constant';
 import {
   DEFAULT_PARTICIPANT_IMAGE_URL,
   DEFAULT_ORGANIZER_IMAGE_URL,
 } from '../constants/user-images.constant';
 import { UserNotFoundException } from '../exceptions/user-not-found.exception';
 import { ProfileNotFoundException } from '../exceptions/profile-not-found.exception';
-
-export type EventRegistrationWithEvent = Prisma.EventRegistrationGetPayload<{
-  include: { event: true };
-}>;
 
 @Injectable()
 export class UserCrudService {
@@ -167,40 +160,6 @@ export class UserCrudService {
         ...(dto.imageUrl !== undefined && { imageUrl: dto.imageUrl }),
         ...(dto.externalUrl !== undefined && { externalUrl: dto.externalUrl }),
       },
-    });
-  }
-
-  async getCreatedEvents(
-    organizerProfileId: string,
-    universityId: string,
-    status?: EventStatus,
-  ): Promise<Event[]> {
-    return this.prisma.event.findMany({
-      where: {
-        organizerId: organizerProfileId,
-        universityId,
-        ...(status && { status }),
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-  }
-
-  // TODO: refine in Feature #5
-  async getRegisteredEvents(
-    participantProfileId: string,
-    universityId: string,
-    status?: EventStatus,
-  ): Promise<EventRegistrationWithEvent[]> {
-    return this.prisma.eventRegistration.findMany({
-      where: { 
-        participantId: participantProfileId,
-        event: {
-          universityId,
-          ...(status && { status })
-        }
-      },
-      include: { event: true },
-      orderBy: { createdAt: 'desc' },
     });
   }
 }

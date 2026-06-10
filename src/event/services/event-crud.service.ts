@@ -13,6 +13,10 @@ import { SaveEventException } from '../exceptions/save-event.exception';
 import { EventNotFoundException } from '../exceptions/event-not-found.exception';
 import { EventStatusChangeException } from '../exceptions/event-status-change.exception';
 
+export type EventRegistrationWithEvent = Prisma.EventRegistrationGetPayload<{
+  include: { event: true };
+}>;
+
 @Injectable()
 export class EventCrudService {
   constructor(
@@ -107,6 +111,44 @@ export class EventCrudService {
     }
 
     return this.mapToEventResponseDto(event);
+  }
+
+  async getEventsByOrganizerId(
+    organizerProfileId: string,
+    universityId: string,
+    status?: EventStatus,
+  ): Promise<EventResponseDto[]> {
+    const events = await this.prisma.event.findMany({
+      where: {
+        organizerId: organizerProfileId,
+        universityId,
+        ...(status && { status }),
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        forms: { select: { id: true, type: true } },
+      },
+    });
+    return events.map((event) => this.mapToEventResponseDto(event));
+  }
+
+  // TODO: refine in Feature #5
+  async getRegisteredEventsByParticipantId(
+    participantProfileId: string,
+    universityId: string,
+    status?: EventStatus,
+  ): Promise<EventRegistrationWithEvent[]> {
+    return this.prisma.eventRegistration.findMany({
+      where: {
+        participantId: participantProfileId,
+        event: {
+          universityId,
+          ...(status && { status }),
+        },
+      },
+      include: { event: true },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
   async updateEventStatus(

@@ -3,7 +3,7 @@ import { Event, EventStatus } from '@prisma/client';
 import { EventValidationService } from './services/event-validation.service';
 import { EventAiService } from './services/event-ai.service';
 import { EventStorageService } from './services/event-storage.service';
-import { EventCrudService } from './services/event-crud.service';
+import { EventCrudService, EventRegistrationWithEvent } from './services/event-crud.service';
 import { GeneratedEventDto } from './dto/generated-event.dto';
 import { SaveDraftDto } from './dto/save-draft.dto';
 import { PublishEventDto } from './dto/publish-event.dto';
@@ -172,5 +172,30 @@ export class EventService {
     }
 
     return event;
+  }
+
+  async getCreatedEvents(
+    organizerProfileId: string,
+    universityId: string,
+    status?: EventStatus,
+  ): Promise<EventResponseDto[]> {
+    return this.eventCrudService.getEventsByOrganizerId(
+      organizerProfileId,
+      universityId,
+      status,
+    );
+  }
+
+  // TODO: refine in Feature #5
+  async getRegisteredEvents(
+    participantProfileId: string,
+    universityId: string,
+    status?: EventStatus,
+  ): Promise<EventRegistrationWithEvent[]> {
+    return this.eventCrudService.getRegisteredEventsByParticipantId(
+      participantProfileId,
+      universityId,
+      status,
+    );
   }
 }

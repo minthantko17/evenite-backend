@@ -28,8 +28,8 @@ import { ReturnUserDto } from './dto/return-user.dto';
 import { ReturnParticipantProfileDto } from './dto/return-participant-profile.dto';
 import { ReturnOrganizerProfileDto } from './dto/return-organizer-profile.dto';
 import { ReturnSwitchProfileDto } from './dto/return-switch-profile.dto';
-import { Event, EventRegistration } from '@prisma/client';
-import { EventRegistrationWithEvent } from './services/user-crud.service';
+import { EventRegistrationWithEvent } from '../event/services/event-crud.service';
+import { EventResponseDto } from '../event/dto/event-response.dto';
 
 @Controller('users')
 @UseGuards(JwtAccessGuard, RolesGuard) // all endpoints require auth
@@ -145,7 +145,7 @@ export class UserController {
     @Req() req: Request,
     @Query('status', new ParseEnumPipe(EventStatus, { optional: true }))
     status?: EventStatus,
-  ): Promise<Event[]> {
+  ): Promise<EventResponseDto[]> {
     const user = req.user as JwtAccessPayload;
     return this.userService.getCreatedEvents(user.sub, status);
   }
