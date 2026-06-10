@@ -12,10 +12,7 @@ import type { AgendaItem } from '../dto/agenda-item.dto';
 import { SaveEventException } from '../exceptions/save-event.exception';
 import { EventNotFoundException } from '../exceptions/event-not-found.exception';
 import { EventStatusChangeException } from '../exceptions/event-status-change.exception';
-
-export type EventRegistrationWithEvent = Prisma.EventRegistrationGetPayload<{
-  include: { event: true };
-}>;
+import { EventRegistrationWithEvent } from '../types/event.types';
 
 @Injectable()
 export class EventCrudService {

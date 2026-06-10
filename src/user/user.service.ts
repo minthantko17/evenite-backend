@@ -20,7 +20,7 @@ import {
 import { validateImageFile } from '../common/utils/file.utils';
 import { EventService } from '../event/event.service';
 import { EventResponseDto } from '../event/dto/event-response.dto';
-import { EventRegistrationWithEvent } from '../event/services/event-crud.service';
+import { EventRegistrationWithEvent } from '../event/types/event.types';
 
 @Injectable()
 export class UserService {

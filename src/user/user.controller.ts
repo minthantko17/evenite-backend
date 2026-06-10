@@ -28,7 +28,7 @@ import { ReturnUserDto } from './dto/return-user.dto';
 import { ReturnParticipantProfileDto } from './dto/return-participant-profile.dto';
 import { ReturnOrganizerProfileDto } from './dto/return-organizer-profile.dto';
 import { ReturnSwitchProfileDto } from './dto/return-switch-profile.dto';
-import { EventRegistrationWithEvent } from '../event/services/event-crud.service';
+import { EventRegistrationWithEvent } from '../event/types/event.types';
 import { EventResponseDto } from '../event/dto/event-response.dto';
 
 @Controller('users')
