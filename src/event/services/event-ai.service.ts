@@ -96,6 +96,8 @@ const TRANSLATION_INSTRUCTION = `
 export class EventAiService {
   private readonly logger = new Logger(EventAiService.name);
   private readonly googleGenAi: GoogleGenAI;
+  private readonly textModel = 'gemini-2.5-flash';
+  private readonly imageModel = 'gemini-2.5-flash';
 
   constructor(private readonly utils: EventDataUtils) {
     this.googleGenAi = new GoogleGenAI({
@@ -109,6 +111,7 @@ export class EventAiService {
 
     const rawResponse = await this.callGemini(
       fullPrompt,
+      this.textModel,
       'generation',
     );
     const parsedResponse = this.parseJson(rawResponse);
@@ -123,6 +126,7 @@ export class EventAiService {
     this.logger.log('Sending image to AI');
     const rawResponse = await this.callGemini(
       IMAGE_TO_EVENT_INSTRUCTION,
+      this.imageModel,
       'generation',
       file,
     );
@@ -141,6 +145,7 @@ export class EventAiService {
 
     const rawResponse = await this.callGemini(
       fullPrompt,
+      this.textModel,
       'translation',
     );
     const parsedResponse = this.parseJson(rawResponse);
@@ -151,6 +156,7 @@ export class EventAiService {
 
   protected async callGemini(
     prompt: string,
+    model: string = 'gemini-2.5-flash',
     context: 'generation' | 'translation',
     image?: Express.Multer.File,
   ): Promise<string> {
@@ -167,14 +173,17 @@ export class EventAiService {
         });
       }
 
+      const startAt = Date.now();
       const result = await this.googleGenAi.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: model,
         contents: {
           role: 'user',
           parts: parts,
         },
         config: { responseMimeType: 'application/json' },
       });
+      const latency = Date.now() - startAt;
+      this.logger.log(`Gemini response received in ${latency}ms`);
       this.logger.log('Raw response from Gemini:', result);
       return result?.text ?? '';
     } catch (error) {
