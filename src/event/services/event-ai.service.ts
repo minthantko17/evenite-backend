@@ -114,8 +114,10 @@ export class EventAiService {
    * - text generation: openai/gpt-oss-120b
    * - image generation: meta-llama/llama-4-scout-17b-16e-instruct
    */
-  private readonly textModel = 'openai/gpt-oss-120b';
-  private readonly imageModel = 'meta-llama/llama-4-scout-17b-16e-instruct';
+  private readonly groqTextModel = 'openai/gpt-oss-120b';
+  private readonly groqImageModel = 'meta-llama/llama-4-scout-17b-16e-instruct';
+  private readonly zaiTextModel = 'glm-5-turbo';
+  private readonly zaiImageModel = 'glm-4.6v';
 
   constructor(private readonly utils: EventDataUtils) {
     this.googleGenAi = new GoogleGenAI({
@@ -134,11 +136,7 @@ export class EventAiService {
     const fullPrompt = `${TEXT_TO_EVENT_INSTRUCTION}\n\nEvent information:\n${prompt}`;
     this.logger.log('Sending prompt to AI:', fullPrompt);
 
-    const rawResponse = await this.callGroq(
-      fullPrompt,
-      this.textModel,
-      'generation',
-    );
+    const rawResponse = await this.callAiWithFallback(fullPrompt, 'generation');
     const parsedResponse = this.parseJson(rawResponse);
     const mappedResponse = this.mapAiResponseToEventDto(parsedResponse);
     const sanitizedResponse = this.sanitizeAiEventResponse(mappedResponse);
@@ -149,9 +147,8 @@ export class EventAiService {
     file: Express.Multer.File,
   ): Promise<GeneratedEventDto> {
     this.logger.log('Sending image to AI');
-    const rawResponse = await this.callGroq(
+    const rawResponse = await this.callAiWithFallback(
       IMAGE_TO_EVENT_INSTRUCTION,
-      this.imageModel,
       'generation',
       file,
     );
@@ -167,23 +164,55 @@ export class EventAiService {
     const fullPrompt = `${TRANSLATION_INSTRUCTION}\n\nFields to translate:\n${JSON.stringify(originalDto, null, 2)}`;
     this.logger.log('Sending prompt to AI:', fullPrompt);
 
-    const rawResponse = await this.callGroq(
+    const rawResponse = await this.callAiWithFallback(
       fullPrompt,
-      this.textModel,
       'translation',
     );
     const parsedResponse = this.parseJson(rawResponse);
     return this.mapTranslationResponseToDto(parsedResponse, originalDto);
   }
 
-  // --- ai services ---
+  // --- ai calls ---
 
-  protected async callGemini(
+  protected async callAiWithFallback(
     prompt: string,
-    model: string = 'gemini-2.5-flash',
     context: 'generation' | 'translation',
     image?: Express.Multer.File,
   ): Promise<string> {
+    const providers = [
+      () => this.callGroq(prompt, image),
+      () => this.callZai(prompt, image),
+    ];
+
+    for (const provider of providers) {
+      try {
+        return await provider();
+      } catch (error) {
+        this.logger.warn(
+          `AI provider at index: ${providers.indexOf(provider)} failed, trying next...`,
+        );
+      }
+    }
+
+    if (context === 'translation') {
+      this.logger.error('All AI providers failed for translation');
+      throw new AiTranslationException(
+        'There was an error translating the event fields. Please try again.',
+      );
+    }
+
+    this.logger.error('All AI providers failed for event generation');
+    throw new AiGenerationException(
+      'There was an error in creating an event, try creating manually.',
+    );
+  }
+
+  private async callGemini(
+    prompt: string,
+    image?: Express.Multer.File,
+  ): Promise<string> {
+    const model = 'gemini-2.5-flash';
+
     try {
       const parts: any[] = [{ text: prompt }];
 
@@ -197,13 +226,11 @@ export class EventAiService {
         });
       }
 
+      this.logger.log('Processing with Gemini...');
       const startAt = Date.now();
       const result = await this.googleGenAi.models.generateContent({
-        model: model,
-        contents: {
-          role: 'user',
-          parts: parts,
-        },
+        model,
+        contents: { role: 'user', parts },
         config: { responseMimeType: 'application/json' },
       });
       const latency = Date.now() - startAt;
@@ -213,17 +240,18 @@ export class EventAiService {
       return result?.text ?? '';
     } catch (error) {
       this.logger.error('Gemini raw error:', error);
-      if (context === 'translation') throw new AiTranslationException();
-      throw new AiGenerationException();
+      throw new AiGenerationException(
+        'There was an error in processing event with Gemini.',
+      );
     }
   }
 
-  protected async callZai(
+  private async callZai(
     prompt: string,
-    model: string = 'glm-5-turbo',
-    context: 'generation' | 'translation',
     image?: Express.Multer.File,
   ): Promise<string> {
+    const model = image ? this.zaiImageModel : this.zaiTextModel;
+
     try {
       const content: any = image
         ? [
@@ -237,15 +265,11 @@ export class EventAiService {
           ]
         : prompt;
 
+      this.logger.log('Processing with Zai...');
       const startAt = Date.now();
       const result = await this.zaiClient.chat.completions.create({
-        model: model,
-        messages: [
-          {
-            role: 'user',
-            content,
-          },
-        ],
+        model,
+        messages: [{ role: 'user', content }],
         response_format: { type: 'json_object' },
       });
       const latency = Date.now() - startAt;
@@ -255,17 +279,18 @@ export class EventAiService {
       return result?.choices?.[0]?.message?.content ?? '';
     } catch (error) {
       this.logger.error('Zai raw error:', error);
-      if (context === 'translation') throw new AiTranslationException();
-      throw new AiGenerationException();
+      throw new AiGenerationException(
+        'There was an error in processing event with Zai.',
+      );
     }
   }
 
-  protected async callGroq(
+  private async callGroq(
     prompt: string,
-    model: string = 'openai/gpt-oss-120b',
-    context: 'generation' | 'translation',
     image?: Express.Multer.File,
   ): Promise<string> {
+    const model = image ? this.groqImageModel : this.groqTextModel;
+
     try {
       const content: any = image
         ? [
@@ -279,9 +304,10 @@ export class EventAiService {
           ]
         : prompt;
 
+      this.logger.log('Processing with Groq...');
       const startAt = Date.now();
       const result = await this.groq.chat.completions.create({
-        model: model,
+        model,
         messages: [{ role: 'user', content }],
         response_format: { type: 'json_object' },
       });
@@ -292,8 +318,9 @@ export class EventAiService {
       return result?.choices?.[0]?.message?.content ?? '';
     } catch (error) {
       this.logger.error('Groq raw error:', error);
-      if (context === 'translation') throw new AiTranslationException();
-      throw new AiGenerationException();
+      throw new AiGenerationException(
+        'There was an error in processing event with Groq.',
+      );
     }
   }
 
