@@ -1,78 +1,20 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventValidationService } from './event-validation.service';
 import { InvalidPromptException } from '../exceptions/invalid-prompt.exception';
-import { InvalidImageException } from '../../common/exceptions/invalid-image.exception';
 import { InvalidDateRangeException } from '../exceptions/invalid-date-range.exception';
 import * as fs from 'fs';
 import * as path from 'path';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ForbiddenException } from '@nestjs/common';
 import { EventNotFoundException } from '../exceptions/event-not-found.exception';
-
-const fixturesPath = path.join(__dirname, '../../../test/fixtures/images');
-
-const createMockFile = (
-  buffer: Buffer,
-  mimetype: string,
-  originalname: string,
-  size?: number,
-): Express.Multer.File => ({
-  buffer,
-  mimetype,
-  originalname,
-  size: size ?? buffer.length,
-  fieldname: 'file',
-  encoding: '7bit',
-  destination: '',
-  filename: '',
-  path: '',
-  stream: null as any,
-});
+import { EventStatus } from '@prisma/client';
+import { EventStatusChangeException } from '../exceptions/event-status-change.exception';
 
 const mockPrisma = {
   event: {
     findUnique: jest.fn(),
   },
 };
-
-// mock data files
-const small_jpg_file = createMockFile(
-    fs.readFileSync(path.join(fixturesPath, 'small_image_jpg.jpg')),
-    'image/jpeg',
-    'small_image_jpg.jpg',
-);
-
-const small_png_file = createMockFile(
-    fs.readFileSync(path.join(fixturesPath, 'small_image_png.png')),
-    'image/png',
-    'small_image_png.png',
-);
-
-const small_webp_file = createMockFile(
-    fs.readFileSync(path.join(fixturesPath, 'small_image_webp.webp')),
-    'image/webp',
-    'small_image_webp.webp',
-);
-
-const gif_file = createMockFile(
-    fs.readFileSync(path.join(fixturesPath, 'christmas_party.gif')),
-    'image/gif',
-    'christmas_party.gif',
-);
-
-const exact_5mb_file = createMockFile(
-    fs.readFileSync(path.join(fixturesPath, 'small_image_jpg.jpg')),
-    'image/jpeg',
-    'small_image_jpg.jpg',
-    5 * 1024 * 1024,
-)
-
-const large_image_file = createMockFile(
-    fs.readFileSync(path.join(fixturesPath, 'large_image.jpg')),
-    'image/jpeg',
-    'large_image.jpg',
-);
-
 
 describe('EventValidationService - validatePromptText', () => {
   let service: EventValidationService;
@@ -89,41 +31,41 @@ describe('EventValidationService - validatePromptText', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M001-01: should not throw for valid English prompt', () => {
+  it('UT-M003-01: should not throw for valid English prompt', () => {
     expect(() =>
       service.validatePromptText('Workshop on Machine Learning'),
     ).not.toThrow();
   });
 
-  it('UT-M001-02: should not throw for valid Thai prompt', () => {
+  it('UT-M003-02: should not throw for valid Thai prompt', () => {
     expect(() =>
       service.validatePromptText('งานกีฬาสี มหาวิทยาลัยเชียงใหม่'),
     ).not.toThrow();
   });
 
-  it('UT-M001-03: should not throw for valid mixed Thai and English prompt', () => {
+  it('UT-M003-03: should not throw for valid mixed Thai and English prompt', () => {
     expect(() =>
       service.validatePromptText('CAMT วิศวกรรมซอฟต์แวร์ Workshop'),
     ).not.toThrow();
   });
 
-  it('UT-M001-04: should not throw for valid prompt mixed with symbols', () => {
+  it('UT-M003-04: should not throw for valid prompt mixed with symbols', () => {
     expect(() =>
       service.validatePromptText('!!! CAMT Halloween Night 2026 @@@'),
     ).not.toThrow();
   });
 
-  it('UT-M001-05: should not throw for numbers only', () => {
+  it('UT-M003-05: should not throw for numbers only', () => {
     expect(() => service.validatePromptText('12345')).not.toThrow();
   });
 
-  it('UT-M001-06: should not throw for whitespace padded valid prompt', () => {
+  it('UT-M003-06: should not throw for whitespace padded valid prompt', () => {
     expect(() =>
       service.validatePromptText('   CAMT Study Trip   '),
     ).not.toThrow();
   });
 
-  it('UT-M001-07: should throw InvalidPromptException for empty string', () => {
+  it('UT-M003-07: should throw InvalidPromptException for empty string', () => {
     expect(() => service.validatePromptText('')).toThrow(
       InvalidPromptException,
     );
@@ -132,7 +74,7 @@ describe('EventValidationService - validatePromptText', () => {
     );
   });
 
-  it('UT-M001-08: should throw InvalidPromptException for whitespace only', () => {
+  it('UT-M003-08: should throw InvalidPromptException for whitespace only', () => {
     expect(() => service.validatePromptText('     ')).toThrow(
       InvalidPromptException,
     );
@@ -141,70 +83,12 @@ describe('EventValidationService - validatePromptText', () => {
     );
   });
 
-  it('UT-M001-09: should throw InvalidPromptException for symbols only', () => {
+  it('UT-M003-09: should throw InvalidPromptException for symbols only', () => {
     expect(() => service.validatePromptText('@#$%^&*!')).toThrow(
       InvalidPromptException,
     );
     expect(() => service.validatePromptText('@#$%^&*!')).toThrow(
       'Invalid Input',
-    );
-  });
-});
-
-describe('EventValidationService - validateImageFile', () => {
-  let service: EventValidationService;
-
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        EventValidationService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
-    }).compile();
-
-    service = module.get<EventValidationService>(EventValidationService);
-    jest.clearAllMocks();
-  });
-
-  it('UT-M013-01: should not throw for valid JPEG file', () => {
-    expect(() => service.validateImageFile(small_jpg_file)).not.toThrow();
-  });
-
-  it('UT-M013-02: should not throw for valid PNG file', () => {
-    expect(() => service.validateImageFile(small_png_file)).not.toThrow();
-  });
-
-  it('UT-M013-03: should not throw for valid WEBP file', () => {
-    expect(() => service.validateImageFile(small_webp_file)).not.toThrow();
-  });
-
-  it('UT-M013-05: should not throw for file size exactly 5MB', () => {
-    expect(() => service.validateImageFile(exact_5mb_file)).not.toThrow();
-  });
-
-  it('UT-M013-04: should throw InvalidImageException for unsupported format GIF', () => {
-    expect(() => service.validateImageFile(gif_file)).toThrow(InvalidImageException);
-    expect(() => service.validateImageFile(gif_file)).toThrow('Unsupported image format');
-  });
-
-  it('UT-M013-06: should throw InvalidImageException for file exceeding 5MB', () => {
-    expect(() => service.validateImageFile(large_image_file)).toThrow(InvalidImageException);
-    expect(() => service.validateImageFile(large_image_file)).toThrow('File size must not exceed 5MB.');
-  });
-  
-  it('UT-M013-00: should throw InvalidImageException when no file is provided', () => {
-    expect(() => service.validateImageFile(null as any)).toThrow(
-      InvalidImageException,
-    );
-    expect(() => service.validateImageFile(null as any)).toThrow(
-      'No input file provided',
-    );
-
-    expect(() => service.validateImageFile(undefined as any)).toThrow(
-      InvalidImageException,
-    );
-    expect(() => service.validateImageFile(undefined as any)).toThrow(
-      'No input file provided',
     );
   });
 });
@@ -224,7 +108,7 @@ describe('EventValidationService - validatePublishDateRange', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M018-01: should not throw when startAt is before endAt', () => {
+  it('UT-M004-01: should not throw when startAt is before endAt', () => {
     const startAt = new Date('2026-10-31T09:00:00.000Z');
     const endAt = new Date('2026-10-31T12:00:00.000Z');
     expect(() =>
@@ -232,7 +116,7 @@ describe('EventValidationService - validatePublishDateRange', () => {
     ).not.toThrow();
   });
 
-  it('UT-M018-02: should throw InvalidDateRangeException when startAt equals endAt', () => {
+  it('UT-M004-02: should throw InvalidDateRangeException when startAt equals endAt', () => {
     const startAt = new Date('2026-10-31T09:00:00.000Z');
     const endAt = new Date('2026-10-31T09:00:00.000Z');
     expect(() => service.validatePublishDateRange(startAt, endAt)).toThrow(
@@ -243,7 +127,7 @@ describe('EventValidationService - validatePublishDateRange', () => {
     );
   });
 
-  it('UT-M018-03: should throw InvalidDateRangeException when startAt is after endAt', () => {
+  it('UT-M004-03: should throw InvalidDateRangeException when startAt is after endAt', () => {
     const startAt = new Date('2026-10-31T12:00:00.000Z');
     const endAt = new Date('2026-10-31T09:00:00.000Z');
     expect(() => service.validatePublishDateRange(startAt, endAt)).toThrow(
@@ -253,60 +137,245 @@ describe('EventValidationService - validatePublishDateRange', () => {
       'Start date must be before end date.',
     );
   });
+});
 
-  describe('EventValidationService - validateEventOwnership', () => {
-    let service: EventValidationService;
+describe('EventValidationService - validateEventExists', () => {
+  let service: EventValidationService;
 
-    beforeEach(async () => {
-      const module: TestingModule = await Test.createTestingModule({
-        providers: [
-          EventValidationService,
-          { provide: PrismaService, useValue: mockPrisma },
-        ],
-      }).compile();
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        EventValidationService,
+        { provide: PrismaService, useValue: mockPrisma },
+      ],
+    }).compile();
 
-      service = module.get<EventValidationService>(EventValidationService);
-      jest.clearAllMocks();
+    service = module.get<EventValidationService>(EventValidationService);
+    jest.clearAllMocks();
+  });
+
+  it('UT-M005-01: should resolve without error when event exists', async () => {
+    const eventId = 'mock-event-uuid-1234';
+    const mockFoundEvent = { id: eventId };
+    mockPrisma.event.findUnique.mockResolvedValueOnce(mockFoundEvent);
+
+    await expect(service.validateEventExists(eventId)).resolves.toBeUndefined();
+    expect(mockPrisma.event.findUnique).toHaveBeenCalledWith({
+      where: { id: eventId },
     });
+    expect(mockPrisma.event.findUnique).toHaveBeenCalledTimes(1);
+  });
 
-    it('UT-M027-01: should resolve without error when organizer owns the event', async () => {
-      const organizerId = 'mock-org-uuid-1234';
-      const eventId = 'mock-event-uuid-1234';
+  it('UT-M005-02: should throw EventNotFoundException when event does not exist', async () => {
+    const eventId = 'non-existent-uuid-9999';
+    mockPrisma.event.findUnique.mockResolvedValueOnce(null);
 
-      mockPrisma.event.findUnique.mockResolvedValueOnce({ organizerId });
-
-      await expect(
-        service.validateEventOwnership(eventId, organizerId),
-      ).resolves.toBeUndefined();
-
-      expect(mockPrisma.event.findUnique).toHaveBeenCalledWith({
-        where: { id: eventId },
-        select: { organizerId: true },
-      });
+    const result = service.validateEventExists(eventId);
+    await expect(result).rejects.toThrow(EventNotFoundException);
+    await expect(result).rejects.toThrow('Event not found.');
+    expect(mockPrisma.event.findUnique).toHaveBeenCalledWith({
+      where: { id: eventId },
     });
+  });
+});
 
-    it('UT-M027-02: should throw EventNotFoundException when event does not exist', async () => {
-      const eventId = 'mock-event-uuid-1234';
+describe('EventValidationService - validateEventOwnership', () => {
+  let service: EventValidationService;
 
-      mockPrisma.event.findUnique.mockResolvedValueOnce(null);
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        EventValidationService,
+        { provide: PrismaService, useValue: mockPrisma },
+      ],
+    }).compile();
+    service = module.get<EventValidationService>(EventValidationService);
+    jest.clearAllMocks();
+  });
 
-      const result = service.validateEventOwnership(eventId, 'any-organizer-id');
+  it('UT-M006-01: should resolve without error when organizer owns the event', async () => {
+    const eventId = 'mock-event-uuid-1234';
+    const organizerId = 'mock-org-uuid-1234';
+    const mockFoundEvent = { organizerId };
+    mockPrisma.event.findUnique.mockResolvedValueOnce(mockFoundEvent);
 
-      await expect(result).rejects.toThrow(EventNotFoundException);
-      await expect(result).rejects.toThrow('Event not found.');
+    await expect(
+      service.validateEventOwnership(eventId, organizerId),
+    ).resolves.toBeUndefined();
+    expect(mockPrisma.event.findUnique).toHaveBeenCalledWith({
+      where: { id: eventId },
+      select: { organizerId: true },
     });
+    expect(mockPrisma.event.findUnique).toHaveBeenCalledTimes(1);
+  });
 
-    it('UT-M027-03: should throw ForbiddenException when organizer does not own the event', async () => {
-      const eventId = 'mock-event-uuid-1234';
-      const actualOwnerId = 'mock-owner-uuid-1234';
-      const requestingOrganizerId = 'mock-non-matching-org-uuid-5678';
+  it('UT-M006-02: should throw EventNotFoundException when event does not exist', async () => {
+    const eventId = 'non-existent-uuid-9999';
+    const organizerId = 'mock-org-uuid-1234';
+    mockPrisma.event.findUnique.mockResolvedValueOnce(null);
 
-      mockPrisma.event.findUnique.mockResolvedValueOnce({ organizerId: actualOwnerId });
-
-      const result = service.validateEventOwnership(eventId, requestingOrganizerId);
-
-      await expect(result).rejects.toThrow(ForbiddenException);
-      await expect(result).rejects.toThrow('You do not have permission to edit this event.');
+    const result = service.validateEventOwnership(eventId, organizerId);
+    await expect(result).rejects.toThrow(EventNotFoundException);
+    await expect(result).rejects.toThrow('Event not found.');
+    expect(mockPrisma.event.findUnique).toHaveBeenCalledWith({
+      where: { id: eventId },
+      select: { organizerId: true },
     });
+  });
+
+  it('UT-M006-03: should throw ForbiddenException when organizer does not own the event', async () => {
+    const eventId = 'mock-event-uuid-1234';
+    const actualOwnerId = 'mock-owner-uuid-1234';
+    const requestingOrganizerId = 'mock-non-matching-org-uuid-5678';
+    const mockFoundEvent = { organizerId: actualOwnerId };
+    mockPrisma.event.findUnique.mockResolvedValueOnce(mockFoundEvent);
+
+    const result = service.validateEventOwnership(
+      eventId,
+      requestingOrganizerId,
+    );
+    await expect(result).rejects.toThrow(ForbiddenException);
+    await expect(result).rejects.toThrow(
+      'You do not have permission to edit this event.',
+    );
+    expect(mockPrisma.event.findUnique).toHaveBeenCalledWith({
+      where: { id: eventId },
+      select: { organizerId: true },
+    });
+  });
+});
+
+describe('EventValidationService - validateStatusTransition', () => {
+  let service: EventValidationService;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        EventValidationService,
+        { provide: PrismaService, useValue: mockPrisma },
+      ],
+    }).compile();
+
+    service = module.get<EventValidationService>(EventValidationService);
+    jest.clearAllMocks();
+  });
+
+  // PUBLISHED allowed transitions: ONGOING, CONCLUDED, CANCELLED
+  it('UT-M007-01: should not throw when transitioning from PUBLISHED to ONGOING', () => {
+    expect(() =>
+      service.validateStatusTransition(
+        EventStatus.PUBLISHED,
+        EventStatus.ONGOING,
+      ),
+    ).not.toThrow();
+  });
+
+  it('UT-M007-02: should not throw when transitioning from PUBLISHED to CONCLUDED', () => {
+    expect(() =>
+      service.validateStatusTransition(
+        EventStatus.PUBLISHED,
+        EventStatus.CONCLUDED,
+      ),
+    ).not.toThrow();
+  });
+
+  it('UT-M007-03: should not throw when transitioning from PUBLISHED to CANCELLED', () => {
+    expect(() =>
+      service.validateStatusTransition(
+        EventStatus.PUBLISHED,
+        EventStatus.CANCELLED,
+      ),
+    ).not.toThrow();
+  });
+
+  // ONGOING allowed transitions: PUBLISHED, CONCLUDED, CANCELLED
+  it('UT-M007-04: should not throw when transitioning from ONGOING to PUBLISHED', () => {
+    expect(() =>
+      service.validateStatusTransition(
+        EventStatus.ONGOING,
+        EventStatus.PUBLISHED,
+      ),
+    ).not.toThrow();
+  });
+
+  it('UT-M007-05: should not throw when transitioning from ONGOING to CONCLUDED', () => {
+    expect(() =>
+      service.validateStatusTransition(
+        EventStatus.ONGOING,
+        EventStatus.CONCLUDED,
+      ),
+    ).not.toThrow();
+  });
+
+  it('UT-M007-06: should not throw when transitioning from ONGOING to CANCELLED', () => {
+    expect(() =>
+      service.validateStatusTransition(
+        EventStatus.ONGOING,
+        EventStatus.CANCELLED,
+      ),
+    ).not.toThrow();
+  });
+
+  it('UT-M007-07: should throw EventStatusChangeException when transitioning from DRAFT to any status', () => {
+    expect(() =>
+      service.validateStatusTransition(
+        EventStatus.DRAFT,
+        EventStatus.PUBLISHED,
+      ),
+    ).toThrow(EventStatusChangeException);
+    expect(() =>
+      service.validateStatusTransition(EventStatus.DRAFT, EventStatus.ONGOING),
+    ).toThrow(
+      `Cannot transition from ${EventStatus.DRAFT} to ${EventStatus.ONGOING}.`,
+    );
+  });
+
+  it('UT-M007-08: should throw EventStatusChangeException when transitioning from CONCLUDED to any status', () => {
+    expect(() =>
+      service.validateStatusTransition(
+        EventStatus.CONCLUDED,
+        EventStatus.PUBLISHED,
+      ),
+    ).toThrow(EventStatusChangeException);
+    expect(() =>
+      service.validateStatusTransition(
+        EventStatus.CONCLUDED,
+        EventStatus.ONGOING,
+      ),
+    ).toThrow(
+      `Cannot transition from ${EventStatus.CONCLUDED} to ${EventStatus.ONGOING}.`,
+    );
+  });
+
+  it('UT-M007-09: should throw EventStatusChangeException when transitioning from CANCELLED to any status', () => {
+    expect(() =>
+      service.validateStatusTransition(
+        EventStatus.CANCELLED,
+        EventStatus.PUBLISHED,
+      ),
+    ).toThrow(EventStatusChangeException);
+  });
+
+  it('UT-M007-10: should throw EventStatusChangeException when transitioning from PUBLISHED to DRAFT', () => {
+    expect(() =>
+      service.validateStatusTransition(
+        EventStatus.PUBLISHED,
+        EventStatus.DRAFT,
+      ),
+    ).toThrow(EventStatusChangeException);
+    expect(() =>
+      service.validateStatusTransition(
+        EventStatus.PUBLISHED,
+        EventStatus.DRAFT,
+      ),
+    ).toThrow(
+      `Cannot transition from ${EventStatus.PUBLISHED} to ${EventStatus.DRAFT}.`,
+    );
+  });
+
+  it('UT-M007-11: should throw EventStatusChangeException when transitioning from ONGOING to DRAFT', () => {
+    expect(() =>
+      service.validateStatusTransition(EventStatus.ONGOING, EventStatus.DRAFT),
+    ).toThrow(EventStatusChangeException);
   });
 });
