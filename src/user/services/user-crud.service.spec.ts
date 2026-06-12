@@ -1,11 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { EventStatus, Role } from '@prisma/client';
+import { Role } from '@prisma/client';
 import { UserCrudService } from './user-crud.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UserNotFoundException } from '../exceptions/user-not-found.exception';
 import { ProfileNotFoundException } from '../exceptions/profile-not-found.exception';
-import { CreateParticipantProfileDto } from '../dto/create-participant-profile.dto';
-import { UpdateParticipantProfileDto } from '../dto/update-participant-profile.dto';
+import { SaveProfileException } from '../exceptions/save-profile.exception';
+import {
+  DEFAULT_PARTICIPANT_IMAGE_URL,
+  DEFAULT_ORGANIZER_IMAGE_URL,
+} from '../constants/user-images.constant';
+import { DEFAULT_PREFERENCES } from '../constants/user-preferences.constant';
 
 const mockPrisma = {
   user: {
@@ -22,131 +26,324 @@ const mockPrisma = {
     create: jest.fn(),
     update: jest.fn(),
   },
-  event: {
-    findMany: jest.fn(),
-  },
-  eventRegistration: {
-    findMany: jest.fn(),
-  },
 };
+
+const MOCK_UNIVERSITY_ID = 'univ0001-0000-0000-0000-000000000001';
+const MOCK_USER_ID_1 = 'u1000000-0000-0000-0000-000000000001';
+const MOCK_USER_ID_2 = 'u2000000-0000-0000-0000-000000000002';
+const MOCK_USER_ID_3 = 'u3000000-0000-0000-0000-000000000003';
+const MOCK_PARTICIPANT_PROFILE_ID_1 = 'p1000000-0000-0000-0000-000000000001';
+const MOCK_ORGANIZER_PROFILE_ID_1 = 'o1000000-0000-0000-0000-000000000001';
+
+const mockFullParticipantProfile = {
+  id: MOCK_PARTICIPANT_PROFILE_ID_1,
+  userId: MOCK_USER_ID_1,
+  firstName: 'Su Su',
+  lastName: 'Myint',
+  nickname: 'Su',
+  studentId: '662115510',
+  major: 'Software Engineering',
+  contactEmail: 'susu@cmu.ac.th',
+  contactPhone: '0812345678',
+  contactLineId: 'susu_line',
+  imageUrl: `https://mockproject.supabase.co/storage/v1/object/public/evenite-images/participant/susu.jpg`,
+  preferences: {
+    personal: ['MUSIC'],
+    event: ['SEMINAR'],
+    language: ['en'],
+  },
+  createdAt: new Date('2026-01-01T00:00:00.000Z'),
+};
+
+const mockMinimalParticipantProfile = {
+  id: 'p2000000-0000-0000-0000-000000000002',
+  userId: MOCK_USER_ID_2,
+  firstName: 'Napat',
+  lastName: null,
+  nickname: null,
+  studentId: null,
+  major: null,
+  contactEmail: null,
+  contactPhone: null,
+  contactLineId: null,
+  imageUrl: null,
+  preferences: null,
+  createdAt: new Date('2026-02-01T00:00:00.000Z'),
+};
+
+const mockFullOrganizerProfile = {
+  id: MOCK_ORGANIZER_PROFILE_ID_1,
+  userId: MOCK_USER_ID_3,
+  name: 'CAMT Student Club',
+  bio: 'We organize events for CAMT students.',
+  contactEmail: 'club@cmu.ac.th',
+  contactPhone: '0898765432',
+  contactLineId: 'camt_club',
+  imageUrl: `https://mockproject.supabase.co/storage/v1/object/public/evenite-images/organizer/camt.png`,
+  externalUrl: 'https://camt.cmu.ac.th',
+  createdAt: new Date('2026-01-15T00:00:00.000Z'),
+};
+
+const mockMinimalOrganizerProfile = {
+  id: 'o2000000-0000-0000-0000-000000000002',
+  userId: MOCK_USER_ID_2,
+  name: 'SE Department',
+  bio: null,
+  contactEmail: null,
+  contactPhone: null,
+  contactLineId: null,
+  imageUrl: null,
+  externalUrl: null,
+  createdAt: new Date('2026-02-15T00:00:00.000Z'),
+};
+
+// factory for full create participant dto
+const createParticipantDto = () => ({
+  firstName: 'Arisa',
+  lastName: 'Tanaka',
+  nickname: 'Ari',
+  studentId: '662115520',
+  major: 'Computer Science',
+  contactEmail: 'arisa@cmu.ac.th',
+  contactPhone: '0823456789',
+  contactLineId: 'arisa_line',
+  imageUrl: `https://mockproject.supabase.co/storage/v1/object/public/evenite-images/participant/arisa.jpg`,
+  preferences: {
+    personal: ['MUSIC'],
+    event: ['WORKSHOP'],
+    language: ['en', 'th'],
+  },
+});
+
+const createOrganizerDto = () => ({
+  name: 'Engineering Faculty Club',
+  bio: 'Organizing tech events for engineers.',
+  contactEmail: 'eng@cmu.ac.th',
+  contactPhone: '0844444444',
+  contactLineId: 'eng_club',
+  imageUrl: `https://mockproject.supabase.co/storage/v1/object/public/evenite-images/organizer/eng.jpg`,
+  externalUrl: 'https://eng.cmu.ac.th',
+});
+
+
+const buildModule = async (): Promise<TestingModule> =>
+  Test.createTestingModule({
+    providers: [
+      UserCrudService,
+      { provide: PrismaService, useValue: mockPrisma },
+    ],
+  }).compile();
 
 describe('UserCrudService - getUserById', () => {
   let service: UserCrudService;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        UserCrudService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
-    }).compile();
+    const module = await buildModule();
     service = module.get<UserCrudService>(UserCrudService);
     jest.clearAllMocks();
   });
 
-  it('UT-M062-01: should return UserWithProfiles when user exists with both profiles', async () => {
-    const mockUser = {
-      id: 'u1000000-0000-0000-0000-000000000001',
+  it('UT-M066-01: should return mapped ReturnUserDto when user exists with both profiles', async () => {
+    const input = { userId: MOCK_USER_ID_1 };
+    const mockFoundUser = {
+      id: MOCK_USER_ID_1,
       email: 'minthant@cmu.ac.th',
       currentRole: Role.PARTICIPANT,
       isVerified: true,
-      universityId: 'univ0001-0000-0000-0000-000000000001',
-      participantProfile: {
-        id: 'p1000000-0000-0000-0000-000000000001',
-        firstName: 'Min',
-      },
-      organizerProfile: {
-        id: 'o1000000-0000-0000-0000-000000000001',
-        name: 'CAMT Club',
-      },
+      universityId: MOCK_UNIVERSITY_ID,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      participantProfile: mockFullParticipantProfile,
+      organizerProfile: mockFullOrganizerProfile,
     };
-    mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+    mockPrisma.user.findUnique.mockResolvedValue(mockFoundUser);
 
-    const result = await service.getUserById(
-      'u1000000-0000-0000-0000-000000000001',
-    );
+    const result = await service.getUserById(input.userId);
 
-    expect(result).toEqual(mockUser);
+    // console.log('[UT-M066-01] Input :', input);
+    // console.log('[UT-M066-01] Expected :', mockFoundUser);
+    // console.log('[UT-M066-01] Actual :', result);
+
+    expect(result.id).toBe(MOCK_USER_ID_1);
     expect(result.participantProfile).not.toBeNull();
     expect(result.organizerProfile).not.toBeNull();
+    expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
+      where: { id: input.userId },
+      include: {
+        participantProfile: true,
+        organizerProfile: true,
+      },
+    });
+    expect(mockPrisma.user.findUnique).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-M062-02: should return UserWithProfiles when user exists with only participant profile', async () => {
-    const mockUser = {
-      id: 'u2000000-0000-0000-0000-000000000002',
+  it('UT-M066-02: should return mapped ReturnUserDto when user exists with only participant profile', async () => {
+    const input = { userId: MOCK_USER_ID_2 };
+    const mockFoundUser = {
+      id: MOCK_USER_ID_2,
       email: 'rory@cmu.ac.th',
       currentRole: Role.PARTICIPANT,
       isVerified: true,
-      universityId: 'univ0001-0000-0000-0000-000000000001',
-      participantProfile: {
-        id: 'p2000000-0000-0000-0000-000000000002',
-        firstName: 'Rory',
-      },
+      universityId: MOCK_UNIVERSITY_ID,
+      createdAt: new Date('2026-02-01T00:00:00.000Z'),
+      participantProfile: mockFullParticipantProfile,
       organizerProfile: null,
     };
-    mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+    mockPrisma.user.findUnique.mockResolvedValue(mockFoundUser);
 
-    const result = await service.getUserById(
-      'u2000000-0000-0000-0000-000000000002',
-    );
+    const result = await service.getUserById(input.userId);
 
-    expect(result).toEqual(mockUser);
+    // console.log('[UT-M066-02] Input :', input);
+    // console.log('[UT-M066-02] Expected participantProfile: not null | organizerProfile: null');
+    // console.log('[UT-M066-02] Actual result:', result);
+
     expect(result.participantProfile).not.toBeNull();
     expect(result.organizerProfile).toBeNull();
   });
 
-  it('UT-M062-03: should return UserWithProfiles when user exists with only organizer profile', async () => {
-    const mockUser = {
-      id: 'u3000000-0000-0000-0000-000000000003',
+  it('UT-M066-03: should return mapped ReturnUserDto when user exists with only organizer profile', async () => {
+    const input = { userId: MOCK_USER_ID_3 };
+    const mockFoundUser = {
+      id: MOCK_USER_ID_3,
       email: 'chaiwat@cmu.ac.th',
       currentRole: Role.ORGANIZER,
       isVerified: true,
-      universityId: 'univ0001-0000-0000-0000-000000000001',
+      universityId: MOCK_UNIVERSITY_ID,
+      createdAt: new Date('2026-01-15T00:00:00.000Z'),
       participantProfile: null,
-      organizerProfile: {
-        id: 'o2000000-0000-0000-0000-000000000002',
-        name: 'SE Department',
-      },
+      organizerProfile: mockFullOrganizerProfile,
     };
-    mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+    mockPrisma.user.findUnique.mockResolvedValue(mockFoundUser);
 
-    const result = await service.getUserById(
-      'u3000000-0000-0000-0000-000000000003',
-    );
+    const result = await service.getUserById(input.userId);
 
-    expect(result).toEqual(mockUser);
+    // console.log('[UT-M066-03] Input :', input);
+    // console.log('[UT-M066-03] Expected participantProfile: null | organizerProfile: not null');
+    // console.log('[UT-M066-03] Actual result:', result);
+
     expect(result.participantProfile).toBeNull();
     expect(result.organizerProfile).not.toBeNull();
   });
 
-  it('UT-M062-04: should return UserWithProfiles when user exists with no profiles', async () => {
-    const mockUser = {
-      id: 'u4000000-0000-0000-0000-000000000004',
+  it('UT-M066-04: should return mapped ReturnUserDto when user exists with no profiles', async () => {
+    const input = { userId: 'u4000000-0000-0000-0000-000000000004' };
+    const mockFoundUser = {
+      id: input.userId,
       email: 'newuser@cmu.ac.th',
       currentRole: null,
       isVerified: true,
-      universityId: 'univ0001-0000-0000-0000-000000000001',
+      universityId: MOCK_UNIVERSITY_ID,
+      createdAt: new Date('2026-03-01T00:00:00.000Z'),
       participantProfile: null,
       organizerProfile: null,
     };
-    mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+    mockPrisma.user.findUnique.mockResolvedValue(mockFoundUser);
 
-    const result = await service.getUserById(
-      'u4000000-0000-0000-0000-000000000004',
-    );
+    const result = await service.getUserById(input.userId);
+    // console.log('[UT-M066-04] Input :', input);
+    // console.log('[UT-M066-04] Expected currentRole: null | participantProfile: null | organizerProfile: null');
+    // console.log('[UT-M066-04] Expected result:', mockFoundUser);
+    // console.log('[UT-M066-04] Actual result:', result);
 
-    expect(result).toEqual(mockUser);
+    expect(result.currentRole).toBeNull();
     expect(result.participantProfile).toBeNull();
     expect(result.organizerProfile).toBeNull();
   });
 
-  it('UT-M062-05: should throw UserNotFoundException when user not found', async () => {
+  it('UT-M066-05: should throw UserNotFoundException when user not found', async () => {
+    const input = { userId: 'u9999999-9999-9999-9999-999999999999' };
     mockPrisma.user.findUnique.mockResolvedValueOnce(null);
 
-    const result = service.getUserById('u9999999-9999-9999-9999-999999999999');
+    const result = service.getUserById(input.userId);
 
     await expect(result).rejects.toThrow(UserNotFoundException);
     await expect(result).rejects.toThrow('User not found.');
+  });
+});
+
+describe('UserCrudService - updateUserRole', () => {
+  let service: UserCrudService;
+
+  beforeEach(async () => {
+    const module = await buildModule();
+    service = module.get<UserCrudService>(UserCrudService);
+    jest.clearAllMocks();
+  });
+
+  it('UT-M067-01: should resolve without error when updating role to PARTICIPANT', async () => {
+    const input = { userId: MOCK_USER_ID_1, role: Role.PARTICIPANT };
+    mockPrisma.user.update.mockResolvedValue({
+      id: input.userId,
+      currentRole: Role.PARTICIPANT,
+    });
+
+    await expect(
+      service.updateUserRole(input.userId, input.role),
+    ).resolves.toBeUndefined();
+
+    // console.log('[UT-M067-01] Input :', input);
+    // console.log('[UT-M067-01] Expected:');
+    // console.log('[UT-M067-01] Actual : no throw');
+
+    expect(mockPrisma.user.update).toHaveBeenCalledWith({
+      where: { id: input.userId },
+      data: { currentRole: Role.PARTICIPANT },
+    });
+    expect(mockPrisma.user.update).toHaveBeenCalledTimes(1);
+  });
+
+  it('UT-M067-02: should resolve without error when updating role to ORGANIZER', async () => {
+    const input = { userId: MOCK_USER_ID_2, role: Role.ORGANIZER };
+    mockPrisma.user.update.mockResolvedValue({
+      id: input.userId,
+      currentRole: Role.ORGANIZER,
+    });
+
+    await expect(
+      service.updateUserRole(input.userId, input.role),
+    ).resolves.toBeUndefined();
+
+    // console.log('[UT-M067-02] Input :', input);
+    // console.log('[UT-M067-02] Expected : resolves undefined, prisma.user.update called with correct args');
+    // console.log('[UT-M067-02] Actual : no throw');
+
+    expect(mockPrisma.user.update).toHaveBeenCalledWith({
+      where: { id: input.userId },
+      data: { currentRole: Role.ORGANIZER },
+    });
+  });
+
+  it('UT-M067-03: should resolve without error when updating role to null', async () => {
+    const input = { userId: MOCK_USER_ID_1, role: null as any };
+    mockPrisma.user.update.mockResolvedValue({
+      id: input.userId,
+      currentRole: null,
+    });
+
+    await expect(
+      service.updateUserRole(input.userId, input.role),
+    ).resolves.toBeUndefined();
+
+    expect(mockPrisma.user.update).toHaveBeenCalledWith({
+      where: { id: input.userId },
+      data: { currentRole: null },
+    });
+  });
+
+  it('UT-M067-04: should throw SaveProfileException when prisma update fails', async () => {
+    const input = { userId: MOCK_USER_ID_1, role: Role.PARTICIPANT };
+    mockPrisma.user.update.mockRejectedValueOnce(
+      new Error('DB connection failed'),
+    );
+    mockPrisma.user.update.mockRejectedValueOnce(
+      new Error('DB connection failed'),
+    );
+
+    await expect(
+      service.updateUserRole(input.userId, input.role),
+    ).rejects.toThrow(SaveProfileException);
+    await expect(
+      service.updateUserRole(input.userId, input.role),
+    ).rejects.toThrow('Failed to update user role. Please try again.');
   });
 });
 
@@ -154,20 +351,15 @@ describe('UserCrudService - getParticipantProfile', () => {
   let service: UserCrudService;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        UserCrudService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
-    }).compile();
+    const module = await buildModule();
     service = module.get<UserCrudService>(UserCrudService);
     jest.clearAllMocks();
   });
 
-  it('UT-M063-01: should return ParticipantProfile when profile exists with all fields', async () => {
-    const mockProfile = {
-      id: 'p1000000-0000-0000-0000-000000000001',
-      userId: 'u1000000-0000-0000-0000-000000000001',
+  it('UT-M068-01: should return mapped ReturnParticipantProfileDto when profile exists with all fields', async () => {
+    const input = { userId: MOCK_USER_ID_1 };
+    const expected = {
+      id: MOCK_PARTICIPANT_PROFILE_ID_1,
       firstName: 'Su Su',
       lastName: 'Myint',
       nickname: 'Su',
@@ -176,131 +368,67 @@ describe('UserCrudService - getParticipantProfile', () => {
       contactEmail: 'susu@cmu.ac.th',
       contactPhone: '0812345678',
       contactLineId: 'susu_line',
-      imageUrl: 'https://storage.example.com/participant/abc.jpg',
-      preferences: {
-        personal: ['MUSIC'],
-        event: ['SEMINAR'],
-        language: ['en'],
-      },
-      createdAt: new Date('2026-01-01'),
+      imageUrl: mockFullParticipantProfile.imageUrl,
+      preferences: mockFullParticipantProfile.preferences,
+      createdAt: mockFullParticipantProfile.createdAt,
     };
-    mockPrisma.participantProfile.findUnique.mockResolvedValue(mockProfile);
-
-    const result = await service.getParticipantProfile(
-      'u1000000-0000-0000-0000-000000000001',
+    mockPrisma.participantProfile.findUnique.mockResolvedValue(
+      mockFullParticipantProfile,
     );
 
-    expect(result).toEqual(mockProfile);
+    const result = await service.getParticipantProfile(input.userId);
+
+    // console.log('[UT-M068-01] Input :', input);
+    // console.log('[UT-M068-01] Expected :', expected);
+    // console.log('[UT-M068-01] Actual :', result);
+
+    expect(result).toEqual(expected);
+    expect(mockPrisma.participantProfile.findUnique).toHaveBeenCalledWith({
+      where: { userId: input.userId },
+    });
+    expect(mockPrisma.participantProfile.findUnique).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-M063-02: should return ParticipantProfile when profile exists with only required fields', async () => {
-    const mockProfile = {
-      id: 'p2000000-0000-0000-0000-000000000002',
-      userId: 'u2000000-0000-0000-0000-000000000002',
+  it('UT-M068-02: should return mapped dto with defaults when profile has null optional fields', async () => {
+    const input = { userId: MOCK_USER_ID_2 };
+    const expected = {
+      id: mockMinimalParticipantProfile.id,
       firstName: 'Napat',
-      lastName: null,
-      nickname: null,
-      studentId: null,
-      major: null,
-      contactEmail: null,
-      contactPhone: null,
-      contactLineId: null,
-      imageUrl: null,
-      preferences: null,
-      createdAt: new Date('2026-02-01'),
+      lastName: '',
+      nickname: '',
+      studentId: '',
+      major: '',
+      contactEmail: '',
+      contactPhone: '',
+      contactLineId: '',
+      imageUrl: DEFAULT_PARTICIPANT_IMAGE_URL,
+      preferences: DEFAULT_PREFERENCES,
+      createdAt: mockMinimalParticipantProfile.createdAt,
     };
-    mockPrisma.participantProfile.findUnique.mockResolvedValue(mockProfile);
-
-    const result = await service.getParticipantProfile(
-      'u2000000-0000-0000-0000-000000000002',
+    mockPrisma.participantProfile.findUnique.mockResolvedValue(
+      mockMinimalParticipantProfile,
     );
 
-    expect(result).toEqual(mockProfile);
-    expect(result.lastName).toBeNull();
-    expect(result.preferences).toBeNull();
+    const result = await service.getParticipantProfile(input.userId);
+
+    // console.log('[UT-M068-02] Input :', input);
+    // console.log('[UT-M068-02] Expected :', expected);
+    // console.log('[UT-M068-02] Actual :', result);
+
+    expect(result).toEqual(expected);
+    expect(result.lastName).toBe('');
+    expect(result.imageUrl).toBe(DEFAULT_PARTICIPANT_IMAGE_URL);
+    expect(result.preferences).toEqual(DEFAULT_PREFERENCES);
   });
 
-  it('UT-M063-03: should throw ProfileNotFoundException with message when participant profile not found', async () => {
+  it('UT-M068-03: should throw ProfileNotFoundException when participant profile not found', async () => {
+    const input = { userId: 'u9999999-9999-9999-9999-999999999999' };
     mockPrisma.participantProfile.findUnique.mockResolvedValueOnce(null);
 
-    const result = service.getParticipantProfile(
-      'u9999999-9999-9999-9999-999999999999',
-    );
+    const result = service.getParticipantProfile(input.userId);
 
     await expect(result).rejects.toThrow(ProfileNotFoundException);
     await expect(result).rejects.toThrow('Participant profile not found.');
-  });
-});
-
-describe('UserCrudService - getOrganizerProfile', () => {
-  let service: UserCrudService;
-
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        UserCrudService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
-    }).compile();
-    service = module.get<UserCrudService>(UserCrudService);
-    jest.clearAllMocks();
-  });
-
-  it('UT-M064-01: should return OrganizerProfile when profile exists with all fields', async () => {
-    const mockProfile = {
-      id: 'o1000000-0000-0000-0000-000000000001',
-      userId: 'u3000000-0000-0000-0000-000000000003',
-      name: 'CAMT Student Club',
-      bio: 'We organize events for CAMT students.',
-      contactEmail: 'club@cmu.ac.th',
-      contactPhone: '0898765432',
-      contactLineId: 'camt_club',
-      imageUrl: 'https://storage.example.com/organizer/xyz.png',
-      externalUrl: 'https://camt.cmu.ac.th',
-      createdAt: new Date('2026-01-15'),
-    };
-    mockPrisma.organizerProfile.findUnique.mockResolvedValue(mockProfile);
-
-    const result = await service.getOrganizerProfile(
-      'u3000000-0000-0000-0000-000000000003',
-    );
-
-    expect(result).toEqual(mockProfile);
-  });
-
-  it('UT-M064-02: should return OrganizerProfile when profile exists with only required fields', async () => {
-    const mockProfile = {
-      id: 'o2000000-0000-0000-0000-000000000002',
-      userId: 'u4000000-0000-0000-0000-000000000004',
-      name: 'SE Department',
-      bio: null,
-      contactEmail: null,
-      contactPhone: null,
-      contactLineId: null,
-      imageUrl: null,
-      externalUrl: null,
-      createdAt: new Date('2026-02-15'),
-    };
-    mockPrisma.organizerProfile.findUnique.mockResolvedValue(mockProfile);
-
-    const result = await service.getOrganizerProfile(
-      'u4000000-0000-0000-0000-000000000004',
-    );
-
-    expect(result).toEqual(mockProfile);
-    expect(result.bio).toBeNull();
-    expect(result.externalUrl).toBeNull();
-  });
-
-  it('UT-M064-03: should throw ProfileNotFoundException with message when organizer profile not found', async () => {
-    mockPrisma.organizerProfile.findUnique.mockResolvedValueOnce(null);
-
-    const result = service.getOrganizerProfile(
-      'u9999999-9999-9999-9999-999999999998',
-    );
-
-    await expect(result).rejects.toThrow(ProfileNotFoundException);
-    await expect(result).rejects.toThrow('Organizer profile not found.');
   });
 });
 
@@ -308,19 +436,24 @@ describe('UserCrudService - createParticipantProfile', () => {
   let service: UserCrudService;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        UserCrudService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
-    }).compile();
+    const module = await buildModule();
     service = module.get<UserCrudService>(UserCrudService);
     jest.clearAllMocks();
   });
 
-  it('UT-M065-01: should create and return participant profile with full dto', async () => {
-    const userId = 'u5000000-0000-0000-0000-000000000005';
-    const dto = {
+  it('UT-M069-01: should create and return mapped ReturnParticipantProfileDto with full dto', async () => {
+    const input = {
+      userId: 'u5000000-0000-0000-0000-000000000005',
+      dto: createParticipantDto(),
+    };
+    const mockCreated = {
+      id: 'p3000000-0000-0000-0000-000000000003',
+      userId: input.userId,
+      ...input.dto,
+      createdAt: new Date('2026-03-01T00:00:00.000Z'),
+    };
+    const expected = {
+      id: mockCreated.id,
       firstName: 'Arisa',
       lastName: 'Tanaka',
       nickname: 'Ari',
@@ -329,37 +462,41 @@ describe('UserCrudService - createParticipantProfile', () => {
       contactEmail: 'arisa@cmu.ac.th',
       contactPhone: '0823456789',
       contactLineId: 'arisa_line',
-      imageUrl: 'https://storage.example.com/participant/arisa.jpg',
-      preferences: {
-        personal: ['MUSIC'],
-        event: ['WORKSHOP'],
-        language: ['en', 'th'],
-      },
-    };
-    const mockCreated = {
-      id: 'p3000000-0000-0000-0000-000000000003',
-      userId,
-      ...dto,
-      createdAt: new Date('2026-03-01'),
+      imageUrl: input.dto.imageUrl,
+      preferences: input.dto.preferences,
+      createdAt: mockCreated.createdAt,
     };
     mockPrisma.participantProfile.create.mockResolvedValue(mockCreated);
 
-    const result = await service.createParticipantProfile(userId, dto as CreateParticipantProfileDto);
+    const result = await service.createParticipantProfile(
+      input.userId,
+      input.dto as any,
+    );
 
-    expect(result).toEqual(mockCreated);
+    // console.log('[UT-M069-01] Input :', input);
+    // console.log('[UT-M069-01] Expected :', expected);
+    // console.log('[UT-M069-01] Actual :', result);
+
+    expect(result).toEqual(expected);
     expect(mockPrisma.participantProfile.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ userId, firstName: 'Arisa' }),
+        data: expect.objectContaining({
+          userId: input.userId,
+          firstName: 'Arisa',
+        }),
       }),
     );
+    expect(mockPrisma.participantProfile.create).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-M065-02: should create participant profile with minimal dto (firstName only)', async () => {
-    const userId = 'u6000000-0000-0000-0000-000000000006';
-    const dto = { firstName: 'Somsak' };
+  it('UT-M069-02: should create participant profile with defaults when only firstName provided', async () => {
+    const input = {
+      userId: 'u6000000-0000-0000-0000-000000000006',
+      dto: { firstName: 'Somsak' },
+    };
     const mockCreated = {
       id: 'p4000000-0000-0000-0000-000000000004',
-      userId,
+      userId: input.userId,
       firstName: 'Somsak',
       lastName: null,
       nickname: null,
@@ -370,27 +507,58 @@ describe('UserCrudService - createParticipantProfile', () => {
       contactLineId: null,
       imageUrl: null,
       preferences: null,
-      createdAt: new Date('2026-03-02'),
+      createdAt: new Date('2026-03-02T00:00:00.000Z'),
+    };
+    const expected = {
+      id: mockCreated.id,
+      firstName: 'Somsak',
+      lastName: '',
+      nickname: '',
+      studentId: '',
+      major: '',
+      contactEmail: '',
+      contactPhone: '',
+      contactLineId: '',
+      imageUrl: DEFAULT_PARTICIPANT_IMAGE_URL,
+      preferences: DEFAULT_PREFERENCES,
+      createdAt: mockCreated.createdAt,
     };
     mockPrisma.participantProfile.create.mockResolvedValue(mockCreated);
 
-    const result = await service.createParticipantProfile(userId, dto);
+    const result = await service.createParticipantProfile(
+      input.userId,
+      input.dto as any,
+    );
 
-    expect(result).toEqual(mockCreated);
-    expect(result.lastName).toBeNull();
-    expect(result.preferences).toBeNull();
+    // console.log('[UT-M069-02] Input :', input);
+    // console.log('[UT-M069-02] Expected :', expected);
+    // console.log('[UT-M069-02] Actual :', result);
+
+    expect(result).toEqual(expected);
+    expect(result.imageUrl).toBe(DEFAULT_PARTICIPANT_IMAGE_URL);
+    expect(result.preferences).toEqual(DEFAULT_PREFERENCES);
   });
 
-  it('UT-M065-03: should propagate error when prisma throws', async () => {
+  it('UT-M069-03: should throw SaveProfileException when prisma create fails', async () => {
+    const input = {
+      userId: 'u7000000-0000-0000-0000-000000000007',
+      dto: { firstName: 'Thanida' },
+    };
+    mockPrisma.participantProfile.create.mockRejectedValueOnce(
+      new Error('DB connection failed'),
+    );
     mockPrisma.participantProfile.create.mockRejectedValueOnce(
       new Error('DB connection failed'),
     );
 
     await expect(
-      service.createParticipantProfile('u7000000-0000-0000-0000-000000000007', {
-        firstName: 'Thanida',
-      }),
-    ).rejects.toThrow('DB connection failed');
+      service.createParticipantProfile(input.userId, input.dto as any),
+    ).rejects.toThrow(SaveProfileException);
+    await expect(
+      service.createParticipantProfile(input.userId, input.dto as any),
+    ).rejects.toThrow(
+      'Failed to create participant profile. Please try again.',
+    );
   });
 });
 
@@ -398,19 +566,35 @@ describe('UserCrudService - updateParticipantProfile', () => {
   let service: UserCrudService;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        UserCrudService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
-    }).compile();
+    const module = await buildModule();
     service = module.get<UserCrudService>(UserCrudService);
     jest.clearAllMocks();
   });
 
-  it('UT-M066-01: should update and return participant profile with full dto', async () => {
-    const userId = 'u1000000-0000-0000-0000-000000000001';
-    const dto = {
+  it('UT-M070-01: should update and return mapped ReturnParticipantProfileDto with full dto', async () => {
+    const input = {
+      userId: MOCK_USER_ID_1,
+      dto: {
+        firstName: 'Min Thant',
+        lastName: 'Ko',
+        nickname: 'Min',
+        studentId: '662115510',
+        major: 'Software Engineering',
+        contactEmail: 'min@cmu.ac.th',
+        contactPhone: '0811111111',
+        contactLineId: 'min_line',
+      },
+    };
+    const mockUpdated = {
+      id: MOCK_PARTICIPANT_PROFILE_ID_1,
+      userId: MOCK_USER_ID_1,
+      ...input.dto,
+      imageUrl: null,
+      preferences: null,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    };
+    const expected = {
+      id: MOCK_PARTICIPANT_PROFILE_ID_1,
       firstName: 'Min Thant',
       lastName: 'Ko',
       nickname: 'Min',
@@ -419,87 +603,199 @@ describe('UserCrudService - updateParticipantProfile', () => {
       contactEmail: 'min@cmu.ac.th',
       contactPhone: '0811111111',
       contactLineId: 'min_line',
-    };
-    const mockUpdated = {
-      id: 'p1000000-0000-0000-0000-000000000001',
-      userId,
-      ...dto,
-      imageUrl: null,
-      preferences: null,
-      createdAt: new Date('2026-01-01'),
+      imageUrl: DEFAULT_PARTICIPANT_IMAGE_URL,
+      preferences: DEFAULT_PREFERENCES,
+      createdAt: mockUpdated.createdAt,
     };
     mockPrisma.participantProfile.update.mockResolvedValue(mockUpdated);
 
-    const result = await service.updateParticipantProfile(userId, dto as UpdateParticipantProfileDto);
+    const result = await service.updateParticipantProfile(
+      input.userId,
+      input.dto as any,
+    );
 
-    expect(result).toEqual(mockUpdated);
+    // console.log('[UT-M070-01] Input :', input);
+    // console.log('[UT-M070-01] Expected :', expected);
+    // console.log('[UT-M070-01] Actual :', result);
+
+    expect(result).toEqual(expected);
     expect(mockPrisma.participantProfile.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { userId },
+        where: { userId: input.userId },
         data: expect.objectContaining({ firstName: 'Min Thant' }),
       }),
     );
+    expect(mockPrisma.participantProfile.update).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-M066-02: should update participant profile with partial dto (firstName only)', async () => {
-    const userId = 'u2000000-0000-0000-0000-000000000002';
-    const dto = { firstName: 'Updated Name' };
+  it('UT-M070-02: should update with partial dto and only send provided fields to prisma', async () => {
+    const input = {
+      userId: MOCK_USER_ID_2,
+      dto: { firstName: 'Updated Name' },
+    };
     const mockUpdated = {
-      id: 'p2000000-0000-0000-0000-000000000002',
-      userId,
+      ...mockFullParticipantProfile,
+      userId: MOCK_USER_ID_2,
       firstName: 'Updated Name',
-      lastName: 'Existing',
-      nickname: 'existing nickname',
-      studentId: '662115510',
-      major: 'Software Engineering',
-      contactEmail: 'existingmail@cmu.ac.th',
-      contactPhone: '0811111111',
-      contactLineId: 'existing_line',
-      imageUrl: null,
-      preferences: null,
-      createdAt: new Date('2026-01-02'),
     };
     mockPrisma.participantProfile.update.mockResolvedValue(mockUpdated);
 
-    const result = await service.updateParticipantProfile(userId, dto as UpdateParticipantProfileDto);
-
-    expect(result).toEqual(mockUpdated);
-    expect(mockPrisma.participantProfile.update).toHaveBeenCalledWith({
-        where: { userId },
-        data: { firstName: 'Updated Name' },
-    }
+    const result = await service.updateParticipantProfile(
+      input.userId,
+      input.dto as any,
     );
+
+    // console.log('[UT-M070-02] Input :', input);
+    // console.log('[UT-M070-02] Expected firstName: Updated Name');
+    // console.log('[UT-M070-02] Actual firstName:', result.firstName);
+
+    expect(result.firstName).toBe('Updated Name');
+    expect(mockPrisma.participantProfile.update).toHaveBeenCalledWith({
+      where: { userId: input.userId },
+      data: { firstName: 'Updated Name' },
+    });
   });
 
-  it('UT-M066-03: should update participant profile with empty string fields', async () => {
-    const userId = 'u3000000-0000-0000-0000-000000000003';
-    const dto = { lastName: '', nickname: '' };
+  it('UT-M070-03: should update with empty string fields and persist them', async () => {
+    const input = {
+      userId: MOCK_USER_ID_3,
+      dto: { lastName: '', nickname: '' },
+    };
     const mockUpdated = {
-      id: 'p5000000-0000-0000-0000-000000000005',
-      userId,
-      firstName: 'Wanchai',
+      ...mockFullParticipantProfile,
+      userId: MOCK_USER_ID_3,
       lastName: '',
       nickname: '',
-      studentId: '662115514',
-      major: 'Software Engineering',
-      contactEmail: 'existingmail@cmu.ac.th',
-      contactPhone: '0811111111',
-      contactLineId: 'existing_line',
-      imageUrl: null,
-      preferences: null,
-      createdAt: new Date('2026-01-03'),
+    };
+    const expected = {
+      id: mockUpdated.id,
+      firstName: mockUpdated.firstName,
+      lastName: '',
+      nickname: '',
+      studentId: mockUpdated.studentId,
+      major: mockUpdated.major,
+      contactEmail: mockUpdated.contactEmail,
+      contactPhone: mockUpdated.contactPhone,
+      contactLineId: mockUpdated.contactLineId,
+      imageUrl: mockUpdated.imageUrl,
+      preferences: mockUpdated.preferences,
+      createdAt: mockUpdated.createdAt,
     };
     mockPrisma.participantProfile.update.mockResolvedValue(mockUpdated);
 
-    const result = await service.updateParticipantProfile(userId, dto);
+    const result = await service.updateParticipantProfile(
+      input.userId,
+      input.dto as any,
+    );
 
-    expect(result).toEqual(mockUpdated);
+    // console.log('[UT-M070-03] Input :', input);
+    // console.log('[UT-M070-03] Expected :', expected);
+    // console.log('[UT-M070-03] Actual :', result);
+
+    expect(result).toEqual(expected);
     expect(result.lastName).toBe('');
     expect(result.nickname).toBe('');
     expect(mockPrisma.participantProfile.update).toHaveBeenCalledWith({
-        where: { userId },
-        data: { lastName: '', nickname: '' },
+      where: { userId: input.userId },
+      data: { lastName: '', nickname: '' },
     });
+  });
+
+  it('UT-M070-04: should throw SaveProfileException when prisma update fails', async () => {
+    const input = { userId: MOCK_USER_ID_1, dto: { firstName: 'Fail Test' } };
+    mockPrisma.participantProfile.update.mockRejectedValueOnce(
+      new Error('DB connection failed'),
+    );
+    mockPrisma.participantProfile.update.mockRejectedValueOnce(
+      new Error('DB connection failed'),
+    );
+
+    await expect(
+      service.updateParticipantProfile(input.userId, input.dto as any),
+    ).rejects.toThrow(SaveProfileException);
+    await expect(
+      service.updateParticipantProfile(input.userId, input.dto as any),
+    ).rejects.toThrow(
+      'Failed to update participant profile. Please try again.',
+    );
+  });
+});
+
+describe('UserCrudService - getOrganizerProfile', () => {
+  let service: UserCrudService;
+
+  beforeEach(async () => {
+    const module = await buildModule();
+    service = module.get<UserCrudService>(UserCrudService);
+    jest.clearAllMocks();
+  });
+
+  it('UT-M071-01: should return mapped ReturnOrganizerProfileDto when profile exists with all fields', async () => {
+    const input = { userId: MOCK_USER_ID_3 };
+    const expected = {
+      id: MOCK_ORGANIZER_PROFILE_ID_1,
+      name: 'CAMT Student Club',
+      bio: 'We organize events for CAMT students.',
+      contactEmail: 'club@cmu.ac.th',
+      contactPhone: '0898765432',
+      contactLineId: 'camt_club',
+      imageUrl: mockFullOrganizerProfile.imageUrl,
+      externalUrl: 'https://camt.cmu.ac.th',
+      createdAt: mockFullOrganizerProfile.createdAt,
+    };
+    mockPrisma.organizerProfile.findUnique.mockResolvedValue(
+      mockFullOrganizerProfile,
+    );
+
+    const result = await service.getOrganizerProfile(input.userId);
+
+    // console.log('[UT-M071-01] Input :', input);
+    // console.log('[UT-M071-01] Expected :', expected);
+    // console.log('[UT-M071-01] Actual :', result);
+
+    expect(result).toEqual(expected);
+    expect(mockPrisma.organizerProfile.findUnique).toHaveBeenCalledWith({
+      where: { userId: input.userId },
+    });
+    expect(mockPrisma.organizerProfile.findUnique).toHaveBeenCalledTimes(1);
+  });
+
+  it('UT-M071-02: should return mapped dto with defaults when profile has null optional fields', async () => {
+    const input = { userId: MOCK_USER_ID_2 };
+    const expected = {
+      id: mockMinimalOrganizerProfile.id,
+      name: 'SE Department',
+      bio: '',
+      contactEmail: '',
+      contactPhone: '',
+      contactLineId: '',
+      imageUrl: DEFAULT_ORGANIZER_IMAGE_URL,
+      externalUrl: '',
+      createdAt: mockMinimalOrganizerProfile.createdAt,
+    };
+    mockPrisma.organizerProfile.findUnique.mockResolvedValue(
+      mockMinimalOrganizerProfile,
+    );
+
+    const result = await service.getOrganizerProfile(input.userId);
+
+    // console.log('[UT-M071-02] Input :', input);
+    // console.log('[UT-M071-02] Expected :', expected);
+    // console.log('[UT-M071-02] Actual :', result);
+
+    expect(result).toEqual(expected);
+    expect(result.bio).toBe('');
+    expect(result.imageUrl).toBe(DEFAULT_ORGANIZER_IMAGE_URL);
+  });
+
+  it('UT-M071-03: should throw ProfileNotFoundException when organizer profile not found', async () => {
+    const input = { userId: 'u9999999-9999-9999-9999-999999999998' };
+    mockPrisma.organizerProfile.findUnique.mockResolvedValueOnce(null);
+
+    const result = service.getOrganizerProfile(input.userId);
+
+    await expect(result).rejects.toThrow(ProfileNotFoundException);
+    await expect(result).rejects.toThrow('Organizer profile not found.');
   });
 });
 
@@ -507,54 +803,64 @@ describe('UserCrudService - createOrganizerProfile', () => {
   let service: UserCrudService;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        UserCrudService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
-    }).compile();
+    const module = await buildModule();
     service = module.get<UserCrudService>(UserCrudService);
     jest.clearAllMocks();
   });
 
-  it('UT-M067-01: should create and return organizer profile with full dto', async () => {
-    const userId = 'u5000000-0000-0000-0000-000000000005';
-    const dto = {
+  it('UT-M072-01: should create and return mapped ReturnOrganizerProfileDto with full dto', async () => {
+    const input = {
+      userId: 'u5000000-0000-0000-0000-000000000005',
+      dto: createOrganizerDto(),
+    };
+    const mockCreated = {
+      id: 'o3000000-0000-0000-0000-000000000003',
+      userId: input.userId,
+      ...input.dto,
+      createdAt: new Date('2026-03-05T00:00:00.000Z'),
+    };
+    const expected = {
+      id: mockCreated.id,
       name: 'Engineering Faculty Club',
       bio: 'Organizing tech events for engineers.',
       contactEmail: 'eng@cmu.ac.th',
       contactPhone: '0844444444',
       contactLineId: 'eng_club',
-      imageUrl: 'https://storage.example.com/organizer/eng.jpg',
+      imageUrl: input.dto.imageUrl,
       externalUrl: 'https://eng.cmu.ac.th',
-    };
-    const mockCreated = {
-      id: 'o3000000-0000-0000-0000-000000000003',
-      userId,
-      ...dto,
-      createdAt: new Date('2026-03-05'),
+      createdAt: mockCreated.createdAt,
     };
     mockPrisma.organizerProfile.create.mockResolvedValue(mockCreated);
 
-    const result = await service.createOrganizerProfile(userId, dto);
+    const result = await service.createOrganizerProfile(
+      input.userId,
+      input.dto as any,
+    );
 
-    expect(result).toEqual(mockCreated);
+    // console.log('[UT-M072-01] Input :', input);
+    // console.log('[UT-M072-01] Expected :', expected);
+    // console.log('[UT-M072-01] Actual :', result);
+
+    expect(result).toEqual(expected);
     expect(mockPrisma.organizerProfile.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          userId,
+          userId: input.userId,
           name: 'Engineering Faculty Club',
         }),
       }),
     );
+    expect(mockPrisma.organizerProfile.create).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-M067-02: should create organizer profile with minimal dto (name only)', async () => {
-    const userId = 'u6000000-0000-0000-0000-000000000006';
-    const dto = { name: 'Science Society' };
+  it('UT-M072-02: should create organizer profile with defaults when only name provided', async () => {
+    const input = {
+      userId: 'u6000000-0000-0000-0000-000000000006',
+      dto: { name: 'Science Society' },
+    };
     const mockCreated = {
       id: 'o4000000-0000-0000-0000-000000000004',
-      userId,
+      userId: input.userId,
       name: 'Science Society',
       bio: null,
       contactEmail: null,
@@ -562,27 +868,53 @@ describe('UserCrudService - createOrganizerProfile', () => {
       contactLineId: null,
       imageUrl: null,
       externalUrl: null,
-      createdAt: new Date('2026-03-06'),
+      createdAt: new Date('2026-03-06T00:00:00.000Z'),
+    };
+    const expected = {
+      id: mockCreated.id,
+      name: 'Science Society',
+      bio: '',
+      contactEmail: '',
+      contactPhone: '',
+      contactLineId: '',
+      imageUrl: DEFAULT_ORGANIZER_IMAGE_URL,
+      externalUrl: '',
+      createdAt: mockCreated.createdAt,
     };
     mockPrisma.organizerProfile.create.mockResolvedValue(mockCreated);
 
-    const result = await service.createOrganizerProfile(userId, dto);
+    const result = await service.createOrganizerProfile(
+      input.userId,
+      input.dto as any,
+    );
 
-    expect(result).toEqual(mockCreated);
-    expect(result.bio).toBeNull();
-    expect(result.externalUrl).toBeNull();
+    // console.log('[UT-M072-02] Input :', input);
+    // console.log('[UT-M072-02] Expected :', expected);
+    // console.log('[UT-M072-02] Actual :', result);
+
+    expect(result).toEqual(expected);
+    expect(result.bio).toBe('');
+    expect(result.imageUrl).toBe(DEFAULT_ORGANIZER_IMAGE_URL);
   });
 
-  it('UT-M067-03: should propagate error when prisma throws', async () => {
+  it('UT-M072-03: should throw SaveProfileException when prisma create fails', async () => {
+    const input = {
+      userId: 'u9000000-0000-0000-0000-000000000009',
+      dto: { name: 'Duplicate Club' },
+    };
     mockPrisma.organizerProfile.create.mockRejectedValueOnce(
-      new Error('DB connection failed.'),
+      new Error('DB connection failed'),
+    );
+    mockPrisma.organizerProfile.create.mockRejectedValueOnce(
+      new Error('DB connection failed'),
     );
 
     await expect(
-      service.createOrganizerProfile('u9000000-0000-0000-0000-000000000009', {
-        name: 'Duplicate Club',
-      }),
-    ).rejects.toThrow('DB connection failed.');
+      service.createOrganizerProfile(input.userId, input.dto as any),
+    ).rejects.toThrow(SaveProfileException);
+    await expect(
+      service.createOrganizerProfile(input.userId, input.dto as any),
+    ).rejects.toThrow('Failed to create organizer profile. Please try again.');
   });
 });
 
@@ -590,437 +922,269 @@ describe('UserCrudService - updateOrganizerProfile', () => {
   let service: UserCrudService;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        UserCrudService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
-    }).compile();
+    const module = await buildModule();
     service = module.get<UserCrudService>(UserCrudService);
     jest.clearAllMocks();
   });
 
-  it('UT-M068-01: should update and return organizer profile with full dto', async () => {
-    const userId = 'u3000000-0000-0000-0000-000000000003';
-    const dto = {
+  it('UT-M073-01: should update and return mapped ReturnOrganizerProfileDto with full dto', async () => {
+    const input = {
+      userId: MOCK_USER_ID_3,
+      dto: {
+        name: 'Updated CAMT Club',
+        bio: 'Updated bio.',
+        contactEmail: 'updated@cmu.ac.th',
+        contactPhone: '0855555555',
+        contactLineId: 'updated_line',
+        externalUrl: 'https://updated.cmu.ac.th',
+      },
+    };
+    const mockUpdated = {
+      id: MOCK_ORGANIZER_PROFILE_ID_1,
+      userId: MOCK_USER_ID_3,
+      ...input.dto,
+      imageUrl: null,
+      createdAt: new Date('2026-01-15T00:00:00.000Z'),
+    };
+    const expected = {
+      id: MOCK_ORGANIZER_PROFILE_ID_1,
       name: 'Updated CAMT Club',
-      bio: 'Updated bio for CAMT Club.',
+      bio: 'Updated bio.',
       contactEmail: 'updated@cmu.ac.th',
       contactPhone: '0855555555',
       contactLineId: 'updated_line',
+      imageUrl: DEFAULT_ORGANIZER_IMAGE_URL,
       externalUrl: 'https://updated.cmu.ac.th',
-    };
-    const mockUpdated = {
-      id: 'o1000000-0000-0000-0000-000000000001',
-      userId,
-      ...dto,
-      imageUrl: null,
-      createdAt: new Date('2026-01-15'),
+      createdAt: mockUpdated.createdAt,
     };
     mockPrisma.organizerProfile.update.mockResolvedValue(mockUpdated);
 
-    const result = await service.updateOrganizerProfile(userId, dto);
+    const result = await service.updateOrganizerProfile(
+      input.userId,
+      input.dto as any,
+    );
 
-    expect(result).toEqual(mockUpdated);
+    // console.log('[UT-M073-01] Input :', input);
+    // console.log('[UT-M073-01] Expected :', expected);
+    // console.log('[UT-M073-01] Actual :', result);
+
+    expect(result).toEqual(expected);
     expect(mockPrisma.organizerProfile.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { userId },
+        where: { userId: input.userId },
         data: expect.objectContaining({ name: 'Updated CAMT Club' }),
       }),
     );
+    expect(mockPrisma.organizerProfile.update).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-M068-02: should update organizer profile with partial dto (name only)', async () => {
-    const userId = 'u4000000-0000-0000-0000-000000000004';
-    const dto = { name: 'Renamed Department' };
+  it('UT-M073-02: should update with partial dto and only send provided fields to prisma', async () => {
+    const input = {
+      userId: MOCK_USER_ID_2,
+      dto: { name: 'Renamed Department' },
+    };
     const mockUpdated = {
-      id: 'o2000000-0000-0000-0000-000000000002',
-      userId,
+      ...mockFullOrganizerProfile,
+      userId: MOCK_USER_ID_2,
       name: 'Renamed Department',
-      bio: 'Existing bio',
-      contactEmail: 'existing@cmu.ac.th',
-      contactPhone: '0866666666',
-      contactLineId: 'existing_line',
-      imageUrl: null,
-      externalUrl: null,
-      createdAt: new Date('2026-02-15'),
     };
     mockPrisma.organizerProfile.update.mockResolvedValue(mockUpdated);
 
-    const result = await service.updateOrganizerProfile(userId, dto);
+    const result = await service.updateOrganizerProfile(
+      input.userId,
+      input.dto as any,
+    );
+
+    // console.log('[UT-M073-02] Input :', input);
+    // console.log('[UT-M073-02] Expected name: Renamed Department');
+    // console.log('[UT-M073-02] Actual name:', result.name);
 
     expect(result.name).toBe('Renamed Department');
-    expect(mockPrisma.organizerProfile.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { userId } }),
-    );
+    expect(mockPrisma.organizerProfile.update).toHaveBeenCalledWith({
+      where: { userId: input.userId },
+      data: { name: 'Renamed Department' },
+    });
   });
 
-  it('UT-M068-03: should update organizer profile with empty string fields', async () => {
-    const userId = 'u5000000-0000-0000-0000-000000000005';
-    const dto = { bio: '', contactEmail: '' };
+  it('UT-M073-03: should update with empty string fields and persist them', async () => {
+    const input = {
+      userId: MOCK_USER_ID_3,
+      dto: { bio: '', contactEmail: '' },
+    };
     const mockUpdated = {
-      id: 'o3000000-0000-0000-0000-000000000003',
-      userId,
-      name: 'Art Society',
+      ...mockFullOrganizerProfile,
+      userId: MOCK_USER_ID_3,
       bio: '',
       contactEmail: '',
-      contactPhone: '0866666666',
-      contactLineId: 'existing_line',
-      imageUrl: null,
-      externalUrl: null,
-      createdAt: new Date('2026-03-05'),
+    };
+    const expected = {
+      id: mockUpdated.id,
+      name: mockUpdated.name,
+      bio: '',
+      contactEmail: '',
+      contactPhone: mockUpdated.contactPhone,
+      contactLineId: mockUpdated.contactLineId,
+      imageUrl: mockUpdated.imageUrl,
+      externalUrl: mockUpdated.externalUrl,
+      createdAt: mockUpdated.createdAt,
     };
     mockPrisma.organizerProfile.update.mockResolvedValue(mockUpdated);
 
-    const result = await service.updateOrganizerProfile(userId, dto);
+    const result = await service.updateOrganizerProfile(
+      input.userId,
+      input.dto as any,
+    );
 
+    // console.log('[UT-M073-03] Input :', input);
+    // console.log('[UT-M073-03] Expected :', expected);
+    // console.log('[UT-M073-03] Actual :', result);
+
+    expect(result).toEqual(expected);
     expect(result.bio).toBe('');
     expect(result.contactEmail).toBe('');
+    expect(mockPrisma.organizerProfile.update).toHaveBeenCalledWith({
+      where: { userId: input.userId },
+      data: { bio: '', contactEmail: '' },
+    });
+  });
+
+  it('UT-M073-04: should throw SaveProfileException when prisma update fails', async () => {
+    const input = { userId: MOCK_USER_ID_1, dto: { name: 'Fail Test' } };
+    mockPrisma.organizerProfile.update.mockRejectedValueOnce(
+      new Error('DB connection failed'),
+    );
+    mockPrisma.organizerProfile.update.mockRejectedValueOnce(
+      new Error('DB connection failed'),
+    );
+
+    await expect(
+      service.updateOrganizerProfile(input.userId, input.dto as any),
+    ).rejects.toThrow(SaveProfileException);
+    await expect(
+      service.updateOrganizerProfile(input.userId, input.dto as any),
+    ).rejects.toThrow('Failed to update organizer profile. Please try again.');
   });
 });
 
-describe('UserCrudService - updateUserRole', () => {
+describe('UserCrudService - mapToReturnParticipantProfileDto', () => {
   let service: UserCrudService;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        UserCrudService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
-    }).compile();
+    const module = await buildModule();
     service = module.get<UserCrudService>(UserCrudService);
     jest.clearAllMocks();
   });
 
-  it('UT-M069-01: should update user role to PARTICIPANT', async () => {
-    const userId = 'u1000000-0000-0000-0000-000000000001';
-    mockPrisma.user.update.mockResolvedValue({
-      id: userId,
-      currentRole: Role.PARTICIPANT,
-    });
+  it('UT-M074-01: should return fully mapped dto when all fields are present', () => {
+    const input = mockFullParticipantProfile;
+    const expected = {
+      id: MOCK_PARTICIPANT_PROFILE_ID_1,
+      firstName: 'Su Su',
+      lastName: 'Myint',
+      nickname: 'Su',
+      studentId: '662115510',
+      major: 'Software Engineering',
+      contactEmail: 'susu@cmu.ac.th',
+      contactPhone: '0812345678',
+      contactLineId: 'susu_line',
+      imageUrl: mockFullParticipantProfile.imageUrl,
+      preferences: mockFullParticipantProfile.preferences,
+      createdAt: mockFullParticipantProfile.createdAt,
+    };
 
-    await service.updateUserRole(userId, Role.PARTICIPANT);
+    const result = (service as any).mapToReturnParticipantProfileDto(input);
 
-    expect(mockPrisma.user.update).toHaveBeenCalledWith({
-      where: { id: userId },
-      data: { currentRole: Role.PARTICIPANT },
-    });
+    // console.log('[UT-M074-01] Input :', input);
+    // console.log('[UT-M074-01] Expected :', expected);
+    // console.log('[UT-M074-01] Actual :', result);
+
+    expect(result).toEqual(expected);
   });
 
-  it('UT-M069-02: should update user role to ORGANIZER', async () => {
-    const userId = 'u2000000-0000-0000-0000-000000000002';
-    mockPrisma.user.update.mockResolvedValue({
-      id: userId,
-      currentRole: Role.ORGANIZER,
-    });
+  it('UT-M074-02: should apply defaults when optional fields are null', () => {
+    const input = mockMinimalParticipantProfile;
+    const expected = {
+      id: mockMinimalParticipantProfile.id,
+      firstName: 'Napat',
+      lastName: '',
+      nickname: '',
+      studentId: '',
+      major: '',
+      contactEmail: '',
+      contactPhone: '',
+      contactLineId: '',
+      imageUrl: DEFAULT_PARTICIPANT_IMAGE_URL,
+      preferences: DEFAULT_PREFERENCES,
+      createdAt: mockMinimalParticipantProfile.createdAt,
+    };
 
-    await service.updateUserRole(userId, Role.ORGANIZER);
+    const result = (service as any).mapToReturnParticipantProfileDto(input);
 
-    expect(mockPrisma.user.update).toHaveBeenCalledWith({
-      where: { id: userId },
-      data: { currentRole: Role.ORGANIZER },
-    });
+    // console.log('[UT-M074-02] Input :', input);
+    // console.log('[UT-M074-02] Expected :', expected);
+    // console.log('[UT-M074-02] Actual :', result);
+
+    expect(result).toEqual(expected);
+    expect(result.lastName).toBe('');
+    expect(result.imageUrl).toBe(DEFAULT_PARTICIPANT_IMAGE_URL);
+    expect(result.preferences).toEqual(DEFAULT_PREFERENCES);
   });
 });
 
-describe('UserCrudService - getCreatedEvents', () => {
+describe('UserCrudService - mapToReturnOrganizerProfileDto', () => {
   let service: UserCrudService;
 
-  const organizerProfileId = 'o1000000-0000-0000-0000-000000000001';
-  const universityId = 'univ0001-0000-0000-0000-000000000001';
-
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        UserCrudService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
-    }).compile();
+    const module = await buildModule();
     service = module.get<UserCrudService>(UserCrudService);
     jest.clearAllMocks();
   });
 
-  it('UT-M070-01: should return events filtered by DRAFT status', async () => {
-    const mockEvents = [
-      {
-        id: 'ev100000-0000-0000-0000-000000000001',
-        status: EventStatus.DRAFT,
-        organizerId: organizerProfileId,
-        universityId,
-        title: { en: 'Draft Event', th: 'กิจกรรมฉบับร่าง' },
-        createdAt: new Date('2026-04-01'),
-      },
-    ];
-    mockPrisma.event.findMany.mockResolvedValue(mockEvents);
+  it('UT-M075-01: should return fully mapped dto when all fields are present', () => {
+    const input = mockFullOrganizerProfile;
+    const expected = {
+      id: MOCK_ORGANIZER_PROFILE_ID_1,
+      name: 'CAMT Student Club',
+      bio: 'We organize events for CAMT students.',
+      contactEmail: 'club@cmu.ac.th',
+      contactPhone: '0898765432',
+      contactLineId: 'camt_club',
+      imageUrl: mockFullOrganizerProfile.imageUrl,
+      externalUrl: 'https://camt.cmu.ac.th',
+      createdAt: mockFullOrganizerProfile.createdAt,
+    };
 
-    const result = await service.getCreatedEvents(
-      organizerProfileId,
-      universityId,
-      EventStatus.DRAFT,
-    );
+    const result = (service as any).mapToReturnOrganizerProfileDto(input);
 
-    expect(result).toEqual(mockEvents);
-    expect(mockPrisma.event.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          organizerId: organizerProfileId,
-          universityId,
-          status: EventStatus.DRAFT,
-        }),
-      }),
-    );
+    // console.log('[UT-M075-01] Input :', input);
+    // console.log('[UT-M075-01] Expected :', expected);
+    // console.log('[UT-M075-01] Actual :', result);
+
+    expect(result).toEqual(expected);
   });
 
-  it('UT-M070-02: should return all events when no status provided', async () => {
-    const mockEvents = [
-      {
-        id: 'ev200000-0000-0000-0000-000000000002',
-        status: EventStatus.PUBLISHED,
-        organizerId: organizerProfileId,
-        universityId,
-        createdAt: new Date('2026-04-02'),
-      },
-      {
-        id: 'ev300000-0000-0000-0000-000000000003',
-        status: EventStatus.DRAFT,
-        organizerId: organizerProfileId,
-        universityId,
-        createdAt: new Date('2026-04-01'),
-      },
-    ];
-    mockPrisma.event.findMany.mockResolvedValue(mockEvents);
+  it('UT-M075-02: should apply defaults when optional fields are null', () => {
+    const input = mockMinimalOrganizerProfile;
+    const expected = {
+      id: mockMinimalOrganizerProfile.id,
+      name: 'SE Department',
+      bio: '',
+      contactEmail: '',
+      contactPhone: '',
+      contactLineId: '',
+      imageUrl: DEFAULT_ORGANIZER_IMAGE_URL,
+      externalUrl: '',
+      createdAt: mockMinimalOrganizerProfile.createdAt,
+    };
 
-    const result = await service.getCreatedEvents(
-      organizerProfileId,
-      universityId,
-    );
+    const result = (service as any).mapToReturnOrganizerProfileDto(input);
 
-    expect(result).toEqual(mockEvents);
-    const calledWith = mockPrisma.event.findMany.mock.calls[0][0];
-    expect(calledWith.where.status).toBeUndefined();
-  });
+    // console.log('[UT-M075-02] Input :', input);
+    // console.log('[UT-M075-02] Expected :', expected);
+    // console.log('[UT-M075-02] Actual :', result);
 
-  it('UT-M070-03: should return empty array when no events exist', async () => {
-    mockPrisma.event.findMany.mockResolvedValue([]);
-
-    const result = await service.getCreatedEvents(
-      'o9999999-9999-9999-9999-999999999999',
-      universityId,
-    );
-
-    expect(result).toEqual([]);
-  });
-
-  it('UT-M070-04: should return events filtered by PUBLISHED status', async () => {
-    const mockEvents = [
-      {
-        id: 'ev400000-0000-0000-0000-000000000004',
-        status: EventStatus.PUBLISHED,
-        organizerId: organizerProfileId,
-        universityId,
-        createdAt: new Date('2026-05-01'),
-      },
-    ];
-    mockPrisma.event.findMany.mockResolvedValue(mockEvents);
-
-    const result = await service.getCreatedEvents(
-      organizerProfileId,
-      universityId,
-      EventStatus.PUBLISHED,
-    );
-
-    expect(result).toEqual(mockEvents);
-    expect(mockPrisma.event.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          status: EventStatus.PUBLISHED,
-        }),
-      }),
-    );
-  });
-
-  it('UT-M070-05: should return empty array when filtering by CONCLUDED with no matches', async () => {
-    mockPrisma.event.findMany.mockResolvedValue([]);
-
-    const result = await service.getCreatedEvents(
-      organizerProfileId,
-      universityId,
-      EventStatus.CONCLUDED,
-    );
-
-    expect(result).toEqual([]);
-    expect(mockPrisma.event.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          status: EventStatus.CONCLUDED,
-        }),
-      }),
-    );
-  });
-});
-
-describe('UserCrudService - getRegisteredEvents', () => {
-  let service: UserCrudService;
-
-  const participantProfileId = 'p1000000-0000-0000-0000-000000000001';
-  const universityId = 'univ0001-0000-0000-0000-000000000001';
-
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        UserCrudService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
-    }).compile();
-    service = module.get<UserCrudService>(UserCrudService);
-    jest.clearAllMocks();
-  });
-
-  it('UT-M071-01: should return registrations filtered by PUBLISHED event status', async () => {
-    const mockRegistrations = [
-      {
-        id: 'reg10000-0000-0000-0000-000000000001',
-        participantId: participantProfileId,
-        eventId: 'ev100000-0000-0000-0000-000000000001',
-        status: 'CONFIRMED',
-        createdAt: new Date('2026-05-01'),
-        event: {
-          id: 'ev100000-0000-0000-0000-000000000001',
-          status: EventStatus.PUBLISHED,
-          universityId,
-          title: { en: 'Published Event', th: 'กิจกรรมที่เผยแพร่' },
-        },
-      },
-    ];
-    mockPrisma.eventRegistration.findMany.mockResolvedValue(mockRegistrations);
-
-    const result = await service.getRegisteredEvents(
-      participantProfileId,
-      universityId,
-      EventStatus.PUBLISHED,
-    );
-
-    expect(result).toEqual(mockRegistrations);
-    expect(mockPrisma.eventRegistration.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          participantId: participantProfileId,
-          event: expect.objectContaining({
-            universityId,
-            status: EventStatus.PUBLISHED,
-          }),
-        }),
-      }),
-    );
-  });
-
-  it('UT-M071-02: should return all registrations when no status provided', async () => {
-    const mockRegistrations = [
-      {
-        id: 'reg20000-0000-0000-0000-000000000002',
-        participantId: participantProfileId,
-        status: 'CONFIRMED',
-        createdAt: new Date('2026-05-02'),
-        event: {
-          id: 'ev200000-0000-0000-0000-000000000002',
-          status: EventStatus.ONGOING,
-        },
-      },
-      {
-        id: 'reg30000-0000-0000-0000-000000000003',
-        participantId: participantProfileId,
-        status: 'CONFIRMED',
-        createdAt: new Date('2026-04-01'),
-        event: {
-          id: 'ev300000-0000-0000-0000-000000000003',
-          status: EventStatus.CONCLUDED,
-        },
-      },
-    ];
-    mockPrisma.eventRegistration.findMany.mockResolvedValue(mockRegistrations);
-
-    const result = await service.getRegisteredEvents(
-      participantProfileId,
-      universityId,
-    );
-
-    expect(result).toEqual(mockRegistrations);
-    const calledWith = mockPrisma.eventRegistration.findMany.mock.calls[0][0];
-    expect(calledWith.where.event?.status).toBeUndefined();
-  });
-
-  it('UT-M071-03: should return empty array when no registrations exist', async () => {
-    mockPrisma.eventRegistration.findMany.mockResolvedValue([]);
-
-    const result = await service.getRegisteredEvents(
-      'p9999999-9999-9999-9999-999999999999',
-      universityId,
-    );
-
-    expect(result).toEqual([]);
-  });
-
-  it('UT-M071-04: should return registrations filtered by ONGOING event status', async () => {
-    const mockRegistrations = [
-      {
-        id: 'reg40000-0000-0000-0000-000000000004',
-        participantId: participantProfileId,
-        status: 'CONFIRMED',
-        createdAt: new Date('2026-05-10'),
-        event: { status: EventStatus.ONGOING, universityId },
-      },
-    ];
-    mockPrisma.eventRegistration.findMany.mockResolvedValue(mockRegistrations);
-
-    const result = await service.getRegisteredEvents(
-      participantProfileId,
-      universityId,
-      EventStatus.ONGOING,
-    );
-
-    expect(result).toEqual(mockRegistrations);
-    expect(mockPrisma.eventRegistration.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          event: expect.objectContaining({ status: EventStatus.ONGOING }),
-        }),
-      }),
-    );
-  });
-
-  it('UT-M071-05: should return registrations filtered by CONCLUDED event status', async () => {
-    const mockRegistrations = [
-      {
-        id: 'reg50000-0000-0000-0000-000000000005',
-        participantId: participantProfileId,
-        status: 'CONFIRMED',
-        createdAt: new Date('2026-03-01'),
-        event: { status: EventStatus.CONCLUDED, universityId },
-      },
-      {
-        id: 'reg60000-0000-0000-0000-000000000006',
-        participantId: participantProfileId,
-        status: 'CONFIRMED',
-        createdAt: new Date('2026-02-01'),
-        event: { status: EventStatus.CONCLUDED, universityId },
-      },
-    ];
-    mockPrisma.eventRegistration.findMany.mockResolvedValue(mockRegistrations);
-
-    const result = await service.getRegisteredEvents(
-      participantProfileId,
-      universityId,
-      EventStatus.CONCLUDED,
-    );
-
-    expect(result).toHaveLength(2);
-    expect(mockPrisma.eventRegistration.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          event: expect.objectContaining({ status: EventStatus.CONCLUDED }),
-        }),
-      }),
-    );
+    expect(result).toEqual(expected);
+    expect(result.bio).toBe('');
+    expect(result.imageUrl).toBe(DEFAULT_ORGANIZER_IMAGE_URL);
   });
 });
