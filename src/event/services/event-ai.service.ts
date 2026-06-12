@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { GoogleGenAI } from '@google/genai';
+import { OpenAI } from 'openai';
+import Groq from 'groq-sdk';
 import { EventDataUtils } from '../utils/event-data.utils';
 
 import type { GeneratedEventDto } from '../dto/generated-event.dto';
@@ -96,10 +98,37 @@ const TRANSLATION_INSTRUCTION = `
 export class EventAiService {
   private readonly logger = new Logger(EventAiService.name);
   private readonly googleGenAi: GoogleGenAI;
+  private readonly zaiClient: OpenAI;
+  private readonly groq: Groq;
+
+  /** Model selection:
+   * For gemini
+   * - text generation: gemini-2.5-flash
+   * - image generation: gemini-2.5-flash
+   *
+   * For zai
+   * - text generation: glm-5-turbo or glm-4.7
+   * - image generation: glm-4.6v
+   *
+   * For groq
+   * - text generation: openai/gpt-oss-120b
+   * - image generation: meta-llama/llama-4-scout-17b-16e-instruct
+   */
+  private readonly groqTextModel = 'openai/gpt-oss-120b';
+  private readonly groqImageModel = 'meta-llama/llama-4-scout-17b-16e-instruct';
+  private readonly zaiTextModel = 'glm-5-turbo';
+  private readonly zaiImageModel = 'glm-4.6v';
 
   constructor(private readonly utils: EventDataUtils) {
     this.googleGenAi = new GoogleGenAI({
       apiKey: process.env.GEMINI_API_KEY ?? '',
+    });
+    this.zaiClient = new OpenAI({
+      apiKey: process.env.ZAI_API_KEY ?? '',
+      baseURL: 'https://api.z.ai/api/coding/paas/v4/',
+    });
+    this.groq = new Groq({
+      apiKey: process.env.GROQ_API_KEY ?? '',
     });
   }
 
@@ -107,10 +136,7 @@ export class EventAiService {
     const fullPrompt = `${TEXT_TO_EVENT_INSTRUCTION}\n\nEvent information:\n${prompt}`;
     this.logger.log('Sending prompt to AI:', fullPrompt);
 
-    const rawResponse = await this.callGemini(
-      fullPrompt,
-      'generation',
-    );
+    const rawResponse = await this.callAiWithFallback(fullPrompt, 'generation');
     const parsedResponse = this.parseJson(rawResponse);
     const mappedResponse = this.mapAiResponseToEventDto(parsedResponse);
     const sanitizedResponse = this.sanitizeAiEventResponse(mappedResponse);
@@ -121,7 +147,7 @@ export class EventAiService {
     file: Express.Multer.File,
   ): Promise<GeneratedEventDto> {
     this.logger.log('Sending image to AI');
-    const rawResponse = await this.callGemini(
+    const rawResponse = await this.callAiWithFallback(
       IMAGE_TO_EVENT_INSTRUCTION,
       'generation',
       file,
@@ -129,7 +155,6 @@ export class EventAiService {
     const parsedResponse = this.parseJson(rawResponse);
     const mappedResponse = this.mapAiResponseToEventDto(parsedResponse);
     const sanitizedResponse = this.sanitizeAiEventResponse(mappedResponse);
-    this.logger.log('After sanitization:', sanitizedResponse);
     return sanitizedResponse;
   }
 
@@ -139,7 +164,7 @@ export class EventAiService {
     const fullPrompt = `${TRANSLATION_INSTRUCTION}\n\nFields to translate:\n${JSON.stringify(originalDto, null, 2)}`;
     this.logger.log('Sending prompt to AI:', fullPrompt);
 
-    const rawResponse = await this.callGemini(
+    const rawResponse = await this.callAiWithFallback(
       fullPrompt,
       'translation',
     );
@@ -147,16 +172,50 @@ export class EventAiService {
     return this.mapTranslationResponseToDto(parsedResponse, originalDto);
   }
 
-  // --- private helpers ---
+  // --- ai calls ---
 
-  protected async callGemini(
+  protected async callAiWithFallback(
     prompt: string,
     context: 'generation' | 'translation',
     image?: Express.Multer.File,
   ): Promise<string> {
+    const providers = [
+      () => this.callGroq(prompt, image),
+      () => this.callZai(prompt, image),
+    ];
+
+    for (const provider of providers) {
+      try {
+        return await provider();
+      } catch (error) {
+        this.logger.warn(
+          `AI provider at index: ${providers.indexOf(provider)} failed, trying next...`,
+        );
+      }
+    }
+
+    if (context === 'translation') {
+      this.logger.error('All AI providers failed for translation');
+      throw new AiTranslationException(
+        'There was an error translating the event fields. Please try again.',
+      );
+    }
+
+    this.logger.error('All AI providers failed for event generation');
+    throw new AiGenerationException(
+      'There was an error in creating an event, try creating manually.',
+    );
+  }
+
+  private async callGemini(
+    prompt: string,
+    image?: Express.Multer.File,
+  ): Promise<string> {
+    const model = 'gemini-2.5-flash';
+
     try {
       const parts: any[] = [{ text: prompt }];
-      
+
       if (image) {
         const base64Image = image.buffer.toString('base64');
         parts.push({
@@ -167,22 +226,105 @@ export class EventAiService {
         });
       }
 
+      this.logger.log('Processing with Gemini...');
+      const startAt = Date.now();
       const result = await this.googleGenAi.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: {
-          role: 'user',
-          parts: parts,
-        },
+        model,
+        contents: { role: 'user', parts },
         config: { responseMimeType: 'application/json' },
       });
+      const latency = Date.now() - startAt;
+      this.logger.log(`Gemini response received in ${latency}ms`);
       this.logger.log('Raw response from Gemini:', result);
+
       return result?.text ?? '';
     } catch (error) {
       this.logger.error('Gemini raw error:', error);
-      if (context === 'translation') throw new AiTranslationException();
-      throw new AiGenerationException();
+      throw new AiGenerationException(
+        'There was an error in processing event with Gemini.',
+      );
     }
   }
+
+  private async callZai(
+    prompt: string,
+    image?: Express.Multer.File,
+  ): Promise<string> {
+    const model = image ? this.zaiImageModel : this.zaiTextModel;
+
+    try {
+      const content: any = image
+        ? [
+            { type: 'text', text: prompt },
+            {
+              type: 'image_url',
+              image_url: {
+                url: `data:${image.mimetype};base64,${image.buffer.toString('base64')}`,
+              },
+            },
+          ]
+        : prompt;
+
+      this.logger.log('Processing with Zai...');
+      const startAt = Date.now();
+      const result = await this.zaiClient.chat.completions.create({
+        model,
+        messages: [{ role: 'user', content }],
+        response_format: { type: 'json_object' },
+      });
+      const latency = Date.now() - startAt;
+      this.logger.log(`Zai response received in ${latency}ms`);
+      this.logger.log('Raw response from Zai:', result);
+
+      return result?.choices?.[0]?.message?.content ?? '';
+    } catch (error) {
+      this.logger.error('Zai raw error:', error);
+      throw new AiGenerationException(
+        'There was an error in processing event with Zai.',
+      );
+    }
+  }
+
+  private async callGroq(
+    prompt: string,
+    image?: Express.Multer.File,
+  ): Promise<string> {
+    const model = image ? this.groqImageModel : this.groqTextModel;
+
+    try {
+      const content: any = image
+        ? [
+            { type: 'text', text: prompt },
+            {
+              type: 'image_url',
+              image_url: {
+                url: `data:${image.mimetype};base64,${image.buffer.toString('base64')}`,
+              },
+            },
+          ]
+        : prompt;
+
+      this.logger.log('Processing with Groq...');
+      const startAt = Date.now();
+      const result = await this.groq.chat.completions.create({
+        model,
+        messages: [{ role: 'user', content }],
+        response_format: { type: 'json_object' },
+      });
+      const latency = Date.now() - startAt;
+      this.logger.log(`Groq response received in ${latency}ms`);
+      this.logger.log('Raw response from Groq:', result);
+
+      return result?.choices?.[0]?.message?.content ?? '';
+    } catch (error) {
+      this.logger.error('Groq raw error:', error);
+      throw new AiGenerationException(
+        'There was an error in processing event with Groq.',
+      );
+    }
+  }
+
+  // --- helpers ---
 
   private parseJson(text: string): Record<string, any> {
     try {
@@ -258,7 +400,7 @@ export class EventAiService {
     dto.remarks = this.utils.sanitizeBilingualField(dto.remarks);
     dto.agenda = this.utils.sanitizeAgendaItems(dto.agenda);
 
-    if (!Array.isArray(dto.category) || dto.category.length === 0){
+    if (!Array.isArray(dto.category) || dto.category.length === 0) {
       dto.category = [];
     }
 
@@ -276,16 +418,16 @@ export class EventAiService {
       dto.seatLimit = undefined;
     }
 
-    if (dto.mapLink && !isValidUrl(dto.mapLink)){
+    if (dto.mapLink && !isValidUrl(dto.mapLink)) {
       dto.mapLink = '';
     }
-    if (dto.externalUrl && !isValidUrl(dto.externalUrl)){
+    if (dto.externalUrl && !isValidUrl(dto.externalUrl)) {
       dto.externalUrl = '';
     }
-    if (dto.contactEmail && !dto.contactEmail.includes('@')){
+    if (dto.contactEmail && !dto.contactEmail.includes('@')) {
       dto.contactEmail = '';
     }
-    this.logger.log('After sanitization:', dto);
+    // this.logger.log('After sanitization:', dto);
     return dto;
   }
 
