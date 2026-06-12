@@ -6,11 +6,9 @@ import {
   DEFAULT_PARTICIPANT_IMAGE_URL,
   DEFAULT_ORGANIZER_IMAGE_URL,
 } from '../constants/user-images.constant';
-import { PrismaService } from '../../prisma/prisma.service';
 import * as fs from 'fs';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { ProfileNotFoundException } from '../exceptions/profile-not-found.exception';
 
 jest.mock('@supabase/supabase-js', () => ({
   createClient: jest.fn(),
@@ -30,14 +28,10 @@ beforeAll(() => {
   });
 });
 
-const mockPrisma = {
-  participantProfile: { findUnique: jest.fn() },
-  organizerProfile: { findUnique: jest.fn() },
-};
-
-const fixturesPath = path.join(__dirname, '../../../test/fixtures/images');
 const MOCK_SUPABASE_BASE_URL =
   'https://mockproject.supabase.co/storage/v1/object/public/evenite-images';
+
+const fixturesPath = path.join(__dirname, '../../../test/fixtures/images');
 
 const createMockFile = (
   buffer: Buffer,
@@ -75,104 +69,103 @@ const small_webp_file = createMockFile(
   'organizer_logo.webp',
 );
 
+const buildModule = async (): Promise<TestingModule> =>
+  Test.createTestingModule({
+    providers: [UserStorageService],
+  }).compile();
 
-// this is just a clone of event test uploadBannerToStorage
-// Need to refactor common methods and refactor later...rn..let it be xD
+
 describe('UserStorageService - uploadImageToStorage', () => {
   let service: UserStorageService;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        UserStorageService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
-    }).compile();
+    const module = await buildModule();
     service = module.get<UserStorageService>(UserStorageService);
     jest.clearAllMocks();
   });
 
-  it('UT-M072-01: should upload JPEG file to participant folder and return public URL', async () => {
-    const mockUuid = uuidv4();
-    const expectedUrl = `${MOCK_SUPABASE_BASE_URL}/participant/${mockUuid}.jpg`;
+  it('UT-M062-01: should return public URL with .jpg extension when JPEG file uploaded to participant folder', async () => {
+    const input = { file: small_jpg_file, type: 'participant' as const };
+    const mockPublicUrl = `${MOCK_SUPABASE_BASE_URL}/participant/${uuidv4()}.jpg`;
     mockStorageFrom.upload.mockResolvedValueOnce({ error: null });
     mockStorageFrom.getPublicUrl.mockReturnValueOnce({
-      data: { publicUrl: expectedUrl },
+      data: { publicUrl: mockPublicUrl },
     });
 
-    const result = await service.uploadImageToStorage(
-      small_jpg_file,
-      'participant',
-    );
+    const result = await service.uploadImageToStorage(input.file, input.type);
 
-    expect(result).toBe(expectedUrl);
-    const uploadedPath = mockStorageFrom.upload.mock.calls[0][0];
+    // console.log('[UT-M062-01] Input :', { mimetype: input.file.mimetype, type: input.type });
+    // console.log('[UT-M062-01] Expected :', mockPublicUrl);
+    // console.log('[UT-M062-01] Actual :', result);
+
+    expect(result).toBe(mockPublicUrl);
+    const uploadedPath: string = mockStorageFrom.upload.mock.calls[0][0];
     expect(uploadedPath).toMatch(/^participant\/.+\.jpg$/);
+    expect(mockStorageFrom.upload).toHaveBeenCalledTimes(1);
+    expect(mockStorageFrom.getPublicUrl).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-M072-02: should upload PNG file to organizer folder and return public URL', async () => {
-    const mockUuid = uuidv4();
-    const expectedUrl = `${MOCK_SUPABASE_BASE_URL}/organizer/${mockUuid}.png`;
+  it('UT-M062-02: should return public URL with .png extension when PNG file uploaded to organizer folder', async () => {
+    const input = { file: small_png_file, type: 'organizer' as const };
+    const mockPublicUrl = `${MOCK_SUPABASE_BASE_URL}/organizer/${uuidv4()}.png`;
     mockStorageFrom.upload.mockResolvedValueOnce({ error: null });
     mockStorageFrom.getPublicUrl.mockReturnValueOnce({
-      data: { publicUrl: expectedUrl },
+      data: { publicUrl: mockPublicUrl },
     });
 
-    const result = await service.uploadImageToStorage(
-      small_png_file,
-      'organizer',
-    );
+    const result = await service.uploadImageToStorage(input.file, input.type);
 
-    expect(result).toBe(expectedUrl);
-    const uploadedPath = mockStorageFrom.upload.mock.calls[0][0];
+    // console.log('[UT-M062-02] Input :', { mimetype: input.file.mimetype, type: input.type });
+    // console.log('[UT-M062-02] Expected :', mockPublicUrl);
+    // console.log('[UT-M062-02] Actual :', result);
+
+    expect(result).toBe(mockPublicUrl);
+    const uploadedPath: string = mockStorageFrom.upload.mock.calls[0][0];
     expect(uploadedPath).toMatch(/^organizer\/.+\.png$/);
   });
 
-  it('UT-M072-03: should upload WEBP file to participant folder and return public URL', async () => {
-    const mockUuid = uuidv4();
-    const expectedUrl = `${MOCK_SUPABASE_BASE_URL}/participant/${mockUuid}.webp`;
+  it('UT-M062-03: should return public URL with .webp extension when WEBP file uploaded to participant folder', async () => {
+    const input = { file: small_webp_file, type: 'participant' as const };
+    const mockPublicUrl = `${MOCK_SUPABASE_BASE_URL}/participant/${uuidv4()}.webp`;
     mockStorageFrom.upload.mockResolvedValueOnce({ error: null });
     mockStorageFrom.getPublicUrl.mockReturnValueOnce({
-      data: { publicUrl: expectedUrl },
+      data: { publicUrl: mockPublicUrl },
     });
 
-    const result = await service.uploadImageToStorage(
-      small_webp_file,
-      'participant',
-    );
+    const result = await service.uploadImageToStorage(input.file, input.type);
 
-    expect(result).toBe(expectedUrl);
-    const uploadedPath = mockStorageFrom.upload.mock.calls[0][0];
+    // console.log('[UT-M062-03] Input :', { mimetype: input.file.mimetype, type: input.type });
+    // console.log('[UT-M062-03] Expected :', mockPublicUrl);
+    // console.log('[UT-M062-03] Actual :', result);
+
+    expect(result).toBe(mockPublicUrl);
+    const uploadedPath: string = mockStorageFrom.upload.mock.calls[0][0];
     expect(uploadedPath).toMatch(/^participant\/.+\.webp$/);
   });
 
-  it('UT-M072-04: should throw ImageUploadException when Supabase upload fails', async () => {
-    mockStorageFrom.upload.mockResolvedValueOnce({
-      error: { message: 'Bucket not found' },
-    });
+  it('UT-M062-04: should throw ImageUploadException and not call getPublicUrl when Supabase upload returns error', async () => {
+    const input = { file: small_jpg_file, type: 'participant' as const };
+    const mockSupabaseError = { message: 'Bucket not found' };
+    mockStorageFrom.upload.mockResolvedValueOnce({ error: mockSupabaseError });
+    mockStorageFrom.upload.mockResolvedValueOnce({ error: mockSupabaseError });
 
     await expect(
-      service.uploadImageToStorage(small_jpg_file, 'participant'),
+      service.uploadImageToStorage(input.file, input.type),
     ).rejects.toThrow(ImageUploadException);
-
-    mockStorageFrom.upload.mockResolvedValueOnce({
-      error: { message: 'Bucket not found' },
-    });
-
     await expect(
-      service.uploadImageToStorage(small_jpg_file, 'participant'),
+      service.uploadImageToStorage(input.file, input.type),
     ).rejects.toThrow('Failed to upload image. Please try again.');
-
     expect(mockStorageFrom.getPublicUrl).not.toHaveBeenCalled();
   });
 
-  it('UT-M072-05: should throw ImageUploadException when uploading to organizer folder fails', async () => {
+  it('UT-M062-05: should throw ImageUploadException when uploading to organizer folder fails', async () => {
+    const input = { file: small_png_file, type: 'organizer' as const };
     mockStorageFrom.upload.mockResolvedValueOnce({
       error: { message: 'Permission denied' },
     });
 
     await expect(
-      service.uploadImageToStorage(small_png_file, 'organizer'),
+      service.uploadImageToStorage(input.file, input.type),
     ).rejects.toThrow(ImageUploadException);
   });
 });
@@ -181,251 +174,329 @@ describe('UserStorageService - resolveImageUrl', () => {
   let service: UserStorageService;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        UserStorageService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
-    }).compile();
+    const module = await buildModule();
     service = module.get<UserStorageService>(UserStorageService);
     jest.clearAllMocks();
   });
 
-  it('UT-M073-01: should return provided URL when valid participant image URL is given', () => {
-    const mockUuid = 'mock-participant-uuid-1234';
-    const validUrl = `${MOCK_SUPABASE_BASE_URL}/participant/${mockUuid}.jpg`;
-    expect(
-      service.resolveImageUrl(validUrl, DEFAULT_PARTICIPANT_IMAGE_URL),
-    ).toBe(validUrl);
+  it('UT-M063-01: should return provided URL when valid participant image URL is given', () => {
+    const input = {
+      imageUrl: `${MOCK_SUPABASE_BASE_URL}/participant/mock-uuid.jpg`,
+      defaultUrl: DEFAULT_PARTICIPANT_IMAGE_URL,
+    };
+    const expected = input.imageUrl;
+
+    const result = service.resolveImageUrl(input.imageUrl, input.defaultUrl);
+
+    // console.log('[UT-M063-01] Input :', input);
+    // console.log('[UT-M063-01] Expected :', expected);
+    // console.log('[UT-M063-01] Actual :', result);
+
+    expect(result).toBe(expected);
   });
 
-  it('UT-M073-02: should return provided URL when valid organizer image URL is given', () => {
-    const mockUuid = 'mock-organizer-uuid-1234';
-    const validUrl = `${MOCK_SUPABASE_BASE_URL}/organizer/${mockUuid}.png`;
-    expect(
-      service.resolveImageUrl(validUrl, DEFAULT_ORGANIZER_IMAGE_URL),
-    ).toBe(validUrl);
+  it('UT-M063-02: should return provided URL when valid organizer image URL is given', () => {
+    const input = {
+      imageUrl: `${MOCK_SUPABASE_BASE_URL}/organizer/mock-uuid.png`,
+      defaultUrl: DEFAULT_ORGANIZER_IMAGE_URL,
+    };
+    const expected = input.imageUrl;
+
+    const result = service.resolveImageUrl(input.imageUrl, input.defaultUrl);
+
+    // console.log('[UT-M063-02] Input :', input);
+    // console.log('[UT-M063-02] Expected :', expected);
+    // console.log('[UT-M063-02] Actual :', result);
+
+    expect(result).toBe(expected);
   });
 
-  it('UT-M073-03: should return DEFAULT_PARTICIPANT_IMAGE_URL when input is undefined', () => {
-    expect(
-      service.resolveImageUrl(undefined, DEFAULT_PARTICIPANT_IMAGE_URL),
-    ).toBe(DEFAULT_PARTICIPANT_IMAGE_URL);
+  it('UT-M063-03: should return DEFAULT_PARTICIPANT_IMAGE_URL when input is undefined', () => {
+    const input = {
+      imageUrl: undefined,
+      defaultUrl: DEFAULT_PARTICIPANT_IMAGE_URL,
+    };
+    const expected = DEFAULT_PARTICIPANT_IMAGE_URL;
+
+    const result = service.resolveImageUrl(input.imageUrl, input.defaultUrl);
+
+    // console.log('[UT-M063-03] Input :', input);
+    // console.log('[UT-M063-03] Expected :', expected);
+    // console.log('[UT-M063-03] Actual :', result);
+
+    expect(result).toBe(expected);
   });
 
-  it('UT-M073-04: should return DEFAULT_ORGANIZER_IMAGE_URL when input is undefined', () => {
-    expect(
-      service.resolveImageUrl(undefined, DEFAULT_ORGANIZER_IMAGE_URL),
-    ).toBe(DEFAULT_ORGANIZER_IMAGE_URL);
+  it('UT-M063-04: should return DEFAULT_ORGANIZER_IMAGE_URL when input is undefined', () => {
+    const input = {
+      imageUrl: undefined,
+      defaultUrl: DEFAULT_ORGANIZER_IMAGE_URL,
+    };
+    const expected = DEFAULT_ORGANIZER_IMAGE_URL;
+
+    const result = service.resolveImageUrl(input.imageUrl, input.defaultUrl);
+
+    // console.log('[UT-M063-04] Input :', input);
+    // console.log('[UT-M063-04] Expected :', expected);
+    // console.log('[UT-M063-04] Actual :', result);
+
+    expect(result).toBe(expected);
   });
 
-  it('UT-M073-05: should return DEFAULT_PARTICIPANT_IMAGE_URL when input is empty string', () => {
-    expect(
-      service.resolveImageUrl('', DEFAULT_PARTICIPANT_IMAGE_URL),
-    ).toBe(DEFAULT_PARTICIPANT_IMAGE_URL);
+  it('UT-M063-05: should return DEFAULT_PARTICIPANT_IMAGE_URL when input is empty string', () => {
+    const input = { imageUrl: '', defaultUrl: DEFAULT_PARTICIPANT_IMAGE_URL };
+    const expected = DEFAULT_PARTICIPANT_IMAGE_URL;
+
+    const result = service.resolveImageUrl(input.imageUrl, input.defaultUrl);
+
+    // console.log('[UT-M063-05] Input :', input);
+    // console.log('[UT-M063-05] Expected :', expected);
+    // console.log('[UT-M063-05] Actual :', result);
+
+    expect(result).toBe(expected);
   });
 
-  it('UT-M073-06: should return DEFAULT_ORGANIZER_IMAGE_URL when input is whitespace only', () => {
-    expect(
-      service.resolveImageUrl('   ', DEFAULT_ORGANIZER_IMAGE_URL),
-    ).toBe(DEFAULT_ORGANIZER_IMAGE_URL);
+  it('UT-M063-06: should return DEFAULT_ORGANIZER_IMAGE_URL when input is whitespace only', () => {
+    const input = { imageUrl: '   ', defaultUrl: DEFAULT_ORGANIZER_IMAGE_URL };
+    const expected = DEFAULT_ORGANIZER_IMAGE_URL;
+
+    const result = service.resolveImageUrl(input.imageUrl, input.defaultUrl);
+
+    // console.log('[UT-M063-06] Input :', input);
+    // console.log('[UT-M063-06] Expected :', expected);
+    // console.log('[UT-M063-06] Actual :', result);
+
+    expect(result).toBe(expected);
+  });
+
+  it('UT-M063-07: should return DEFAULT_PARTICIPANT_IMAGE_URL when input is null', () => {
+    const input = {
+      imageUrl: null as any,
+      defaultUrl: DEFAULT_PARTICIPANT_IMAGE_URL,
+    };
+    const expected = DEFAULT_PARTICIPANT_IMAGE_URL;
+
+    const result = service.resolveImageUrl(input.imageUrl, input.defaultUrl);
+
+    // console.log('[UT-M063-07] Input :', input);
+    // console.log('[UT-M063-07] Expected :', expected);
+    // console.log('[UT-M063-07] Actual :', result);
+
+    expect(result).toBe(expected);
   });
 });
 
-describe('UserStorageService - deleteOrphanParticipantImageIfReplaced', () => {
+describe('UserStorageService - deleteOrphanImageIfReplaced', () => {
   let service: UserStorageService;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        UserStorageService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
-    }).compile();
+    const module = await buildModule();
     service = module.get<UserStorageService>(UserStorageService);
     jest.clearAllMocks();
   });
 
-  it('UT-M074-01: should call remove when old participant image URL differs from new URL', async () => {
-    const oldUuid = 'mock-participant-uuid-1234';
-    const newUuid = 'mock-participant-uuid-5678';
-    const oldUrl = `${MOCK_SUPABASE_BASE_URL}/participant/${oldUuid}.jpg`;
-    const newUrl = `${MOCK_SUPABASE_BASE_URL}/participant/${newUuid}.png`;
+  it('UT-M064-01: should call deleteImageFromStorage with old URL when old and new participant URLs differ and old is not default', async () => {
+    const input = {
+      oldImageUrl: `${MOCK_SUPABASE_BASE_URL}/participant/old-uuid.jpg`,
+      newImageUrl: `${MOCK_SUPABASE_BASE_URL}/participant/new-uuid.jpg`,
+      defaultUrl: DEFAULT_PARTICIPANT_IMAGE_URL,
+    };
+    const deleteSpy = jest
+      .spyOn(service, 'deleteImageFromStorage')
+      .mockResolvedValueOnce(undefined);
 
-    mockPrisma.participantProfile.findUnique.mockResolvedValueOnce({
-      imageUrl: oldUrl,
-    });
-    mockStorageFrom.remove.mockResolvedValueOnce({ error: null });
-
-    await service.deleteOrphanParticipantImageIfReplaced(
-      'u1000000-0000-0000-0000-000000000001',
-      newUrl,
+    await service.deleteOrphanImageIfReplaced(
+      input.oldImageUrl,
+      input.newImageUrl,
+      input.defaultUrl,
     );
 
-    expect(mockStorageFrom.remove).toHaveBeenCalledTimes(1);
-    expect(mockStorageFrom.remove).toHaveBeenCalledWith([
-      `participant/${oldUuid}.jpg`,
-    ]);
+    // console.log('[UT-M064-01] Input :', input);
+    // console.log('[UT-M064-01] Expected : deleteImageFromStorage called with', input.oldImageUrl);
+    // console.log('[UT-M064-01] Actual : called with', deleteSpy.mock.calls[0]?.[0]);
+
+    expect(deleteSpy).toHaveBeenCalledWith(input.oldImageUrl);
+    expect(deleteSpy).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-M074-02: should not call remove when old URL is same as new URL', async () => {
-    const mockUuid = 'mock-participant-uuid-1234';
-    const sameUrl = `${MOCK_SUPABASE_BASE_URL}/participant/${mockUuid}.jpg`;
+  it('UT-M064-02: should call deleteImageFromStorage with old URL when old and new organizer URLs differ and old is not default', async () => {
+    const input = {
+      oldImageUrl: `${MOCK_SUPABASE_BASE_URL}/organizer/old-uuid.png`,
+      newImageUrl: `${MOCK_SUPABASE_BASE_URL}/organizer/new-uuid.png`,
+      defaultUrl: DEFAULT_ORGANIZER_IMAGE_URL,
+    };
+    const deleteSpy = jest
+      .spyOn(service, 'deleteImageFromStorage')
+      .mockResolvedValueOnce(undefined);
 
-    mockPrisma.participantProfile.findUnique.mockResolvedValueOnce({
-      imageUrl: sameUrl,
-    });
-
-    await service.deleteOrphanParticipantImageIfReplaced(
-      'u2000000-0000-0000-0000-000000000002',
-      sameUrl,
+    await service.deleteOrphanImageIfReplaced(
+      input.oldImageUrl,
+      input.newImageUrl,
+      input.defaultUrl,
     );
 
-    expect(mockStorageFrom.remove).not.toHaveBeenCalled();
+    // console.log('[UT-M064-02] Input :', input);
+    // console.log('[UT-M064-02] Expected : deleteImageFromStorage called with', input.oldImageUrl);
+    // console.log('[UT-M064-02] Actual : called with', deleteSpy.mock.calls[0]?.[0]);
+
+    expect(deleteSpy).toHaveBeenCalledWith(input.oldImageUrl);
+    expect(deleteSpy).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-M074-03: should not call remove when old URL is DEFAULT_PARTICIPANT_IMAGE_URL', async () => {
-    const newUuid = 'mock-participant-uuid-5678';
-    const newUrl = `${MOCK_SUPABASE_BASE_URL}/participant/${newUuid}.webp`;
+  it('UT-M064-03: should not call deleteImageFromStorage when old and new URLs are the same', async () => {
+    const sameUrl = `${MOCK_SUPABASE_BASE_URL}/participant/same-uuid.jpg`;
+    const input = {
+      oldImageUrl: sameUrl,
+      newImageUrl: sameUrl,
+      defaultUrl: DEFAULT_PARTICIPANT_IMAGE_URL,
+    };
+    const deleteSpy = jest
+      .spyOn(service, 'deleteImageFromStorage')
+      .mockResolvedValueOnce(undefined);
 
-    mockPrisma.participantProfile.findUnique.mockResolvedValueOnce({
-      imageUrl: DEFAULT_PARTICIPANT_IMAGE_URL,
-    });
-
-    await service.deleteOrphanParticipantImageIfReplaced(
-      'u3000000-0000-0000-0000-000000000003',
-      newUrl,
+    await service.deleteOrphanImageIfReplaced(
+      input.oldImageUrl,
+      input.newImageUrl,
+      input.defaultUrl,
     );
 
-    expect(mockStorageFrom.remove).not.toHaveBeenCalled();
+    // console.log('[UT-M064-03] Input :', input);
+    // console.log('[UT-M064-03] Expected : deleteImageFromStorage call count = 0');
+    // console.log('[UT-M064-03] Actual : call count =', deleteSpy.mock.calls.length);
+
+    expect(deleteSpy).not.toHaveBeenCalled();
   });
 
-  it('UT-M074-04: should not call remove when old URL is null', async () => {
-    const newUuid = 'mock-participant-uuid-5678';
-    const newUrl = `${MOCK_SUPABASE_BASE_URL}/participant/${newUuid}.jpg`;
+  it('UT-M064-04: should not call deleteImageFromStorage when old URL is DEFAULT_PARTICIPANT_IMAGE_URL', async () => {
+    const input = {
+      oldImageUrl: DEFAULT_PARTICIPANT_IMAGE_URL,
+      newImageUrl: `${MOCK_SUPABASE_BASE_URL}/participant/new-uuid.jpg`,
+      defaultUrl: DEFAULT_PARTICIPANT_IMAGE_URL,
+    };
+    const deleteSpy = jest
+      .spyOn(service, 'deleteImageFromStorage')
+      .mockResolvedValueOnce(undefined);
 
-    mockPrisma.participantProfile.findUnique.mockResolvedValueOnce({
-      imageUrl: null,
-    });
-
-    await service.deleteOrphanParticipantImageIfReplaced(
-      'u4000000-0000-0000-0000-000000000004',
-      newUrl,
+    await service.deleteOrphanImageIfReplaced(
+      input.oldImageUrl,
+      input.newImageUrl,
+      input.defaultUrl,
     );
 
-    expect(mockStorageFrom.remove).not.toHaveBeenCalled();
+    // console.log('[UT-M064-04] Input :', input);
+    // console.log('[UT-M064-04] Expected : deleteImageFromStorage call count = 0');
+    // console.log('[UT-M064-04] Actual : call count =', deleteSpy.mock.calls.length);
+
+    expect(deleteSpy).not.toHaveBeenCalled();
   });
 
-  it('UT-M074-05: should throw ProfileNotFoundException when participant profile does not exist', async () => {
-    const newUuid = 'mock-participant-uuid-5678';
-    const newUrl = `${MOCK_SUPABASE_BASE_URL}/participant/${newUuid}.png`;
+  it('UT-M064-05: should not call deleteImageFromStorage when old URL is DEFAULT_ORGANIZER_IMAGE_URL', async () => {
+    const input = {
+      oldImageUrl: DEFAULT_ORGANIZER_IMAGE_URL,
+      newImageUrl: `${MOCK_SUPABASE_BASE_URL}/organizer/new-uuid.png`,
+      defaultUrl: DEFAULT_ORGANIZER_IMAGE_URL,
+    };
+    const deleteSpy = jest
+      .spyOn(service, 'deleteImageFromStorage')
+      .mockResolvedValueOnce(undefined);
 
-    mockPrisma.participantProfile.findUnique.mockResolvedValueOnce(null);
-
-    const result = service.deleteOrphanParticipantImageIfReplaced(
-        'u5000000-0000-0000-0000-000000000005',
-        newUrl,
+    await service.deleteOrphanImageIfReplaced(
+      input.oldImageUrl,
+      input.newImageUrl,
+      input.defaultUrl,
     );
-    await expect(result).rejects.toThrow(ProfileNotFoundException);
-    await expect(result).rejects.toThrow('Participant profile not found.');
+
+    // console.log('[UT-M064-05] Input :', input);
+    // console.log('[UT-M064-05] Expected : deleteImageFromStorage call count = 0');
+    // console.log('[UT-M064-05] Actual : call count =', deleteSpy.mock.calls.length);
+
+    expect(deleteSpy).not.toHaveBeenCalled();
+  });
+
+  it('UT-M064-06: should not call deleteImageFromStorage when old URL is null', async () => {
+    const input = {
+      oldImageUrl: null,
+      newImageUrl: `${MOCK_SUPABASE_BASE_URL}/participant/new-uuid.jpg`,
+      defaultUrl: DEFAULT_PARTICIPANT_IMAGE_URL,
+    };
+    const deleteSpy = jest
+      .spyOn(service, 'deleteImageFromStorage')
+      .mockResolvedValueOnce(undefined);
+
+    await service.deleteOrphanImageIfReplaced(
+      input.oldImageUrl,
+      input.newImageUrl,
+      input.defaultUrl,
+    );
+
+    // console.log('[UT-M064-06] Input :', input);
+    // console.log('[UT-M064-06] Expected : deleteImageFromStorage call count = 0');
+    // console.log('[UT-M064-06] Actual : call count =', deleteSpy.mock.calls.length);
+
+    expect(deleteSpy).not.toHaveBeenCalled();
   });
 });
 
-describe('UserStorageService - deleteOrphanOrganizerImageIfReplaced', () => {
+describe('UserStorageService - deleteImageFromStorage', () => {
   let service: UserStorageService;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        UserStorageService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
-    }).compile();
+    const module = await buildModule();
     service = module.get<UserStorageService>(UserStorageService);
     jest.clearAllMocks();
   });
 
-  it('UT-M075-01: should call remove when old organizer image URL differs from new URL', async () => {
-    const oldUuid = 'mock-organizer-uuid-1234';
-    const newUuid = 'mock-organizer-uuid-5678';
-    const oldUrl = `${MOCK_SUPABASE_BASE_URL}/organizer/${oldUuid}.png`;
-    const newUrl = `${MOCK_SUPABASE_BASE_URL}/organizer/${newUuid}.jpg`;
-
-    mockPrisma.organizerProfile.findUnique.mockResolvedValueOnce({
-      imageUrl: oldUrl,
-    });
+  it('UT-M065-01: should call Supabase remove with correct extracted path when valid participant Supabase URL is given', async () => {
+    const filePath = 'participant/mock-participant-uuid.jpg';
+    const input = { imageUrl: `${MOCK_SUPABASE_BASE_URL}/${filePath}` };
     mockStorageFrom.remove.mockResolvedValueOnce({ error: null });
 
-    await service.deleteOrphanOrganizerImageIfReplaced(
-      'u5000000-0000-0000-0000-000000000005',
-      newUrl,
-    );
+    await service.deleteImageFromStorage(input.imageUrl);
 
+    // console.log('[UT-M065-01] Input :', input);
+    // console.log('[UT-M065-01] Expected : remove called with [' + filePath + ']');
+    // console.log('[UT-M065-01] Actual : remove called with', mockStorageFrom.remove.mock.calls[0]?.[0]);
+
+    expect(mockStorageFrom.remove).toHaveBeenCalledWith([filePath]);
     expect(mockStorageFrom.remove).toHaveBeenCalledTimes(1);
-    expect(mockStorageFrom.remove).toHaveBeenCalledWith([
-      `organizer/${oldUuid}.png`,
-    ]);
   });
 
-  it('UT-M075-02: should not call remove when old organizer URL is same as new URL', async () => {
-    const mockUuid = 'mock-organizer-uuid-1234';
-    const sameUrl = `${MOCK_SUPABASE_BASE_URL}/organizer/${mockUuid}.png`;
+  it('UT-M065-02: should call Supabase remove with correct extracted path when valid organizer Supabase URL is given', async () => {
+    const filePath = 'organizer/mock-organizer-uuid.png';
+    const input = { imageUrl: `${MOCK_SUPABASE_BASE_URL}/${filePath}` };
+    mockStorageFrom.remove.mockResolvedValueOnce({ error: null });
 
-    mockPrisma.organizerProfile.findUnique.mockResolvedValueOnce({
-      imageUrl: sameUrl,
-    });
+    await service.deleteImageFromStorage(input.imageUrl);
 
-    await service.deleteOrphanOrganizerImageIfReplaced(
-      'u6000000-0000-0000-0000-000000000006',
-      sameUrl,
-    );
+    // console.log('[UT-M065-02] Input :', input);
+    // console.log('[UT-M065-02] Expected : remove called with [' + filePath + ']');
+    // console.log('[UT-M065-02] Actual : remove called with', mockStorageFrom.remove.mock.calls[0]?.[0]);
+
+    expect(mockStorageFrom.remove).toHaveBeenCalledWith([filePath]);
+    expect(mockStorageFrom.remove).toHaveBeenCalledTimes(1);
+  });
+
+  it('UT-M065-03: should not call Supabase remove when input is not a valid URL', async () => {
+    const input = { imageUrl: 'not-a-valid-url' };
+
+    await service.deleteImageFromStorage(input.imageUrl);
+
+    // console.log('[UT-M065-03] Input :', input);
+    // console.log('[UT-M065-03] Expected : remove call count = 0');
+    // console.log('[UT-M065-03] Actual : call count =', mockStorageFrom.remove.mock.calls.length);
 
     expect(mockStorageFrom.remove).not.toHaveBeenCalled();
   });
 
-  it('UT-M075-03: should not call remove when old URL is DEFAULT_ORGANIZER_IMAGE_URL', async () => {
-    const newUuid = 'mock-organizer-uuid-5678';
-    const newUrl = `${MOCK_SUPABASE_BASE_URL}/organizer/${newUuid}.webp`;
+  it('UT-M065-04: should not call Supabase remove when URL does not match Supabase storage pattern', async () => {
+    const input = { imageUrl: 'https://www.cmu.ac.th/profile/image.jpg' };
 
-    mockPrisma.organizerProfile.findUnique.mockResolvedValueOnce({
-      imageUrl: DEFAULT_ORGANIZER_IMAGE_URL,
-    });
+    await service.deleteImageFromStorage(input.imageUrl);
 
-    await service.deleteOrphanOrganizerImageIfReplaced(
-      'u7000000-0000-0000-0000-000000000007',
-      newUrl,
-    );
+    // console.log('[UT-M065-04] Input :', input);
+    // console.log('[UT-M065-04] Expected : remove call count = 0');
+    // console.log('[UT-M065-04] Actual : call count =', mockStorageFrom.remove.mock.calls.length);
 
     expect(mockStorageFrom.remove).not.toHaveBeenCalled();
-  });
-
-  it('UT-M075-04: should not call remove when old organizer URL is null', async () => {
-    const newUuid = 'mock-organizer-uuid-5678';
-    const newUrl = `${MOCK_SUPABASE_BASE_URL}/organizer/${newUuid}.png`;
-
-    mockPrisma.organizerProfile.findUnique.mockResolvedValueOnce({
-      imageUrl: null,
-    });
-
-    await service.deleteOrphanOrganizerImageIfReplaced(
-      'u8000000-0000-0000-0000-000000000008',
-      newUrl,
-    );
-
-    expect(mockStorageFrom.remove).not.toHaveBeenCalled();
-  });
-
-  it('UT-M075-05: should throw ProfileNotFoundException when organizer profile does not exist', async () => {
-    const newUuid = 'mock-organizer-uuid-5678';
-    const newUrl = `${MOCK_SUPABASE_BASE_URL}/organizer/${newUuid}.jpg`;
-
-    mockPrisma.organizerProfile.findUnique.mockResolvedValueOnce(null);
-
-    const result = service.deleteOrphanOrganizerImageIfReplaced(
-        'u9000000-0000-0000-0000-000000000009',
-        newUrl,
-    );
-    await expect(result).rejects.toThrow(ProfileNotFoundException);
-    await expect(result).rejects.toThrow('Organizer profile not found.');
   });
 });
