@@ -744,15 +744,15 @@ describe('EventCrudService - getEvents', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-MX001-01: should return all events ordered by createdAt desc when no status provided', async () => {
+  it('UT-M020-01: should return all events ordered by createdAt desc when no status provided', async () => {
     const universityId = 'mock-university-uuid-1234';
     mockPrisma.event.findMany.mockResolvedValueOnce([mockEvent2, mockEvent]);
 
     const result = await service.getEvents(universityId);
-    // console.log('[UT-MX001-01] Input universityId:', universityId);
-    // console.log('[UT-MX001-01] Input status: undefined');
-    // console.log('[UT-MX001-01] Expected', [mockEvent2, mockEvent]);
-    // console.log('[UT-MX001-01] Actual', result);
+    // console.log('[UT-M020-01] Input universityId:', universityId);
+    // console.log('[UT-M020-01] Input status: undefined');
+    // console.log('[UT-M020-01] Expected', [mockEvent2, mockEvent]);
+    // console.log('[UT-M020-01] Actual', result);
 
     expect(result).toEqual([mockEvent2, mockEvent]);
     expect(mockPrisma.event.findMany).toHaveBeenCalledWith({
@@ -763,15 +763,15 @@ describe('EventCrudService - getEvents', () => {
     expect(mockPrisma.event.findMany).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-MX001-02: should return only PUBLISHED events when single status PUBLISHED provided', async () => {
+  it('UT-M020-02: should return only PUBLISHED events when single status PUBLISHED provided', async () => {
     const universityId = 'mock-university-uuid-1234';
     const status = EventStatus.PUBLISHED;
     mockPrisma.event.findMany.mockResolvedValueOnce([mockEvent]);
 
     const result = await service.getEvents(universityId, status);
-    // console.log('[UT-MX001-02] Input universityId:', universityId, '| status:', status);
-    // console.log('[UT-MX001-02] Expected result:', [mockEvent]);
-    // console.log('[UT-MX001-02] Actual result:', result);
+    // console.log('[UT-M020-02] Input universityId:', universityId, '| status:', status);
+    // console.log('[UT-M020-02] Expected result:', [mockEvent]);
+    // console.log('[UT-M020-02] Actual result:', result);
 
     expect(result).toEqual([mockEvent]);
     expect(result[0].status).toBe(EventStatus.PUBLISHED);
@@ -782,15 +782,15 @@ describe('EventCrudService - getEvents', () => {
     });
   });
 
-  it('UT-MX001-03: should return only DRAFT events when single status DRAFT provided', async () => {
+  it('UT-M020-03: should return only DRAFT events when single status DRAFT provided', async () => {
     const universityId = 'mock-university-uuid-1234';
     const status = EventStatus.DRAFT;
     mockPrisma.event.findMany.mockResolvedValueOnce([mockEvent2]);
 
     const result = await service.getEvents(universityId, status);
-    // console.log('[UT-MX001-03] Input universityId:', universityId, '| status:', status);
-    // console.log('[UT-MX001-03] Expected result', [mockEvent2]);
-    // console.log('[UT-MX001-03] Actual result', result);
+    // console.log('[UT-M020-03] Input universityId:', universityId, '| status:', status);
+    // console.log('[UT-M020-03] Expected result', [mockEvent2]);
+    // console.log('[UT-M020-03] Actual result', result);
 
     expect(result).toEqual([mockEvent2]);
     expect(result[0].status).toBe(EventStatus.DRAFT);
@@ -801,21 +801,21 @@ describe('EventCrudService - getEvents', () => {
     });
   });
 
-  it('UT-MX001-04: should return empty array when no events exist', async () => {
+  it('UT-M020-04: should return empty array when no events exist', async () => {
     const universityId = 'mock-university-uuid-1234';
     mockPrisma.event.findMany.mockResolvedValueOnce([]);
 
     const result = await service.getEvents(universityId);
-    // console.log('[UT-MX001-04] Input universityId:', universityId, '| status: undefined');
-    // console.log('[UT-MX001-04] Expected result:', []);
-    // console.log('[UT-MX001-04] Actual result:', result);
+    // console.log('[UT-M020-04] Input universityId:', universityId, '| status: undefined');
+    // console.log('[UT-M020-04] Expected result:', []);
+    // console.log('[UT-M020-04] Actual result:', result);
 
     // Assert
     expect(result).toEqual([]);
     expect(mockPrisma.event.findMany).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-MX001-05: should use filter and return matching events when array of statuses provided', async () => {
+  it('UT-M020-05: should use filter and return matching events when array of statuses provided', async () => {
     const universityId = 'mock-university-uuid-1234';
     const status = [
       EventStatus.PUBLISHED,
@@ -825,11 +825,11 @@ describe('EventCrudService - getEvents', () => {
     mockPrisma.event.findMany.mockResolvedValueOnce([mockEvent]);
 
     const result = await service.getEvents(universityId, status);
-    // console.log('[UT-MX001-05] Input universityId:', universityId);
-    // console.log('[UT-MX001-05] Input status array:', status);
-    // console.log('[UT-MX001-05] Expected where.status:', JSON.stringify({ in: status }));
-    // console.log('[UT-MX001-05] Expected result:', [mockEvent]);
-    // console.log('[UT-MX001-05] Actual result:', result);
+    // console.log('[UT-M020-05] Input universityId:', universityId);
+    // console.log('[UT-M020-05] Input status array:', status);
+    // console.log('[UT-M020-05] Expected where.status:', JSON.stringify({ in: status }));
+    // console.log('[UT-M020-05] Expected result:', [mockEvent]);
+    // console.log('[UT-M020-05] Actual result:', result);
 
     // Assert
     expect(result).toEqual([mockEvent]);
@@ -858,14 +858,14 @@ describe('EventCrudService - getEventById', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M020-01: should return mapped EventResponseDto when event exists', async () => {
+  it('UT-M021-01: should return mapped EventResponseDto when event exists', async () => {
     const eventId = mockEvent.id;
     mockPrisma.event.findUnique.mockResolvedValueOnce(mockEvent);
 
     const result = await service.getEventById(eventId);
-    // console.log('[UT-M020-01] Input eventId:', eventId);
-    // console.log('[UT-M020-01] Expected: ', mockEvent);
-    // console.log('[UT-M020-01] Actual', result);
+    // console.log('[UT-M021-01] Input eventId:', eventId);
+    // console.log('[UT-M021-01] Expected: ', mockEvent);
+    // console.log('[UT-M021-01] Actual', result);
 
     expect(result).toEqual(mockEvent);
     expect(mockPrisma.event.findUnique).toHaveBeenCalledWith({
@@ -875,20 +875,20 @@ describe('EventCrudService - getEventById', () => {
     expect(mockPrisma.event.findUnique).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-M020-02: should return event with forms array mapped correctly when event has forms', async () => {
+  it('UT-M021-02: should return event with forms array mapped correctly when event has forms', async () => {
     const eventId = mockEvent2.id;
     mockPrisma.event.findUnique.mockResolvedValueOnce(mockEvent2);
 
     const result = await service.getEventById(eventId);
-    // console.log('[UT-M020-02] Input eventId:', eventId);
-    // console.log('[UT-M020-02] Expected result:', mockEvent2);
-    // console.log('[UT-M020-02] Actual result:', result);
+    // console.log('[UT-M021-02] Input eventId:', eventId);
+    // console.log('[UT-M021-02] Expected result:', mockEvent2);
+    // console.log('[UT-M021-02] Actual result:', result);
 
     // Assert
     expect(result.forms).toEqual([{ id: 'form-uuid-1', type: 'REGISTRATION' }]);
   });
 
-  it('UT-M020-03: should throw EventNotFoundException when event does not exist', async () => {
+  it('UT-M021-03: should throw EventNotFoundException when event does not exist', async () => {
     const eventId = 'non-existent-uuid-9999';
     mockPrisma.event.findUnique.mockResolvedValueOnce(null);
 
@@ -919,7 +919,7 @@ describe('EventCrudService - getEventsByOrganizerId', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M021-01: should return all events for the organizer when no status filter provided', async () => {
+  it('UT-M022-01: should return all events for the organizer when no status filter provided', async () => {
     const organizerProfileId = 'mock-org-uuid-1234';
     const universityId = 'mock-university-uuid-1234';
     mockPrisma.event.findMany.mockResolvedValueOnce([
@@ -931,9 +931,9 @@ describe('EventCrudService - getEventsByOrganizerId', () => {
       organizerProfileId,
       universityId,
     );
-    // console.log('[UT-M021-01] Input organizerProfileId:', organizerProfileId, '| universityId:', universityId);
-    // console.log('[UT-M021-01] Expected result:', [mockMarathonDbEvent, mockEvent]);
-    // console.log('[UT-M021-01] Actual result:', result);
+    // console.log('[UT-M022-01] Input organizerProfileId:', organizerProfileId, '| universityId:', universityId);
+    // console.log('[UT-M022-01] Expected result:', [mockMarathonDbEvent, mockEvent]);
+    // console.log('[UT-M022-01] Actual result:', result);
 
     // Assert
     expect(result).toEqual([mockMarathonDbEvent, mockEvent]);
@@ -945,7 +945,7 @@ describe('EventCrudService - getEventsByOrganizerId', () => {
     expect(mockPrisma.event.findMany).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-M021-02: should return only events matching the given status when status filter provided', async () => {
+  it('UT-M022-02: should return only events matching the given status when status filter provided', async () => {
     const organizerProfileId = 'mock-org-uuid-1234';
     const universityId = 'mock-university-uuid-1234';
     const status = EventStatus.PUBLISHED;
@@ -956,9 +956,9 @@ describe('EventCrudService - getEventsByOrganizerId', () => {
       universityId,
       status,
     );
-    // console.log('[UT-M021-02] Input organizerProfileId:', organizerProfileId, 'universityId:', universityId, '| status:', status);
-    // console.log('[UT-M021-02] Expected result:', [mockMarathonDbEvent]);
-    // console.log('[UT-M021-02] Actual result: ', result);
+    // console.log('[UT-M022-02] Input organizerProfileId:', organizerProfileId, 'universityId:', universityId, '| status:', status);
+    // console.log('[UT-M022-02] Expected result:', [mockMarathonDbEvent]);
+    // console.log('[UT-M022-02] Actual result: ', result);
 
     expect(result).toEqual([mockMarathonDbEvent]);
     expect(result[0].status).toBe(EventStatus.PUBLISHED);
@@ -969,7 +969,7 @@ describe('EventCrudService - getEventsByOrganizerId', () => {
     });
   });
 
-  it('UT-M021-03: should return empty array when organizer has no events', async () => {
+  it('UT-M022-03: should return empty array when organizer has no events', async () => {
     const organizerProfileId = 'mock-org-uuid-no-events';
     const universityId = 'mock-university-uuid-1234';
     mockPrisma.event.findMany.mockResolvedValueOnce([]);
@@ -978,10 +978,10 @@ describe('EventCrudService - getEventsByOrganizerId', () => {
       organizerProfileId,
       universityId,
     );
-    // console.log('[UT-M021-03] Input organizerProfileId:', organizerProfileId);
-    // console.log('[UT-M021-03] Input universityId:', universityId);
-    // console.log('[UT-M021-03] Expected result:', []);
-    // console.log('[UT-M021-03] Actual result:', result);
+    // console.log('[UT-M022-03] Input organizerProfileId:', organizerProfileId);
+    // console.log('[UT-M022-03] Input universityId:', universityId);
+    // console.log('[UT-M022-03] Expected result:', []);
+    // console.log('[UT-M022-03] Actual result:', result);
 
     // Assert
     expect(result).toEqual([]);
@@ -1006,7 +1006,7 @@ describe('EventCrudService - getRegisteredEventsByParticipantId', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M022-01: should return registrations with nested event data when no status filter provided', async () => {
+  it('UT-M023-01: should return registrations with nested event data when no status filter provided', async () => {
     const participantProfileId = 'mock-participant-uuid-1234';
     const universityId = 'mock-university-uuid-1234';
     mockPrisma.eventRegistration.findMany.mockResolvedValueOnce([
@@ -1017,9 +1017,9 @@ describe('EventCrudService - getRegisteredEventsByParticipantId', () => {
       participantProfileId,
       universityId,
     );
-    // console.log('[UT-M022-01] Input participantProfileId:', participantProfileId, '| universityId:', universityId);
-    // console.log('[UT-M022-01] Expected result:', [mockMarathonRegistration]);
-    // console.log('[UT-M022-01] Actual result:', result);
+    // console.log('[UT-M023-01] Input participantProfileId:', participantProfileId, '| universityId:', universityId);
+    // console.log('[UT-M023-01] Expected result:', [mockMarathonRegistration]);
+    // console.log('[UT-M023-01] Actual result:', result);
 
     expect(result).toEqual([mockMarathonRegistration]);
     expect(mockPrisma.eventRegistration.findMany).toHaveBeenCalledWith({
@@ -1033,7 +1033,7 @@ describe('EventCrudService - getRegisteredEventsByParticipantId', () => {
     expect(mockPrisma.eventRegistration.findMany).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-M022-02: should filter by event status when status provided', async () => {
+  it('UT-M023-02: should filter by event status when status provided', async () => {
     const participantProfileId = 'mock-participant-uuid-1234';
     const universityId = 'mock-university-uuid-1234';
     const status = EventStatus.PUBLISHED;
@@ -1046,11 +1046,11 @@ describe('EventCrudService - getRegisteredEventsByParticipantId', () => {
       universityId,
       status,
     );
-    // console.log('[UT-M022-02] Input participantProfileId:', participantProfileId, '| status:', status);
-    // console.log('[UT-M022-02] Input universityId:', universityId);
-    // console.log('[UT-M022-02] Expected where.event.status:', status);
-    // console.log('[UT-M022-02] Expected result: ', [mockMarathonRegistration]);
-    // console.log('[UT-M022-02] Actual result: ', result);
+    // console.log('[UT-M023-02] Input participantProfileId:', participantProfileId, '| status:', status);
+    // console.log('[UT-M023-02] Input universityId:', universityId);
+    // console.log('[UT-M023-02] Expected where.event.status:', status);
+    // console.log('[UT-M023-02] Expected result: ', [mockMarathonRegistration]);
+    // console.log('[UT-M023-02] Actual result: ', result);
 
     expect(result).toEqual([mockMarathonRegistration]);
     expect(mockPrisma.eventRegistration.findMany).toHaveBeenCalledWith({
@@ -1063,7 +1063,7 @@ describe('EventCrudService - getRegisteredEventsByParticipantId', () => {
     });
   });
 
-  it('UT-M022-03: should return empty array when participant has no registrations', async () => {
+  it('UT-M023-03: should return empty array when participant has no registrations', async () => {
     const participantProfileId = 'mock-participant-uuid-no-events';
     const universityId = 'mock-university-uuid-1234';
     mockPrisma.eventRegistration.findMany.mockResolvedValueOnce([]);
@@ -1072,10 +1072,10 @@ describe('EventCrudService - getRegisteredEventsByParticipantId', () => {
       participantProfileId,
       universityId,
     );
-    // console.log('[UT-M022-03] Input participantProfileId:', participantProfileId);
-    // console.log('[UT-M022-03] Input universityId:', universityId);
-    // console.log('[UT-M022-03] Expected result:', []);
-    // console.log('[UT-M022-03] Actual result:', result);
+    // console.log('[UT-M023-03] Input participantProfileId:', participantProfileId);
+    // console.log('[UT-M023-03] Input universityId:', universityId);
+    // console.log('[UT-M023-03] Expected result:', []);
+    // console.log('[UT-M023-03] Actual result:', result);
 
     // Assert
     expect(result).toEqual([]);
@@ -1100,7 +1100,7 @@ describe('EventCrudService - getBannerUrl', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M023-01: should return banner URL string when event exists and has a banner', async () => {
+  it('UT-M024-01: should return banner URL string when event exists and has a banner', async () => {
     const eventId = 'marathon-event-uuid-1234';
     const mockBannerUrl = `${MOCK_SUPABASE_BASE_URL}/banners/marathon-uuid.jpg`;
     mockPrisma.event.findUnique.mockResolvedValueOnce({
@@ -1108,9 +1108,9 @@ describe('EventCrudService - getBannerUrl', () => {
     });
 
     const result = await service.getBannerUrl(eventId);
-    // console.log('[UT-M023-01] Input eventId:', eventId);
-    // console.log('[UT-M023-01] Expected result:', mockBannerUrl);
-    // console.log('[UT-M023-01] Actual result:', result);
+    // console.log('[UT-M024-01] Input eventId:', eventId);
+    // console.log('[UT-M024-01] Expected result:', mockBannerUrl);
+    // console.log('[UT-M024-01] Actual result:', result);
 
     expect(result).toBe(mockBannerUrl);
     expect(mockPrisma.event.findUnique).toHaveBeenCalledWith({
@@ -1120,14 +1120,14 @@ describe('EventCrudService - getBannerUrl', () => {
     expect(mockPrisma.event.findUnique).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-M023-02: should return null when event exists but bannerUrl is null', async () => {
+  it('UT-M024-02: should return null when event exists but bannerUrl is null', async () => {
     const eventId = 'marathon-event-uuid-1234';
     mockPrisma.event.findUnique.mockResolvedValueOnce({ bannerUrl: null });
 
     const result = await service.getBannerUrl(eventId);
-    // console.log('[UT-M023-02] Input eventId:', eventId);
-    // console.log('[UT-M023-02] Expected result:', null);
-    // console.log('[UT-M023-02] Actual result:', result);
+    // console.log('[UT-M024-02] Input eventId:', eventId);
+    // console.log('[UT-M024-02] Expected result:', null);
+    // console.log('[UT-M024-02] Actual result:', result);
 
     expect(result).toBeNull();
     expect(mockPrisma.event.findUnique).toHaveBeenCalledWith({
@@ -1136,7 +1136,7 @@ describe('EventCrudService - getBannerUrl', () => {
     });
   });
 
-  it('UT-M023-03: should throw EventNotFoundException when event does not exist', async () => {
+  it('UT-M024-03: should throw EventNotFoundException when event does not exist', async () => {
     const eventId = 'non-existent-uuid-9999';
     mockPrisma.event.findUnique.mockResolvedValueOnce(null);
 
@@ -1167,7 +1167,7 @@ describe('EventCrudService - mapToEventResponseDto', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M024-01: should return fully mapped EventResponseDto when full event object is provided', () => {
+  it('UT-M025-01: should return fully mapped EventResponseDto when full event object is provided', () => {
     const rawEvent = { ...mockMarathonDbEvent };
 
     const expectedDto = {
@@ -1202,15 +1202,15 @@ describe('EventCrudService - mapToEventResponseDto', () => {
     };
 
     const result = (service as any).mapToEventResponseDto(rawEvent);
-    // console.log('[UT-M024-01] Input:', rawEvent);
-    // console.log('[UT-M024-01] Expected result:', expectedDto);
-    // console.log('[UT-M024-01] Actual result:', result);
+    // console.log('[UT-M025-01] Input:', rawEvent);
+    // console.log('[UT-M025-01] Expected result:', expectedDto);
+    // console.log('[UT-M025-01] Actual result:', result);
 
     // Assert
     expect(result).toEqual(expectedDto);
   });
 
-  it('UT-M024-02: should apply defaults for null optional fields', () => {
+  it('UT-M025-02: should apply defaults for null optional fields', () => {
     const rawEvent = {
       ...mockMarathonDbEvent,
       mapLink: null,
@@ -1270,9 +1270,9 @@ describe('EventCrudService - mapToEventResponseDto', () => {
     };
 
     const result = (service as any).mapToEventResponseDto(rawEvent);
-    // console.log('[UT-M024-02] Input: ', rawEvent);
-    // console.log('[UT-M024-02] Expected result: ', expectedDto);
-    // console.log('[UT-M024-02] Actual result: ', result);
+    // console.log('[UT-M025-02] Input: ', rawEvent);
+    // console.log('[UT-M025-02] Expected result: ', expectedDto);
+    // console.log('[UT-M025-02] Actual result: ', result);
 
     expect(result.mapLink).toBe('');
     expect(result.seatLimit).toBeNull();
@@ -1290,16 +1290,16 @@ describe('EventCrudService - mapToEventResponseDto', () => {
     expect(result.agenda).toEqual([]);
   });
 
-  it('UT-M024-03: should return empty forms array when event has no forms', () => {
+  it('UT-M025-03: should return empty forms array when event has no forms', () => {
     const rawEvent = { ...mockMarathonDbEvent, forms: [] };
 
     const expectedDto = {
       ...rawEvent,
     };
     const result = (service as any).mapToEventResponseDto(rawEvent);
-    // console.log('[UT-M024-03] Input rawEvent:', rawEvent);
-    // console.log('[UT-M024-03] Expected result', expectedDto);
-    // console.log('[UT-M024-03] Actual result:', result);
+    // console.log('[UT-M025-03] Input rawEvent:', rawEvent);
+    // console.log('[UT-M025-03] Expected result', expectedDto);
+    // console.log('[UT-M025-03] Actual result:', result);
 
     expect(result.forms).toEqual([]);
   });

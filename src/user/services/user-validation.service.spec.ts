@@ -33,7 +33,7 @@ describe('UserValidationService - validateUserExists', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M055-01: should resolve without throwing when user exists', async () => {
+  it('UT-M057-01: should resolve without throwing when user exists', async () => {
     mockPrisma.user.findUnique.mockResolvedValue({
       id: 'u1000000-0000-0000-0000-000000000001',
       email: 'minthant@cmu.ac.th',
@@ -45,7 +45,7 @@ describe('UserValidationService - validateUserExists', () => {
     await expect(()=>result).not.toThrow();
   });
 
-  it('UT-M055-02: should throw UserNotFoundException with message when user not found', async () => {
+  it('UT-M057-02: should throw UserNotFoundException with message when user not found', async () => {
     mockPrisma.user.findUnique.mockResolvedValueOnce(null);
     const result = service.validateUserExists(
       'u9999999-9999-9999-9999-999999999999',
@@ -69,7 +69,7 @@ describe('UserValidationService - validateParticipantProfileNotExists', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M056-01: should resolve without throwing when participant profile does not exist', async () => {
+  it('UT-M058-01: should resolve without throwing when participant profile does not exist', async () => {
     mockPrisma.participantProfile.findUnique.mockResolvedValue(null);
     const result = service.validateParticipantProfileNotExists(
       'u2000000-0000-0000-0000-000000000002',
@@ -78,7 +78,7 @@ describe('UserValidationService - validateParticipantProfileNotExists', () => {
     await expect(()=>result).not.toThrow();
   });
 
-  it('UT-M056-02: should throw ProfileAlreadyExistsException with message when participant profile already exists', async () => {
+  it('UT-M058-02: should throw ProfileAlreadyExistsException with message when participant profile already exists', async () => {
     mockPrisma.participantProfile.findUnique.mockResolvedValue({
       id: 'p1000000-0000-0000-0000-000000000001',
       userId: 'u3000000-0000-0000-0000-000000000003',
@@ -107,7 +107,7 @@ describe('UserValidationService - validateOrganizerProfileNotExists', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M057-01: should resolve without throwing when organizer profile does not exist', async () => {
+  it('UT-M059-01: should resolve without throwing when organizer profile does not exist', async () => {
     mockPrisma.organizerProfile.findUnique.mockResolvedValue(null);
     const result = service.validateOrganizerProfileNotExists(
       'u4000000-0000-0000-0000-000000000004',
@@ -116,7 +116,7 @@ describe('UserValidationService - validateOrganizerProfileNotExists', () => {
     await expect(()=>result).not.toThrow();
   });
 
-  it('UT-M057-02: should throw ProfileAlreadyExistsException with message when organizer profile already exists', async () => {
+  it('UT-M059-02: should throw ProfileAlreadyExistsException with message when organizer profile already exists', async () => {
     mockPrisma.organizerProfile.findUnique.mockResolvedValue({
       id: 'o1000000-0000-0000-0000-000000000001',
       userId: 'u5000000-0000-0000-0000-000000000005',
@@ -143,7 +143,7 @@ describe('UserValidationService - validateParticipantProfileData', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M059-01: should resolve without throwing when full valid dto is provided', () => {
+  it('UT-M061-01: should resolve without throwing when full valid dto is provided', () => {
     expect(() =>
       service.validateParticipantProfileData({
         firstName: 'Rory',
@@ -159,7 +159,7 @@ describe('UserValidationService - validateParticipantProfileData', () => {
     ).not.toThrow();
   });
 
-  it('UT-M059-02: should resolve without throwing when only firstName is provided', () => {
+  it('UT-M061-02: should resolve without throwing when only firstName is provided', () => {
     expect(() =>
       service.validateParticipantProfileData({
         firstName: 'Su Su',
@@ -167,7 +167,7 @@ describe('UserValidationService - validateParticipantProfileData', () => {
     ).not.toThrow();
   });
 
-  it('UT-M059-03: should resolve without throwing when contactEmail is empty string', () => {
+  it('UT-M061-03: should resolve without throwing when contactEmail is empty string', () => {
     expect(() =>
       service.validateParticipantProfileData({
         firstName: 'Chaiwat',
@@ -176,7 +176,7 @@ describe('UserValidationService - validateParticipantProfileData', () => {
     ).not.toThrow();
   });
 
-  it('UT-M059-04: should resolve without throwing when optional fields are undefined', () => {
+  it('UT-M061-04: should resolve without throwing when optional fields are undefined', () => {
     expect(() =>
       service.validateParticipantProfileData({
         firstName: 'Napat',
@@ -186,28 +186,28 @@ describe('UserValidationService - validateParticipantProfileData', () => {
     ).not.toThrow();
   });
 
-  it('UT-M059-05: should throw NameEmptyException when firstName is empty string', () => {
+  it('UT-M061-05: should throw NameEmptyException when firstName is empty string', () => {
     const call = () =>
       service.validateParticipantProfileData({ firstName: '' });
     expect(call).toThrow(NameEmptyException);
     expect(call).toThrow('First name cannot be empty.');
   });
 
-  it('UT-M059-06: should throw NameEmptyException when firstName is whitespace only', () => {
+  it('UT-M061-06: should throw NameEmptyException when firstName is whitespace only', () => {
     const call = () =>
       service.validateParticipantProfileData({ firstName: '    ' });
     expect(call).toThrow(NameEmptyException);
     expect(call).toThrow('First name cannot be empty.');
   });
 
-  it('UT-M059-07: should throw NameEmptyException when firstName is undefined', () => {
+  it('UT-M061-07: should throw NameEmptyException when firstName is undefined', () => {
     const call = () =>
       service.validateParticipantProfileData({ firstName: undefined });
     expect(call).toThrow(NameEmptyException);
     expect(call).toThrow('First name cannot be empty.');
   });
 
-  it('UT-M059-08: should throw InvalidMailException when contactEmail has invalid format', () => {
+  it('UT-M061-08: should throw InvalidMailException when contactEmail has invalid format', () => {
     const call = () =>
       service.validateParticipantProfileData({
         firstName: 'Somsak',
@@ -217,7 +217,7 @@ describe('UserValidationService - validateParticipantProfileData', () => {
     expect(call).toThrow('Invalid contact email format.');
   });
 
-  it('UT-M059-09: should throw InvalidMailException when contactEmail is missing @ symbol', () => {
+  it('UT-M061-09: should throw InvalidMailException when contactEmail is missing @ symbol', () => {
     const call = () =>
       service.validateParticipantProfileData({
         firstName: 'Nattapong',
@@ -227,7 +227,7 @@ describe('UserValidationService - validateParticipantProfileData', () => {
     expect(call).toThrow('Invalid contact email format.');
   });
 
-  it('UT-M059-10: should throw InvalidPreferencesException when personal preference contains invalid value', () => {
+  it('UT-M061-10: should throw InvalidPreferencesException when personal preference contains invalid value', () => {
     const call = () =>
       service.validateParticipantProfileData({
         firstName: 'Arisa',
@@ -241,7 +241,7 @@ describe('UserValidationService - validateParticipantProfileData', () => {
     expect(call).toThrow('Invalid personal preferences: INVALID_HOBBY');
   });
 
-  it('UT-M059-11: should throw InvalidPreferencesException when event preference contains invalid value', () => {
+  it('UT-M061-11: should throw InvalidPreferencesException when event preference contains invalid value', () => {
     const call = () =>
       service.validateParticipantProfileData({
         firstName: 'Thanida',
@@ -255,7 +255,7 @@ describe('UserValidationService - validateParticipantProfileData', () => {
     expect(call).toThrow('Invalid event preferences: INVALID_EVENT_TYPE');
   });
 
-  it('UT-M059-12: should throw InvalidPreferencesException when language preference contains invalid value', () => {
+  it('UT-M061-12: should throw InvalidPreferencesException when language preference contains invalid value', () => {
     const call = () =>
       service.validateParticipantProfileData({
         firstName: 'Wanchai',
@@ -269,7 +269,7 @@ describe('UserValidationService - validateParticipantProfileData', () => {
     expect(call).toThrow('Invalid language preferences: jp');
   });
 
-  it('UT-M059-13: should throw InvalidPreferencesException when personalOther exceeds max length', () => {
+  it('UT-M061-13: should throw InvalidPreferencesException when personalOther exceeds max length', () => {
     const call = () =>
       service.validateParticipantProfileData({
         firstName: 'Kanya',
@@ -299,7 +299,7 @@ describe('UserValidationService - validateOrganizerProfileData', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M060-01: should resolve without throwing when full valid dto is provided', () => {
+  it('UT-M062-01: should resolve without throwing when full valid dto is provided', () => {
     expect(() =>
       service.validateOrganizerProfileData({
         name: 'CAMT Student Club',
@@ -310,7 +310,7 @@ describe('UserValidationService - validateOrganizerProfileData', () => {
     ).not.toThrow();
   });
 
-  it('UT-M060-02: should resolve without throwing when only name is provided', () => {
+  it('UT-M062-02: should resolve without throwing when only name is provided', () => {
     expect(() =>
       service.validateOrganizerProfileData({
         name: 'SE Department',
@@ -318,7 +318,7 @@ describe('UserValidationService - validateOrganizerProfileData', () => {
     ).not.toThrow();
   });
 
-  it('UT-M060-03: should resolve without throwing when contactEmail is empty string', () => {
+  it('UT-M062-03: should resolve without throwing when contactEmail is empty string', () => {
     expect(() =>
       service.validateOrganizerProfileData({
         name: 'Engineering Faculty',
@@ -327,7 +327,7 @@ describe('UserValidationService - validateOrganizerProfileData', () => {
     ).not.toThrow();
   });
 
-  it('UT-M060-04: should resolve without throwing when externalUrl is empty string', () => {
+  it('UT-M062-04: should resolve without throwing when externalUrl is empty string', () => {
     expect(() =>
       service.validateOrganizerProfileData({
         name: 'Science Club',
@@ -336,7 +336,7 @@ describe('UserValidationService - validateOrganizerProfileData', () => {
     ).not.toThrow();
   });
 
-  it('UT-M060-05: should resolve without throwing when optional fields are undefined', () => {
+  it('UT-M062-05: should resolve without throwing when optional fields are undefined', () => {
     expect(() =>
       service.validateOrganizerProfileData({
         name: 'Art Society',
@@ -346,28 +346,28 @@ describe('UserValidationService - validateOrganizerProfileData', () => {
     ).not.toThrow();
   });
 
-  it('UT-M060-06: should throw NameEmptyException when name is empty string', () => {
+  it('UT-M062-06: should throw NameEmptyException when name is empty string', () => {
     const call = () =>
       service.validateOrganizerProfileData({ name: '' });
     expect(call).toThrow(NameEmptyException);
     expect(call).toThrow('Organizer name cannot be empty.');
   });
 
-  it('UT-M060-07: should throw NameEmptyException when name is whitespace only', () => {
+  it('UT-M062-07: should throw NameEmptyException when name is whitespace only', () => {
     const call = () =>
       service.validateOrganizerProfileData({ name: '   ' });
     expect(call).toThrow(NameEmptyException);
     expect(call).toThrow('Organizer name cannot be empty.');
   });
 
-  it('UT-M060-08: should throw NameEmptyException when name is undefined', () => {
+  it('UT-M062-08: should throw NameEmptyException when name is undefined', () => {
     const call = () =>
       service.validateOrganizerProfileData({ name: undefined });
     expect(call).toThrow(NameEmptyException);
     expect(call).toThrow('Organizer name cannot be empty.');
   });
 
-  it('UT-M060-09: should throw InvalidMailException when contactEmail has invalid format', () => {
+  it('UT-M062-09: should throw InvalidMailException when contactEmail has invalid format', () => {
     const call = () =>
       service.validateOrganizerProfileData({
         name: 'Music Club',
@@ -377,7 +377,7 @@ describe('UserValidationService - validateOrganizerProfileData', () => {
     expect(call).toThrow('Invalid contact email format.');
   });
 
-  it('UT-M060-10: should throw InvalidUrlException when externalUrl has invalid format', () => {
+  it('UT-M062-10: should throw InvalidUrlException when externalUrl has invalid format', () => {
     const call = () =>
       service.validateOrganizerProfileData({
         name: 'Sports Club',
@@ -387,7 +387,7 @@ describe('UserValidationService - validateOrganizerProfileData', () => {
     expect(call).toThrow('Invalid external URL format.');
   });
 
-  it('UT-M060-11: should throw InvalidUrlException when externalUrl is missing protocol', () => {
+  it('UT-M062-11: should throw InvalidUrlException when externalUrl is missing protocol', () => {
     const call = () =>
       service.validateOrganizerProfileData({
         name: 'Coding Club',
@@ -412,38 +412,38 @@ describe('UserValidationService - checkRoleTransition', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M058-01: should resolve without throwing when switching from null to PARTICIPANT', () => {
+  it('UT-M060-01: should resolve without throwing when switching from null to PARTICIPANT', () => {
     expect(() =>
       service.checkRoleTransition(null, Role.PARTICIPANT),
     ).not.toThrow();
   });
 
-  it('UT-M058-02: should resolve without throwing when switching from null to ORGANIZER', () => {
+  it('UT-M060-02: should resolve without throwing when switching from null to ORGANIZER', () => {
     expect(() =>
       service.checkRoleTransition(null, Role.ORGANIZER),
     ).not.toThrow();
   });
 
-  it('UT-M058-03: should resolve without throwing when switching from PARTICIPANT to ORGANIZER', () => {
+  it('UT-M060-03: should resolve without throwing when switching from PARTICIPANT to ORGANIZER', () => {
     expect(() =>
       service.checkRoleTransition(Role.PARTICIPANT, Role.ORGANIZER),
     ).not.toThrow();
   });
 
-  it('UT-M058-04: should resolve without throwing when switching from ORGANIZER to PARTICIPANT', () => {
+  it('UT-M060-04: should resolve without throwing when switching from ORGANIZER to PARTICIPANT', () => {
     expect(() =>
       service.checkRoleTransition(Role.ORGANIZER, Role.PARTICIPANT),
     ).not.toThrow();
   });
 
-  it('UT-M058-05: should throw InvalidRoleTransitionException with message when switching from PARTICIPANT to PARTICIPANT', () => {
+  it('UT-M060-05: should throw InvalidRoleTransitionException with message when switching from PARTICIPANT to PARTICIPANT', () => {
     const call = () =>
       service.checkRoleTransition(Role.PARTICIPANT, Role.PARTICIPANT);
     expect(call).toThrow(InvalidRoleTransitionException);
     expect(call).toThrow('You are already in this role.');
   });
 
-  it('UT-M058-06: should throw InvalidRoleTransitionException with message when switching from ORGANIZER to ORGANIZER', () => {
+  it('UT-M060-06: should throw InvalidRoleTransitionException with message when switching from ORGANIZER to ORGANIZER', () => {
     const call = () =>
       service.checkRoleTransition(Role.ORGANIZER, Role.ORGANIZER);
     expect(call).toThrow(InvalidRoleTransitionException);

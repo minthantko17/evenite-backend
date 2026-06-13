@@ -172,7 +172,7 @@ describe('FormCrudService - createForm', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M042-01: should return ReturnFormWithFields when dto is valid with fields', async () => {
+  it('UT-M043-01: should return ReturnFormWithFields when dto is valid with fields', async () => {
     const formId = uuidv4();
     const formFieldId = uuidv4();
     const input = {
@@ -218,14 +218,14 @@ describe('FormCrudService - createForm', () => {
       input.dto,
     );
 
-    // console.log('[UT-M042-01] Input :', input);
-    // console.log('[UT-M042-01] Expected :', expected);
-    // console.log('[UT-M042-01] Actual :', result);
+    // console.log('[UT-M043-01] Input :', input);
+    // console.log('[UT-M043-01] Expected :', expected);
+    // console.log('[UT-M043-01] Actual :', result);
 
     expect(result).toEqual(expected);
   });
 
-  it('UT-M042-02: should create form with title "" and description "" when dto has no title or description', async () => {
+  it('UT-M043-02: should create form with title "" and description "" when dto has no title or description', async () => {
     const formId = uuidv4();
     const formFieldId = uuidv4();
     const input = {
@@ -269,16 +269,16 @@ describe('FormCrudService - createForm', () => {
       input.dto,
     );
 
-    // console.log('[UT-M042-02] Input :', input);
-    // console.log('[UT-M042-02] Expected :', expected);
-    // console.log('[UT-M042-02] Actual :', result);
+    // console.log('[UT-M043-02] Input :', input);
+    // console.log('[UT-M043-02] Expected :', expected);
+    // console.log('[UT-M043-02] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(result.title).toBe('');
     expect(result.description).toBe('');
   });
 
-  it('UT-M042-03: should create form with empty fields array when dto has empty fields', async () => {
+  it('UT-M043-03: should create form with empty fields array when dto has empty fields', async () => {
     const formId = uuidv4();
     const input = {
       eventId: 'e1000000-0000-0000-0000-000000000001',
@@ -305,15 +305,15 @@ describe('FormCrudService - createForm', () => {
       input.dto,
     );
 
-    // console.log('[UT-M042-03] Input :', input);
-    // console.log('[UT-M042-03] Expected :', expected);
-    // console.log('[UT-M042-03] Actual :', result);
+    // console.log('[UT-M043-03] Input :', input);
+    // console.log('[UT-M043-03] Expected :', expected);
+    // console.log('[UT-M043-03] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(result.fields).toEqual([]);
   });
 
-  it('UT-M042-04: should throw SaveFormException when database fails', async () => {
+  it('UT-M043-04: should throw SaveFormException when database fails', async () => {
     const input = {
       eventId: 'e1000000-0000-0000-0000-000000000001',
       type: FormType.REGISTRATION,
@@ -358,7 +358,7 @@ describe('FormCrudService - getFormsByEventId', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M043-01: should return array of mapped forms when event has multiple forms', async () => {
+  it('UT-M044-01: should return array of mapped forms when event has multiple forms', async () => {
     const eventId = 'e1000000-0000-0000-0000-000000000001';
     const expected = [
       {
@@ -403,9 +403,9 @@ describe('FormCrudService - getFormsByEventId', () => {
     mockPrisma.form.findMany.mockResolvedValue(expected);
 
     const result = await service.getFormsByEventId(eventId);
-    // console.log('[UT-M043-01] Input :', { eventId });
-    // console.log('[UT-M043-01] Expected :', expected);
-    // console.log('[UT-M043-01] Actual :', result);
+    // console.log('[UT-M044-01] Input :', { eventId });
+    // console.log('[UT-M044-01] Expected :', expected);
+    // console.log('[UT-M044-01] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(mockPrisma.form.findMany).toHaveBeenCalledWith({
@@ -415,14 +415,14 @@ describe('FormCrudService - getFormsByEventId', () => {
     expect(mockPrisma.form.findMany).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-M043-02: should return empty array when event has no forms', async () => {
+  it('UT-M044-02: should return empty array when event has no forms', async () => {
     const eventId = 'e1000000-0000-0000-0000-000000000002';
     const expected: any[] = [];
     mockPrisma.form.findMany.mockResolvedValue([]);
     const result = await service.getFormsByEventId(eventId);
-    // console.log('[UT-M043-02] Input :', { eventId });
-    // console.log('[UT-M043-02] Expected :', expected);
-    // console.log('[UT-M043-02] Actual :', result);
+    // console.log('[UT-M044-02] Input :', { eventId });
+    // console.log('[UT-M044-02] Expected :', expected);
+    // console.log('[UT-M044-02] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(mockPrisma.form.findMany).toHaveBeenCalledWith({
@@ -431,7 +431,7 @@ describe('FormCrudService - getFormsByEventId', () => {
     });
   });
 
-  it('UT-M043-03: should return form with empty fields array when form has no fields', async () => {
+  it('UT-M044-03: should return form with empty fields array when form has no fields', async () => {
     const eventId = 'e1000000-0000-0000-0000-000000000003';
     const expected = [
       {
@@ -445,9 +445,9 @@ describe('FormCrudService - getFormsByEventId', () => {
     ];
     mockPrisma.form.findMany.mockResolvedValue(expected);
     const result = await service.getFormsByEventId(eventId);
-    // console.log('[UT-M043-03] Input :', { eventId });
-    // console.log('[UT-M043-03] Expected :', expected);
-    // console.log('[UT-M043-03] Actual :', result);
+    // console.log('[UT-M044-03] Input :', { eventId });
+    // console.log('[UT-M044-03] Expected :', expected);
+    // console.log('[UT-M044-03] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(result[0].fields).toEqual([]);
@@ -469,7 +469,7 @@ describe('FormCrudService - getFormByEventAndType', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M044-01: should return ReturnFormWithFields when form is found', async () => {
+  it('UT-M045-01: should return ReturnFormWithFields when form is found', async () => {
     const input = {
       eventId: 'e1000000-0000-0000-0000-000000000001',
       type: FormType.REGISTRATION,
@@ -499,9 +499,9 @@ describe('FormCrudService - getFormByEventAndType', () => {
       input.eventId,
       input.type,
     );
-    // console.log('[UT-M044-01] Input :', input);
-    // console.log('[UT-M044-01] Expected :', expected);
-    // console.log('[UT-M044-01] Actual :', result);
+    // console.log('[UT-M045-01] Input :', input);
+    // console.log('[UT-M045-01] Expected :', expected);
+    // console.log('[UT-M045-01] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(mockPrisma.form.findUnique).toHaveBeenCalledWith({
@@ -511,7 +511,7 @@ describe('FormCrudService - getFormByEventAndType', () => {
     expect(mockPrisma.form.findUnique).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-M044-02: should throw FormNotFoundException when form is not found', async () => {
+  it('UT-M045-02: should throw FormNotFoundException when form is not found', async () => {
     const input = {
       eventId: 'e1000000-0000-0000-0000-000000000003',
       type: FormType.FEEDBACK,
@@ -543,7 +543,7 @@ describe('FormCrudService - updateFormByFormId', () => {
     mockPrisma.$transaction.mockImplementation(async (cb: any) => cb(mockTx));
   });
 
-  it('UT-M045-01: should delete old fields, create new fields, and return updated form when dto has title, description, and fields', async () => {
+  it('UT-M046-01: should delete old fields, create new fields, and return updated form when dto has title, description, and fields', async () => {
     const input = {
       formId: 'f2000000-0000-0000-0000-000000000002',
       dto: {
@@ -584,16 +584,16 @@ describe('FormCrudService - updateFormByFormId', () => {
     mockTx.form.findUnique.mockResolvedValue(expected);
 
     const result = await service.updateFormByFormId(input.formId, input.dto);
-    // console.log('[UT-M045-01] Input :', input);
-    // console.log('[UT-M045-01] Expected :', expected);
-    // console.log('[UT-M045-01] Actual :', result);
+    // console.log('[UT-M046-01] Input :', input);
+    // console.log('[UT-M046-01] Expected :', expected);
+    // console.log('[UT-M046-01] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(mockTx.formField.deleteMany).toHaveBeenCalled();
     expect(mockTx.formField.createMany).toHaveBeenCalled();
   });
 
-  it('UT-M045-02: should update only title and leave fields unchanged when dto.fields is undefined', async () => {
+  it('UT-M046-02: should update only title and leave fields unchanged when dto.fields is undefined', async () => {
     const input = {
       formId: 'f2000000-0000-0000-0000-000000000002',
       dto: { title: 'New Title Only' },
@@ -604,9 +604,9 @@ describe('FormCrudService - updateFormByFormId', () => {
 
     const result = await service.updateFormByFormId(input.formId, input.dto);
 
-    // console.log('[UT-M045-02] Input :', input);
-    // console.log('[UT-M045-02] Expected :', expected);
-    // console.log('[UT-M045-02] Actual :', result);
+    // console.log('[UT-M046-02] Input :', input);
+    // console.log('[UT-M046-02] Expected :', expected);
+    // console.log('[UT-M046-02] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(result.title).toBe('New Title Only');
@@ -615,7 +615,7 @@ describe('FormCrudService - updateFormByFormId', () => {
     expect(mockTx.formField.createMany).not.toHaveBeenCalled();
   });
 
-  it('UT-M045-03: should call deleteMany and return form with no fields when dto.fields is empty array', async () => {
+  it('UT-M046-03: should call deleteMany and return form with no fields when dto.fields is empty array', async () => {
     const input = {
       formId: 'f2000000-0000-0000-0000-000000000002',
       dto: { fields: [] },
@@ -628,9 +628,9 @@ describe('FormCrudService - updateFormByFormId', () => {
 
     const result = await service.updateFormByFormId(input.formId, input.dto);
 
-    // console.log('[UT-M045-03] Input :', input);
-    // console.log('[UT-M045-03] Expected :', expected);
-    // console.log('[UT-M045-03] Actual :', result);
+    // console.log('[UT-M046-03] Input :', input);
+    // console.log('[UT-M046-03] Expected :', expected);
+    // console.log('[UT-M046-03] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(result.fields).toEqual([]);
@@ -638,7 +638,7 @@ describe('FormCrudService - updateFormByFormId', () => {
     expect(mockTx.formField.createMany).toHaveBeenCalledWith({ data: [] });
   });
 
-  it('UT-M045-04: should throw SaveFormException when database transaction fails', async () => {
+  it('UT-M046-04: should throw SaveFormException when database transaction fails', async () => {
     const input = {
       formId: 'f1000000-0000-0000-0000-000000000001',
       dto: { title: 'Title' },
@@ -673,7 +673,7 @@ describe('FormCrudService - getFormResponses', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M046-01: should throw FormNotFoundException when form is not found', async () => {
+  it('UT-M047-01: should throw FormNotFoundException when form is not found', async () => {
     const input = {
       eventId: 'e1000000-0000-0000-0000-000000000009',
       type: FormType.REGISTRATION,
@@ -689,7 +689,7 @@ describe('FormCrudService - getFormResponses', () => {
     ).rejects.toThrow('Form not found.');
   });
 
-  it('UT-M046-02: should return totalResponses 0 and empty responses array when form has no responses', async () => {
+  it('UT-M047-02: should return totalResponses 0 and empty responses array when form has no responses', async () => {
     const input = {
       eventId: 'e1000000-0000-0000-0000-000000000001',
       type: FormType.REGISTRATION,
@@ -717,16 +717,16 @@ describe('FormCrudService - getFormResponses', () => {
 
     const result = await service.getFormResponses(input.eventId, input.type);
 
-    // console.log('[UT-M046-02] Input :', input);
-    // console.log('[UT-M046-02] Expected :', expected);
-    // console.log('[UT-M046-02] Actual :', result);
+    // console.log('[UT-M047-02] Input :', input);
+    // console.log('[UT-M047-02] Expected :', expected);
+    // console.log('[UT-M047-02] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(result.totalResponses).toBe(0);
     expect(result.responses).toEqual([]);
   });
 
-  it('UT-M046-03: should return correct response structure when form has responses with all fields answered', async () => {
+  it('UT-M047-03: should return correct response structure when form has responses with all fields answered', async () => {
     const input = {
       eventId: 'e1000000-0000-0000-0000-000000000007',
       type: FormType.REGISTRATION,
@@ -812,14 +812,14 @@ describe('FormCrudService - getFormResponses', () => {
 
     const result = await service.getFormResponses(input.eventId, input.type);
 
-    // console.log('[UT-M046-03] Input :', input);
-    // console.log('[UT-M046-03] Expected :', expected);
-    // console.log('[UT-M046-03] Actual :', result);
+    // console.log('[UT-M047-03] Input :', input);
+    // console.log('[UT-M047-03] Expected :', expected);
+    // console.log('[UT-M047-03] Actual :', result);
 
     expect(result).toEqual(expected);
   });
 
-  it('UT-M046-04: should return type-appropriate default values for fields missing fieldResponse', async () => {
+  it('UT-M047-04: should return type-appropriate default values for fields missing fieldResponse', async () => {
     const input = {
       eventId: 'e1000000-0000-0000-0000-000000000005',
       type: FormType.REGISTRATION,
@@ -891,9 +891,9 @@ describe('FormCrudService - getFormResponses', () => {
 
     const result = await service.getFormResponses(input.eventId, input.type);
 
-    // console.log('[UT-M046-04] Input :', input);
-    // console.log('[UT-M046-04] Expected :', expected);
-    // console.log('[UT-M046-04] Actual :', result);
+    // console.log('[UT-M047-04] Input :', input);
+    // console.log('[UT-M047-04] Expected :', expected);
+    // console.log('[UT-M047-04] Actual :', result);
 
     expect(result).toEqual(expected);
   });
@@ -913,7 +913,7 @@ describe('FormCrudService - getFormResponsesSummary', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M047-01: should throw FormNotFoundException when form is not found', async () => {
+  it('UT-M048-01: should throw FormNotFoundException when form is not found', async () => {
     const input = {
       eventId: 'e1000000-0000-0000-0000-000000000005',
       type: FormType.FEEDBACK,
@@ -929,7 +929,7 @@ describe('FormCrudService - getFormResponsesSummary', () => {
     ).rejects.toThrow('Form not found.');
   });
 
-  it('UT-M047-02: should return totalResponses 0 and empty answers for each field when form has no responses', async () => {
+  it('UT-M048-02: should return totalResponses 0 and empty answers for each field when form has no responses', async () => {
     const input = {
       eventId: 'e1000000-0000-0000-0000-000000000003',
       type: FormType.FEEDBACK,
@@ -966,16 +966,16 @@ describe('FormCrudService - getFormResponsesSummary', () => {
       input.eventId,
       input.type,
     );
-    // console.log('[UT-M047-02] Input :', input);
-    // console.log('[UT-M047-02] Expected :', expected);
-    // console.log('[UT-M047-02] Actual :', result);
+    // console.log('[UT-M048-02] Input :', input);
+    // console.log('[UT-M048-02] Expected :', expected);
+    // console.log('[UT-M048-02] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(result.totalResponses).toBe(0);
     expect(result.summary[0].answers).toEqual([]);
   });
 
-  it('UT-M047-03: should return correct summary when form has 2 responses', async () => {
+  it('UT-M048-03: should return correct summary when form has 2 responses', async () => {
     const input = {
       eventId: 'e1000000-0000-0000-0000-000000000001',
       type: FormType.FEEDBACK,
@@ -1051,14 +1051,14 @@ describe('FormCrudService - getFormResponsesSummary', () => {
       input.eventId,
       input.type,
     );
-    // console.log('[UT-M047-03] Input :', input);
-    // console.log('[UT-M047-03] Expected :', expected);
-    // console.log('[UT-M047-03] Actual :', result);
+    // console.log('[UT-M048-03] Input :', input);
+    // console.log('[UT-M048-03] Expected :', expected);
+    // console.log('[UT-M048-03] Actual :', result);
 
     expect(result).toEqual(expected);
   });
 
-  it('UT-M047-04: should return null as answer value for RATING field with no matching fieldResponse', async () => {
+  it('UT-M048-04: should return null as answer value for RATING field with no matching fieldResponse', async () => {
     const input = {
       eventId: 'e1000000-0000-0000-0000-000000000001',
       type: FormType.FEEDBACK,
@@ -1108,9 +1108,9 @@ describe('FormCrudService - getFormResponsesSummary', () => {
       input.type,
     );
 
-    // console.log('[UT-M047-04] Input :', input);
-    // console.log('[UT-M047-04] Expected :', expected);
-    // console.log('[UT-M047-04] Actual :', result);
+    // console.log('[UT-M048-04] Input :', input);
+    // console.log('[UT-M048-04] Expected :', expected);
+    // console.log('[UT-M048-04] Actual :', result);
 
     expect(result).toEqual(expected);
   });
@@ -1130,7 +1130,7 @@ describe('FormCrudService - mapToReturnFormWithFields', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M048-01: should return fully mapped ReturnFormWithFields when full form object is provided', () => {
+  it('UT-M050-01: should return fully mapped ReturnFormWithFields when full form object is provided', () => {
     const input = {
       id: 'f1000000-0000-0000-0000-000000000001',
       eventId: 'e1000000-0000-0000-0000-000000000001',
@@ -1172,14 +1172,14 @@ describe('FormCrudService - mapToReturnFormWithFields', () => {
 
     const result = (service as any).mapToReturnFormWithFields(input);
 
-    // console.log('[UT-M048-01] Input :', input);
-    // console.log('[UT-M048-01] Expected :', expected);
-    // console.log('[UT-M048-01] Actual :', result);
+    // console.log('[UT-M050-01] Input :', input);
+    // console.log('[UT-M050-01] Expected :', expected);
+    // console.log('[UT-M050-01] Actual :', result);
 
     expect(result).toEqual(expected);
   });
 
-  it('UT-M048-02: should return null for title and description when both are null', () => {
+  it('UT-M050-02: should return null for title and description when both are null', () => {
     const input = {
       id: 'f1000000-0000-0000-0000-000000000001',
       eventId: 'e1000000-0000-0000-0000-000000000001',
@@ -1199,16 +1199,16 @@ describe('FormCrudService - mapToReturnFormWithFields', () => {
 
     const result = (service as any).mapToReturnFormWithFields(input);
 
-    // console.log('[UT-M048-02] Input :', input);
-    // console.log('[UT-M048-02] Expected :', expected);
-    // console.log('[UT-M048-02] Actual :', result);
+    // console.log('[UT-M050-02] Input :', input);
+    // console.log('[UT-M050-02] Expected :', expected);
+    // console.log('[UT-M050-02] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(result.title).toBeNull();
     expect(result.description).toBeNull();
   });
 
-  it('UT-M048-03: should return empty fields array when form has no fields', () => {
+  it('UT-M050-03: should return empty fields array when form has no fields', () => {
     const input = {
       id: 'f1000000-0000-0000-0000-000000000001',
       eventId: 'e1000000-0000-0000-0000-000000000001',
@@ -1228,15 +1228,15 @@ describe('FormCrudService - mapToReturnFormWithFields', () => {
 
     const result = (service as any).mapToReturnFormWithFields(input);
 
-    // console.log('[UT-M048-03] Input :', input);
-    // console.log('[UT-M048-03] Expected :', expected);
-    // console.log('[UT-M048-03] Actual :', result);
+    // console.log('[UT-M050-03] Input :', input);
+    // console.log('[UT-M050-03] Expected :', expected);
+    // console.log('[UT-M050-03] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(result.fields).toEqual([]);
   });
 
-  it('UT-M048-04: should return empty fields array when form.fields is not an array', () => {
+  it('UT-M050-04: should return empty fields array when form.fields is not an array', () => {
     const input = {
       id: 'f1000000-0000-0000-0000-000000000001',
       eventId: 'e1000000-0000-0000-0000-000000000001',
@@ -1256,15 +1256,15 @@ describe('FormCrudService - mapToReturnFormWithFields', () => {
 
     const result = (service as any).mapToReturnFormWithFields(input);
 
-    // console.log('[UT-M048-04] Input :', input);
-    // console.log('[UT-M048-04] Expected :', expected);
-    // console.log('[UT-M048-04] Actual :', result);
+    // console.log('[UT-M050-04] Input :', input);
+    // console.log('[UT-M050-04] Expected :', expected);
+    // console.log('[UT-M050-04] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(result.fields).toEqual([]);
   });
 
-  it('UT-M048-05: should default options to [] when field.options is null', () => {
+  it('UT-M050-05: should default options to [] when field.options is null', () => {
     const input = {
       id: 'f1000000-0000-0000-0000-000000000001',
       eventId: 'e1000000-0000-0000-0000-000000000001',
@@ -1306,15 +1306,15 @@ describe('FormCrudService - mapToReturnFormWithFields', () => {
 
     const result = (service as any).mapToReturnFormWithFields(input);
 
-    // console.log('[UT-M048-05] Input :', input);
-    // console.log('[UT-M048-05] Expected :', expected);
-    // console.log('[UT-M048-05] Actual :', result);
+    // console.log('[UT-M050-05] Input :', input);
+    // console.log('[UT-M050-05] Expected :', expected);
+    // console.log('[UT-M050-05] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(result.fields[0].options).toEqual([]);
   });
 
-  it('UT-M048-06: should default autoFillKey to null when field.autoFillKey is null', () => {
+  it('UT-M050-06: should default autoFillKey to null when field.autoFillKey is null', () => {
     const input = {
       id: 'f1000000-0000-0000-0000-000000000001',
       eventId: 'e1000000-0000-0000-0000-000000000001',
@@ -1356,15 +1356,15 @@ describe('FormCrudService - mapToReturnFormWithFields', () => {
 
     const result = (service as any).mapToReturnFormWithFields(input);
 
-    // console.log('[UT-M048-06] Input :', input);
-    // console.log('[UT-M048-06] Expected :', expected);
-    // console.log('[UT-M048-06] Actual :', result);
+    // console.log('[UT-M050-06] Input :', input);
+    // console.log('[UT-M050-06] Expected :', expected);
+    // console.log('[UT-M050-06] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(result.fields[0].autoFillKey).toBeNull();
   });
 
-  it('UT-M048-07: should map multiple fields in correct order', () => {
+  it('UT-M050-07: should map multiple fields in correct order', () => {
     const input = {
       id: 'f1000000-0000-0000-0000-000000000001',
       eventId: 'e1000000-0000-0000-0000-000000000001',
@@ -1446,9 +1446,9 @@ describe('FormCrudService - mapToReturnFormWithFields', () => {
 
     const result = (service as any).mapToReturnFormWithFields(input);
 
-    // console.log('[UT-M048-07] Input :', input);
-    // console.log('[UT-M048-07] Expected :', expected);
-    // console.log('[UT-M048-07] Actual :', result);
+    // console.log('[UT-M050-07] Input :', input);
+    // console.log('[UT-M050-07] Expected :', expected);
+    // console.log('[UT-M050-07] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(result.fields).toHaveLength(3);
@@ -1472,137 +1472,137 @@ describe('FormCrudService - resolveFieldValue', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-MX003-01: should return empty string when fieldResponse is null and fieldType is TEXT', () => {
+  it('UT-M049-01: should return empty string when fieldResponse is null and fieldType is TEXT', () => {
     const input = { fieldResponse: null, fieldType: FieldType.TEXT };
     const expected = '';
     const result = (service as any).resolveFieldValue(
       input.fieldResponse,
       input.fieldType,
     );
-    // console.log('[UT-MX003-01] Input :', input);
-    // console.log('[UT-MX003-01] Expected :', expected);
-    // console.log('[UT-MX003-01] Actual :', result);
+    // console.log('[UT-M049-01] Input :', input);
+    // console.log('[UT-M049-01] Expected :', expected);
+    // console.log('[UT-M049-01] Actual :', result);
     expect(result).toBe(expected);
   });
 
-  it('UT-MX003-02: should return empty string when fieldResponse is null and fieldType is TEXTAREA', () => {
+  it('UT-M049-02: should return empty string when fieldResponse is null and fieldType is TEXTAREA', () => {
     const input = { fieldResponse: null, fieldType: FieldType.TEXTAREA };
     const expected = '';
     const result = (service as any).resolveFieldValue(
       input.fieldResponse,
       input.fieldType,
     );
-    // console.log('[UT-MX003-02] Input :', input);
-    // console.log('[UT-MX003-02] Expected :', expected);
-    // console.log('[UT-MX003-02] Actual :', result);
+    // console.log('[UT-M049-02] Input :', input);
+    // console.log('[UT-M049-02] Expected :', expected);
+    // console.log('[UT-M049-02] Actual :', result);
     expect(result).toBe(expected);
   });
 
-  it('UT-MX003-03: should return null when fieldResponse is null and fieldType is NUMBER', () => {
+  it('UT-M049-03: should return null when fieldResponse is null and fieldType is NUMBER', () => {
     const input = { fieldResponse: null, fieldType: FieldType.NUMBER };
     const expected = null;
     const result = (service as any).resolveFieldValue(
       input.fieldResponse,
       input.fieldType,
     );
-    // console.log('[UT-MX003-03] Input :', input);
-    // console.log('[UT-MX003-03] Expected :', expected);
-    // console.log('[UT-MX003-03] Actual :', result);
+    // console.log('[UT-M049-03] Input :', input);
+    // console.log('[UT-M049-03] Expected :', expected);
+    // console.log('[UT-M049-03] Actual :', result);
     expect(result).toBeNull();
   });
 
-  it('UT-MX003-04: should return null when fieldResponse is null and fieldType is RATING', () => {
+  it('UT-M049-04: should return null when fieldResponse is null and fieldType is RATING', () => {
     const input = { fieldResponse: null, fieldType: FieldType.RATING };
     const expected = null;
     const result = (service as any).resolveFieldValue(
       input.fieldResponse,
       input.fieldType,
     );
-    // console.log('[UT-MX003-04] Input :', input);
-    // console.log('[UT-MX003-04] Expected :', expected);
-    // console.log('[UT-MX003-04] Actual :', result);
+    // console.log('[UT-M049-04] Input :', input);
+    // console.log('[UT-M049-04] Expected :', expected);
+    // console.log('[UT-M049-04] Actual :', result);
     expect(result).toBeNull();
   });
 
-  it('UT-MX003-05: should return null when fieldResponse is null and fieldType is DATE', () => {
+  it('UT-M049-05: should return null when fieldResponse is null and fieldType is DATE', () => {
     const input = { fieldResponse: null, fieldType: FieldType.DATE };
     const expected = null;
     const result = (service as any).resolveFieldValue(
       input.fieldResponse,
       input.fieldType,
     );
-    // console.log('[UT-MX003-05] Input :', input);
-    // console.log('[UT-MX003-05] Expected :', expected);
-    // console.log('[UT-MX003-05] Actual :', result);
+    // console.log('[UT-M049-05] Input :', input);
+    // console.log('[UT-M049-05] Expected :', expected);
+    // console.log('[UT-M049-05] Actual :', result);
     expect(result).toBeNull();
   });
 
-  it('UT-MX003-06: should return [] when fieldResponse is null and fieldType is CHOICE', () => {
+  it('UT-M049-06: should return [] when fieldResponse is null and fieldType is CHOICE', () => {
     const input = { fieldResponse: null, fieldType: FieldType.CHOICE };
     const expected: string[] = [];
     const result = (service as any).resolveFieldValue(
       input.fieldResponse,
       input.fieldType,
     );
-    // console.log('[UT-MX003-06] Input :', input);
-    // console.log('[UT-MX003-06] Expected :', expected);
-    // console.log('[UT-MX003-06] Actual :', result);
+    // console.log('[UT-M049-06] Input :', input);
+    // console.log('[UT-M049-06] Expected :', expected);
+    // console.log('[UT-M049-06] Actual :', result);
     expect(result).toEqual(expected);
   });
 
-  it('UT-MX003-07: should return [] when fieldResponse is null and fieldType is CHECKBOX', () => {
+  it('UT-M049-07: should return [] when fieldResponse is null and fieldType is CHECKBOX', () => {
     const input = { fieldResponse: null, fieldType: FieldType.CHECKBOX };
     const expected: string[] = [];
     const result = (service as any).resolveFieldValue(
       input.fieldResponse,
       input.fieldType,
     );
-    // console.log('[UT-MX003-07] Input :', input);
-    // console.log('[UT-MX003-07] Expected :', expected);
-    // console.log('[UT-MX003-07] Actual :', result);
+    // console.log('[UT-M049-07] Input :', input);
+    // console.log('[UT-M049-07] Expected :', expected);
+    // console.log('[UT-M049-07] Actual :', result);
     expect(result).toEqual(expected);
   });
 
-  it('UT-MX003-08: should return "" when fieldResponse is undefined and fieldType is TEXT', () => {
+  it('UT-M049-08: should return "" when fieldResponse is undefined and fieldType is TEXT', () => {
     const input = { fieldResponse: undefined, fieldType: FieldType.TEXT };
     const expected = '';
     const result = (service as any).resolveFieldValue(
       input.fieldResponse,
       input.fieldType,
     );
-    // console.log('[UT-MX003-08] Input :', input);
-    // console.log('[UT-MX003-08] Expected :', expected);
-    // console.log('[UT-MX003-08] Actual :', result);
+    // console.log('[UT-M049-08] Input :', input);
+    // console.log('[UT-M049-08] Expected :', expected);
+    // console.log('[UT-M049-08] Actual :', result);
     expect(result).toBe(expected);
   });
 
-  it('UT-MX003-09: should return null when fieldResponse is undefined and fieldType is NUMBER', () => {
+  it('UT-M049-09: should return null when fieldResponse is undefined and fieldType is NUMBER', () => {
     const input = { fieldResponse: undefined, fieldType: FieldType.NUMBER };
     const expected = null;
     const result = (service as any).resolveFieldValue(
       input.fieldResponse,
       input.fieldType,
     );
-    // console.log('[UT-MX003-09] Input :', input);
-    // console.log('[UT-MX003-09] Expected :', expected);
-    // console.log('[UT-MX003-09] Actual :', result);
+    // console.log('[UT-M049-09] Input :', input);
+    // console.log('[UT-M049-09] Expected :', expected);
+    // console.log('[UT-M049-09] Actual :', result);
     expect(result).toBeNull();
   });
 
-  it('UT-MX003-10: should return [] when fieldResponse is undefined and fieldType is CHOICE', () => {
+  it('UT-M049-10: should return [] when fieldResponse is undefined and fieldType is CHOICE', () => {
     const input = { fieldResponse: undefined, fieldType: FieldType.CHOICE };
     const expected: string[] = [];
     const result = (service as any).resolveFieldValue(
       input.fieldResponse,
       input.fieldType,
     );
-    // console.log('[UT-MX003-10] Input :', input);
-    // console.log('[UT-MX003-10] Expected :', expected);
-    // console.log('[UT-MX003-10] Actual :', result);
+    // console.log('[UT-M049-10] Input :', input);
+    // console.log('[UT-M049-10] Expected :', expected);
+    // console.log('[UT-M049-10] Actual :', result);
     expect(result).toEqual(expected);
   });
 
-  it('UT-MX003-11: should return valueText when TEXT field has string value', () => {
+  it('UT-M049-11: should return valueText when TEXT field has string value', () => {
     const input = {
       fieldResponse: {
         valueText: 'Min Thant Ko',
@@ -1617,13 +1617,13 @@ describe('FormCrudService - resolveFieldValue', () => {
       input.fieldResponse,
       input.fieldType,
     );
-    // console.log('[UT-MX003-11] Input :', input);
-    // console.log('[UT-MX003-11] Expected :', expected);
-    // console.log('[UT-MX003-11] Actual :', result);
+    // console.log('[UT-M049-11] Input :', input);
+    // console.log('[UT-M049-11] Expected :', expected);
+    // console.log('[UT-M049-11] Actual :', result);
     expect(result).toBe(expected);
   });
 
-  it('UT-MX003-12: should return "" when TEXT field has null valueText', () => {
+  it('UT-M049-12: should return "" when TEXT field has null valueText', () => {
     const input = {
       fieldResponse: {
         valueText: null,
@@ -1638,13 +1638,13 @@ describe('FormCrudService - resolveFieldValue', () => {
       input.fieldResponse,
       input.fieldType,
     );
-    // console.log('[UT-MX003-12] Input :', input);
-    // console.log('[UT-MX003-12] Expected :', expected);
-    // console.log('[UT-MX003-12] Actual :', result);
+    // console.log('[UT-M049-12] Input :', input);
+    // console.log('[UT-M049-12] Expected :', expected);
+    // console.log('[UT-M049-12] Actual :', result);
     expect(result).toBe(expected);
   });
 
-  it('UT-MX003-13: should return "" when TEXTAREA field has null valueText', () => {
+  it('UT-M049-13: should return "" when TEXTAREA field has null valueText', () => {
     const input = {
       fieldResponse: {
         valueText: null,
@@ -1659,13 +1659,13 @@ describe('FormCrudService - resolveFieldValue', () => {
       input.fieldResponse,
       input.fieldType,
     );
-    // console.log('[UT-MX003-13] Input :', input);
-    // console.log('[UT-MX003-13] Expected :', expected);
-    // console.log('[UT-MX003-13] Actual :', result);
+    // console.log('[UT-M049-13] Input :', input);
+    // console.log('[UT-M049-13] Expected :', expected);
+    // console.log('[UT-M049-13] Actual :', result);
     expect(result).toBe(expected);
   });
 
-  it('UT-MX003-14: should call toNumber() and return 25 when NUMBER field has valueNumber present', () => {
+  it('UT-M049-14: should call toNumber() and return 25 when NUMBER field has valueNumber present', () => {
     const toNumber = jest.fn().mockReturnValue(25);
     const input = {
       fieldResponse: {
@@ -1681,14 +1681,14 @@ describe('FormCrudService - resolveFieldValue', () => {
       input.fieldResponse,
       input.fieldType,
     );
-    // console.log('[UT-MX003-14] Input :', input);
-    // console.log('[UT-MX003-14] Expected :', expected);
-    // console.log('[UT-MX003-14] Actual :', result);
+    // console.log('[UT-M049-14] Input :', input);
+    // console.log('[UT-M049-14] Expected :', expected);
+    // console.log('[UT-M049-14] Actual :', result);
     expect(result).toBe(expected);
     expect(toNumber).toHaveBeenCalled();
   });
 
-  it('UT-MX003-15: should return null when NUMBER field has null valueNumber', () => {
+  it('UT-M049-15: should return null when NUMBER field has null valueNumber', () => {
     const input = {
       fieldResponse: {
         valueText: null,
@@ -1703,13 +1703,13 @@ describe('FormCrudService - resolveFieldValue', () => {
       input.fieldResponse,
       input.fieldType,
     );
-    // console.log('[UT-MX003-15] Input :', input);
-    // console.log('[UT-MX003-15] Expected :', expected);
-    // console.log('[UT-MX003-15] Actual :', result);
+    // console.log('[UT-M049-15] Input :', input);
+    // console.log('[UT-M049-15] Expected :', expected);
+    // console.log('[UT-M049-15] Actual :', result);
     expect(result).toBeNull();
   });
 
-  it('UT-MX003-16: should call toNumber() and return 4 when RATING field has valueNumber present', () => {
+  it('UT-M049-16: should call toNumber() and return 4 when RATING field has valueNumber present', () => {
     const toNumber = jest.fn().mockReturnValue(4);
     const input = {
       fieldResponse: {
@@ -1725,14 +1725,14 @@ describe('FormCrudService - resolveFieldValue', () => {
       input.fieldResponse,
       input.fieldType,
     );
-    // console.log('[UT-MX003-16] Input :', input);
-    // console.log('[UT-MX003-16] Expected :', expected);
-    // console.log('[UT-MX003-16] Actual :', result);
+    // console.log('[UT-M049-16] Input :', input);
+    // console.log('[UT-M049-16] Expected :', expected);
+    // console.log('[UT-M049-16] Actual :', result);
     expect(result).toBe(expected);
     expect(toNumber).toHaveBeenCalled();
   });
 
-  it('UT-MX003-17: should return null when RATING field has null valueNumber', () => {
+  it('UT-M049-17: should return null when RATING field has null valueNumber', () => {
     const input = {
       fieldResponse: {
         valueText: null,
@@ -1747,13 +1747,13 @@ describe('FormCrudService - resolveFieldValue', () => {
       input.fieldResponse,
       input.fieldType,
     );
-    // console.log('[UT-MX003-17] Input :', input);
-    // console.log('[UT-MX003-17] Expected :', expected);
-    // console.log('[UT-MX003-17] Actual :', result);
+    // console.log('[UT-M049-17] Input :', input);
+    // console.log('[UT-M049-17] Expected :', expected);
+    // console.log('[UT-M049-17] Actual :', result);
     expect(result).toBeNull();
   });
 
-  it('UT-MX003-18: should return the Date object when DATE field has valid valueDate', () => {
+  it('UT-M049-18: should return the Date object when DATE field has valid valueDate', () => {
     const mockDate = new Date('2026-12-01T00:00:00.000Z');
     const input = {
       fieldResponse: {
@@ -1769,13 +1769,13 @@ describe('FormCrudService - resolveFieldValue', () => {
       input.fieldResponse,
       input.fieldType,
     );
-    // console.log('[UT-MX003-18] Input :', input);
-    // console.log('[UT-MX003-18] Expected :', expected);
-    // console.log('[UT-MX003-18] Actual :', result);
+    // console.log('[UT-M049-18] Input :', input);
+    // console.log('[UT-M049-18] Expected :', expected);
+    // console.log('[UT-M049-18] Actual :', result);
     expect(result).toBe(expected);
   });
 
-  it('UT-MX003-19: should return null when DATE field has null valueDate', () => {
+  it('UT-M049-19: should return null when DATE field has null valueDate', () => {
     const input = {
       fieldResponse: {
         valueText: null,
@@ -1790,13 +1790,13 @@ describe('FormCrudService - resolveFieldValue', () => {
       input.fieldResponse,
       input.fieldType,
     );
-    // console.log('[UT-MX003-19] Input :', input);
-    // console.log('[UT-MX003-19] Expected :', expected);
-    // console.log('[UT-MX003-19] Actual :', result);
+    // console.log('[UT-M049-19] Input :', input);
+    // console.log('[UT-M049-19] Expected :', expected);
+    // console.log('[UT-M049-19] Actual :', result);
     expect(result).toBeNull();
   });
 
-  it('UT-MX003-20: should return valueArray when CHOICE field has selected values', () => {
+  it('UT-M049-20: should return valueArray when CHOICE field has selected values', () => {
     const input = {
       fieldResponse: {
         valueText: null,
@@ -1811,13 +1811,13 @@ describe('FormCrudService - resolveFieldValue', () => {
       input.fieldResponse,
       input.fieldType,
     );
-    // console.log('[UT-MX003-20] Input :', input);
-    // console.log('[UT-MX003-20] Expected :', expected);
-    // console.log('[UT-MX003-20] Actual :', result);
+    // console.log('[UT-M049-20] Input :', input);
+    // console.log('[UT-M049-20] Expected :', expected);
+    // console.log('[UT-M049-20] Actual :', result);
     expect(result).toEqual(expected);
   });
 
-  it('UT-MX003-21: should return [] when CHOICE field has empty valueArray', () => {
+  it('UT-M049-21: should return [] when CHOICE field has empty valueArray', () => {
     const input = {
       fieldResponse: {
         valueText: null,
@@ -1832,13 +1832,13 @@ describe('FormCrudService - resolveFieldValue', () => {
       input.fieldResponse,
       input.fieldType,
     );
-    // console.log('[UT-MX003-21] Input :', input);
-    // console.log('[UT-MX003-21] Expected :', expected);
-    // console.log('[UT-MX003-21] Actual :', result);
+    // console.log('[UT-M049-21] Input :', input);
+    // console.log('[UT-M049-21] Expected :', expected);
+    // console.log('[UT-M049-21] Actual :', result);
     expect(result).toEqual(expected);
   });
 
-  it('UT-MX003-22: should return valueArray when CHECKBOX field has multiple values', () => {
+  it('UT-M049-22: should return valueArray when CHECKBOX field has multiple values', () => {
     const input = {
       fieldResponse: {
         valueText: null,
@@ -1853,26 +1853,26 @@ describe('FormCrudService - resolveFieldValue', () => {
       input.fieldResponse,
       input.fieldType,
     );
-    // console.log('[UT-MX003-22] Input :', input);
-    // console.log('[UT-MX003-22] Expected :', expected);
-    // console.log('[UT-MX003-22] Actual :', result);
+    // console.log('[UT-M049-22] Input :', input);
+    // console.log('[UT-M049-22] Expected :', expected);
+    // console.log('[UT-M049-22] Actual :', result);
     expect(result).toEqual(expected);
   });
 
-  it('UT-MX003-23: should return null when fieldResponse is null and fieldType is unknown', () => {
+  it('UT-M049-23: should return null when fieldResponse is null and fieldType is unknown', () => {
     const input = { fieldResponse: null, fieldType: 'UNKNOWN' as FieldType };
     const expected = null;
     const result = (service as any).resolveFieldValue(
       input.fieldResponse,
       input.fieldType,
     );
-    // console.log('[UT-MX003-23] Input :', input);
-    // console.log('[UT-MX003-23] Expected :', expected);
-    // console.log('[UT-MX003-23] Actual :', result);
+    // console.log('[UT-M049-23] Input :', input);
+    // console.log('[UT-M049-23] Expected :', expected);
+    // console.log('[UT-M049-23] Actual :', result);
     expect(result).toBeNull();
   });
 
-  it('UT-MX003-24: should return null when fieldResponse is present and fieldType is unknown', () => {
+  it('UT-M049-24: should return null when fieldResponse is present and fieldType is unknown', () => {
     const input = {
       fieldResponse: {
         valueText: 'some',
@@ -1887,9 +1887,9 @@ describe('FormCrudService - resolveFieldValue', () => {
       input.fieldResponse,
       input.fieldType,
     );
-    // console.log('[UT-MX003-24] Input :', input);
-    // console.log('[UT-MX003-24] Expected :', expected);
-    // console.log('[UT-MX003-24] Actual :', result);
+    // console.log('[UT-M049-24] Input :', input);
+    // console.log('[UT-M049-24] Expected :', expected);
+    // console.log('[UT-M049-24] Actual :', result);
     expect(result).toBeNull();
   });
 });

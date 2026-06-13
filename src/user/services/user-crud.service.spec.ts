@@ -97,7 +97,6 @@ const mockMinimalOrganizerProfile = {
   createdAt: new Date('2026-02-15T00:00:00.000Z'),
 };
 
-// factory for full create participant dto
 const createParticipantDto = () => ({
   firstName: 'Arisa',
   lastName: 'Tanaka',
@@ -143,7 +142,7 @@ describe('UserCrudService - getUserById', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M066-01: should return mapped ReturnUserDto when user exists with both profiles', async () => {
+  it('UT-M067-01: should return mapped ReturnUserDto when user exists with both profiles', async () => {
     const input = { userId: MOCK_USER_ID_1 };
     const mockFoundUser = {
       id: MOCK_USER_ID_1,
@@ -159,9 +158,9 @@ describe('UserCrudService - getUserById', () => {
 
     const result = await service.getUserById(input.userId);
 
-    // console.log('[UT-M066-01] Input :', input);
-    // console.log('[UT-M066-01] Expected :', mockFoundUser);
-    // console.log('[UT-M066-01] Actual :', result);
+    // console.log('[UT-M067-01] Input :', input);
+    // console.log('[UT-M067-01] Expected :', mockFoundUser);
+    // console.log('[UT-M067-01] Actual :', result);
 
     expect(result.id).toBe(MOCK_USER_ID_1);
     expect(result.participantProfile).not.toBeNull();
@@ -176,7 +175,7 @@ describe('UserCrudService - getUserById', () => {
     expect(mockPrisma.user.findUnique).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-M066-02: should return mapped ReturnUserDto when user exists with only participant profile', async () => {
+  it('UT-M067-02: should return mapped ReturnUserDto when user exists with only participant profile', async () => {
     const input = { userId: MOCK_USER_ID_2 };
     const mockFoundUser = {
       id: MOCK_USER_ID_2,
@@ -192,15 +191,15 @@ describe('UserCrudService - getUserById', () => {
 
     const result = await service.getUserById(input.userId);
 
-    // console.log('[UT-M066-02] Input :', input);
-    // console.log('[UT-M066-02] Expected participantProfile: not null | organizerProfile: null');
-    // console.log('[UT-M066-02] Actual result:', result);
+    // console.log('[UT-M067-02] Input :', input);
+    // console.log('[UT-M067-02] Expected: ', mockFoundUser);
+    // console.log('[UT-M067-02] Actual result:', result);
 
     expect(result.participantProfile).not.toBeNull();
     expect(result.organizerProfile).toBeNull();
   });
 
-  it('UT-M066-03: should return mapped ReturnUserDto when user exists with only organizer profile', async () => {
+  it('UT-M067-03: should return mapped ReturnUserDto when user exists with only organizer profile', async () => {
     const input = { userId: MOCK_USER_ID_3 };
     const mockFoundUser = {
       id: MOCK_USER_ID_3,
@@ -216,15 +215,15 @@ describe('UserCrudService - getUserById', () => {
 
     const result = await service.getUserById(input.userId);
 
-    // console.log('[UT-M066-03] Input :', input);
-    // console.log('[UT-M066-03] Expected participantProfile: null | organizerProfile: not null');
-    // console.log('[UT-M066-03] Actual result:', result);
+    // console.log('[UT-M067-03] Input :', input);
+    // console.log('[UT-M067-03] Expected :', mockFoundUser);
+    // console.log('[UT-M067-03] Actual result:', result);
 
     expect(result.participantProfile).toBeNull();
     expect(result.organizerProfile).not.toBeNull();
   });
 
-  it('UT-M066-04: should return mapped ReturnUserDto when user exists with no profiles', async () => {
+  it('UT-M067-04: should return mapped ReturnUserDto when user exists with no profiles', async () => {
     const input = { userId: 'u4000000-0000-0000-0000-000000000004' };
     const mockFoundUser = {
       id: input.userId,
@@ -239,17 +238,17 @@ describe('UserCrudService - getUserById', () => {
     mockPrisma.user.findUnique.mockResolvedValue(mockFoundUser);
 
     const result = await service.getUserById(input.userId);
-    // console.log('[UT-M066-04] Input :', input);
-    // console.log('[UT-M066-04] Expected currentRole: null | participantProfile: null | organizerProfile: null');
-    // console.log('[UT-M066-04] Expected result:', mockFoundUser);
-    // console.log('[UT-M066-04] Actual result:', result);
+    // console.log('[UT-M067-04] Input :', input);
+    // console.log('[UT-M067-04] Expected currentRole: null | participantProfile: null | organizerProfile: null');
+    // console.log('[UT-M067-04] Expected result:', mockFoundUser);
+    // console.log('[UT-M067-04] Actual result:', result);
 
     expect(result.currentRole).toBeNull();
     expect(result.participantProfile).toBeNull();
     expect(result.organizerProfile).toBeNull();
   });
 
-  it('UT-M066-05: should throw UserNotFoundException when user not found', async () => {
+  it('UT-M067-05: should throw UserNotFoundException when user not found', async () => {
     const input = { userId: 'u9999999-9999-9999-9999-999999999999' };
     mockPrisma.user.findUnique.mockResolvedValueOnce(null);
 
@@ -269,7 +268,7 @@ describe('UserCrudService - updateUserRole', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M067-01: should resolve without error when updating role to PARTICIPANT', async () => {
+  it('UT-M068-01: should resolve without error when updating role to PARTICIPANT', async () => {
     const input = { userId: MOCK_USER_ID_1, role: Role.PARTICIPANT };
     mockPrisma.user.update.mockResolvedValue({
       id: input.userId,
@@ -280,9 +279,9 @@ describe('UserCrudService - updateUserRole', () => {
       service.updateUserRole(input.userId, input.role),
     ).resolves.toBeUndefined();
 
-    // console.log('[UT-M067-01] Input :', input);
-    // console.log('[UT-M067-01] Expected:');
-    // console.log('[UT-M067-01] Actual : no throw');
+    // console.log('[UT-M068-01] Input :', input);
+    // console.log('[UT-M068-01] Expected:');
+    // console.log('[UT-M068-01] Actual : no throw');
 
     expect(mockPrisma.user.update).toHaveBeenCalledWith({
       where: { id: input.userId },
@@ -291,7 +290,7 @@ describe('UserCrudService - updateUserRole', () => {
     expect(mockPrisma.user.update).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-M067-02: should resolve without error when updating role to ORGANIZER', async () => {
+  it('UT-M068-02: should resolve without error when updating role to ORGANIZER', async () => {
     const input = { userId: MOCK_USER_ID_2, role: Role.ORGANIZER };
     mockPrisma.user.update.mockResolvedValue({
       id: input.userId,
@@ -302,9 +301,9 @@ describe('UserCrudService - updateUserRole', () => {
       service.updateUserRole(input.userId, input.role),
     ).resolves.toBeUndefined();
 
-    // console.log('[UT-M067-02] Input :', input);
-    // console.log('[UT-M067-02] Expected : resolves undefined, prisma.user.update called with correct args');
-    // console.log('[UT-M067-02] Actual : no throw');
+    // console.log('[UT-M068-02] Input :', input);
+    // console.log('[UT-M068-02] Expected : resolves undefined, prisma.user.update called with correct args');
+    // console.log('[UT-M068-02] Actual : no throw');
 
     expect(mockPrisma.user.update).toHaveBeenCalledWith({
       where: { id: input.userId },
@@ -312,7 +311,7 @@ describe('UserCrudService - updateUserRole', () => {
     });
   });
 
-  it('UT-M067-03: should resolve without error when updating role to null', async () => {
+  it('UT-M068-03: should resolve without error when updating role to null', async () => {
     const input = { userId: MOCK_USER_ID_1, role: null as any };
     mockPrisma.user.update.mockResolvedValue({
       id: input.userId,
@@ -329,7 +328,7 @@ describe('UserCrudService - updateUserRole', () => {
     });
   });
 
-  it('UT-M067-04: should throw SaveProfileException when prisma update fails', async () => {
+  it('UT-M068-04: should throw SaveProfileException when prisma update fails', async () => {
     const input = { userId: MOCK_USER_ID_1, role: Role.PARTICIPANT };
     mockPrisma.user.update.mockRejectedValueOnce(
       new Error('DB connection failed'),
@@ -356,7 +355,7 @@ describe('UserCrudService - getParticipantProfile', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M068-01: should return mapped ReturnParticipantProfileDto when profile exists with all fields', async () => {
+  it('UT-M069-01: should return mapped ReturnParticipantProfileDto when profile exists with all fields', async () => {
     const input = { userId: MOCK_USER_ID_1 };
     const expected = {
       id: MOCK_PARTICIPANT_PROFILE_ID_1,
@@ -378,9 +377,9 @@ describe('UserCrudService - getParticipantProfile', () => {
 
     const result = await service.getParticipantProfile(input.userId);
 
-    // console.log('[UT-M068-01] Input :', input);
-    // console.log('[UT-M068-01] Expected :', expected);
-    // console.log('[UT-M068-01] Actual :', result);
+    // console.log('[UT-M069-01] Input :', input);
+    // console.log('[UT-M069-01] Expected :', expected);
+    // console.log('[UT-M069-01] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(mockPrisma.participantProfile.findUnique).toHaveBeenCalledWith({
@@ -389,7 +388,7 @@ describe('UserCrudService - getParticipantProfile', () => {
     expect(mockPrisma.participantProfile.findUnique).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-M068-02: should return mapped dto with defaults when profile has null optional fields', async () => {
+  it('UT-M069-02: should return mapped dto with defaults when profile has null optional fields', async () => {
     const input = { userId: MOCK_USER_ID_2 };
     const expected = {
       id: mockMinimalParticipantProfile.id,
@@ -411,9 +410,9 @@ describe('UserCrudService - getParticipantProfile', () => {
 
     const result = await service.getParticipantProfile(input.userId);
 
-    // console.log('[UT-M068-02] Input :', input);
-    // console.log('[UT-M068-02] Expected :', expected);
-    // console.log('[UT-M068-02] Actual :', result);
+    // console.log('[UT-M069-02] Input :', input);
+    // console.log('[UT-M069-02] Expected :', expected);
+    // console.log('[UT-M069-02] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(result.lastName).toBe('');
@@ -421,7 +420,7 @@ describe('UserCrudService - getParticipantProfile', () => {
     expect(result.preferences).toEqual(DEFAULT_PREFERENCES);
   });
 
-  it('UT-M068-03: should throw ProfileNotFoundException when participant profile not found', async () => {
+  it('UT-M069-03: should throw ProfileNotFoundException when participant profile not found', async () => {
     const input = { userId: 'u9999999-9999-9999-9999-999999999999' };
     mockPrisma.participantProfile.findUnique.mockResolvedValueOnce(null);
 
@@ -441,7 +440,7 @@ describe('UserCrudService - createParticipantProfile', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M069-01: should create and return mapped ReturnParticipantProfileDto with full dto', async () => {
+  it('UT-M070-01: should create and return mapped ReturnParticipantProfileDto with full dto', async () => {
     const input = {
       userId: 'u5000000-0000-0000-0000-000000000005',
       dto: createParticipantDto(),
@@ -473,9 +472,9 @@ describe('UserCrudService - createParticipantProfile', () => {
       input.dto as any,
     );
 
-    // console.log('[UT-M069-01] Input :', input);
-    // console.log('[UT-M069-01] Expected :', expected);
-    // console.log('[UT-M069-01] Actual :', result);
+    // console.log('[UT-M070-01] Input :', input);
+    // console.log('[UT-M070-01] Expected :', expected);
+    // console.log('[UT-M070-01] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(mockPrisma.participantProfile.create).toHaveBeenCalledWith(
@@ -489,7 +488,7 @@ describe('UserCrudService - createParticipantProfile', () => {
     expect(mockPrisma.participantProfile.create).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-M069-02: should create participant profile with defaults when only firstName provided', async () => {
+  it('UT-M070-02: should create participant profile with defaults when only firstName provided', async () => {
     const input = {
       userId: 'u6000000-0000-0000-0000-000000000006',
       dto: { firstName: 'Somsak' },
@@ -530,16 +529,16 @@ describe('UserCrudService - createParticipantProfile', () => {
       input.dto as any,
     );
 
-    // console.log('[UT-M069-02] Input :', input);
-    // console.log('[UT-M069-02] Expected :', expected);
-    // console.log('[UT-M069-02] Actual :', result);
+    // console.log('[UT-M070-02] Input :', input);
+    // console.log('[UT-M070-02] Expected :', expected);
+    // console.log('[UT-M070-02] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(result.imageUrl).toBe(DEFAULT_PARTICIPANT_IMAGE_URL);
     expect(result.preferences).toEqual(DEFAULT_PREFERENCES);
   });
 
-  it('UT-M069-03: should throw SaveProfileException when prisma create fails', async () => {
+  it('UT-M070-03: should throw SaveProfileException when prisma create fails', async () => {
     const input = {
       userId: 'u7000000-0000-0000-0000-000000000007',
       dto: { firstName: 'Thanida' },
@@ -571,7 +570,7 @@ describe('UserCrudService - updateParticipantProfile', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M070-01: should update and return mapped ReturnParticipantProfileDto with full dto', async () => {
+  it('UT-M071-01: should update and return mapped ReturnParticipantProfileDto with full dto', async () => {
     const input = {
       userId: MOCK_USER_ID_1,
       dto: {
@@ -614,9 +613,9 @@ describe('UserCrudService - updateParticipantProfile', () => {
       input.dto as any,
     );
 
-    // console.log('[UT-M070-01] Input :', input);
-    // console.log('[UT-M070-01] Expected :', expected);
-    // console.log('[UT-M070-01] Actual :', result);
+    // console.log('[UT-M071-01] Input :', input);
+    // console.log('[UT-M071-01] Expected :', expected);
+    // console.log('[UT-M071-01] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(mockPrisma.participantProfile.update).toHaveBeenCalledWith(
@@ -628,7 +627,7 @@ describe('UserCrudService - updateParticipantProfile', () => {
     expect(mockPrisma.participantProfile.update).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-M070-02: should update with partial dto and only send provided fields to prisma', async () => {
+  it('UT-M071-02: should update with partial dto and only send provided fields to prisma', async () => {
     const input = {
       userId: MOCK_USER_ID_2,
       dto: { firstName: 'Updated Name' },
@@ -645,9 +644,9 @@ describe('UserCrudService - updateParticipantProfile', () => {
       input.dto as any,
     );
 
-    // console.log('[UT-M070-02] Input :', input);
-    // console.log('[UT-M070-02] Expected firstName: Updated Name');
-    // console.log('[UT-M070-02] Actual firstName:', result.firstName);
+    // console.log('[UT-M071-02] Input :', input);
+    // console.log('[UT-M071-02] Expected firstName: Updated Name');
+    // console.log('[UT-M071-02] Actual firstName:', result.firstName);
 
     expect(result.firstName).toBe('Updated Name');
     expect(mockPrisma.participantProfile.update).toHaveBeenCalledWith({
@@ -656,7 +655,7 @@ describe('UserCrudService - updateParticipantProfile', () => {
     });
   });
 
-  it('UT-M070-03: should update with empty string fields and persist them', async () => {
+  it('UT-M071-03: should update with empty string fields and persist them', async () => {
     const input = {
       userId: MOCK_USER_ID_3,
       dto: { lastName: '', nickname: '' },
@@ -688,9 +687,9 @@ describe('UserCrudService - updateParticipantProfile', () => {
       input.dto as any,
     );
 
-    // console.log('[UT-M070-03] Input :', input);
-    // console.log('[UT-M070-03] Expected :', expected);
-    // console.log('[UT-M070-03] Actual :', result);
+    // console.log('[UT-M071-03] Input :', input);
+    // console.log('[UT-M071-03] Expected :', expected);
+    // console.log('[UT-M071-03] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(result.lastName).toBe('');
@@ -701,7 +700,7 @@ describe('UserCrudService - updateParticipantProfile', () => {
     });
   });
 
-  it('UT-M070-04: should throw SaveProfileException when prisma update fails', async () => {
+  it('UT-M071-04: should throw SaveProfileException when prisma update fails', async () => {
     const input = { userId: MOCK_USER_ID_1, dto: { firstName: 'Fail Test' } };
     mockPrisma.participantProfile.update.mockRejectedValueOnce(
       new Error('DB connection failed'),
@@ -730,7 +729,7 @@ describe('UserCrudService - getOrganizerProfile', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M071-01: should return mapped ReturnOrganizerProfileDto when profile exists with all fields', async () => {
+  it('UT-M072-01: should return mapped ReturnOrganizerProfileDto when profile exists with all fields', async () => {
     const input = { userId: MOCK_USER_ID_3 };
     const expected = {
       id: MOCK_ORGANIZER_PROFILE_ID_1,
@@ -749,9 +748,9 @@ describe('UserCrudService - getOrganizerProfile', () => {
 
     const result = await service.getOrganizerProfile(input.userId);
 
-    // console.log('[UT-M071-01] Input :', input);
-    // console.log('[UT-M071-01] Expected :', expected);
-    // console.log('[UT-M071-01] Actual :', result);
+    // console.log('[UT-M072-01] Input :', input);
+    // console.log('[UT-M072-01] Expected :', expected);
+    // console.log('[UT-M072-01] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(mockPrisma.organizerProfile.findUnique).toHaveBeenCalledWith({
@@ -760,7 +759,7 @@ describe('UserCrudService - getOrganizerProfile', () => {
     expect(mockPrisma.organizerProfile.findUnique).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-M071-02: should return mapped dto with defaults when profile has null optional fields', async () => {
+  it('UT-M072-02: should return mapped dto with defaults when profile has null optional fields', async () => {
     const input = { userId: MOCK_USER_ID_2 };
     const expected = {
       id: mockMinimalOrganizerProfile.id,
@@ -779,16 +778,16 @@ describe('UserCrudService - getOrganizerProfile', () => {
 
     const result = await service.getOrganizerProfile(input.userId);
 
-    // console.log('[UT-M071-02] Input :', input);
-    // console.log('[UT-M071-02] Expected :', expected);
-    // console.log('[UT-M071-02] Actual :', result);
+    // console.log('[UT-M072-02] Input :', input);
+    // console.log('[UT-M072-02] Expected :', expected);
+    // console.log('[UT-M072-02] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(result.bio).toBe('');
     expect(result.imageUrl).toBe(DEFAULT_ORGANIZER_IMAGE_URL);
   });
 
-  it('UT-M071-03: should throw ProfileNotFoundException when organizer profile not found', async () => {
+  it('UT-M072-03: should throw ProfileNotFoundException when organizer profile not found', async () => {
     const input = { userId: 'u9999999-9999-9999-9999-999999999998' };
     mockPrisma.organizerProfile.findUnique.mockResolvedValueOnce(null);
 
@@ -808,7 +807,7 @@ describe('UserCrudService - createOrganizerProfile', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M072-01: should create and return mapped ReturnOrganizerProfileDto with full dto', async () => {
+  it('UT-M073-01: should create and return mapped ReturnOrganizerProfileDto with full dto', async () => {
     const input = {
       userId: 'u5000000-0000-0000-0000-000000000005',
       dto: createOrganizerDto(),
@@ -837,9 +836,9 @@ describe('UserCrudService - createOrganizerProfile', () => {
       input.dto as any,
     );
 
-    // console.log('[UT-M072-01] Input :', input);
-    // console.log('[UT-M072-01] Expected :', expected);
-    // console.log('[UT-M072-01] Actual :', result);
+    // console.log('[UT-M073-01] Input :', input);
+    // console.log('[UT-M073-01] Expected :', expected);
+    // console.log('[UT-M073-01] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(mockPrisma.organizerProfile.create).toHaveBeenCalledWith(
@@ -853,7 +852,7 @@ describe('UserCrudService - createOrganizerProfile', () => {
     expect(mockPrisma.organizerProfile.create).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-M072-02: should create organizer profile with defaults when only name provided', async () => {
+  it('UT-M073-02: should create organizer profile with defaults when only name provided', async () => {
     const input = {
       userId: 'u6000000-0000-0000-0000-000000000006',
       dto: { name: 'Science Society' },
@@ -888,16 +887,16 @@ describe('UserCrudService - createOrganizerProfile', () => {
       input.dto as any,
     );
 
-    // console.log('[UT-M072-02] Input :', input);
-    // console.log('[UT-M072-02] Expected :', expected);
-    // console.log('[UT-M072-02] Actual :', result);
+    // console.log('[UT-M073-02] Input :', input);
+    // console.log('[UT-M073-02] Expected :', expected);
+    // console.log('[UT-M073-02] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(result.bio).toBe('');
     expect(result.imageUrl).toBe(DEFAULT_ORGANIZER_IMAGE_URL);
   });
 
-  it('UT-M072-03: should throw SaveProfileException when prisma create fails', async () => {
+  it('UT-M073-03: should throw SaveProfileException when prisma create fails', async () => {
     const input = {
       userId: 'u9000000-0000-0000-0000-000000000009',
       dto: { name: 'Duplicate Club' },
@@ -927,7 +926,7 @@ describe('UserCrudService - updateOrganizerProfile', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M073-01: should update and return mapped ReturnOrganizerProfileDto with full dto', async () => {
+  it('UT-M074-01: should update and return mapped ReturnOrganizerProfileDto with full dto', async () => {
     const input = {
       userId: MOCK_USER_ID_3,
       dto: {
@@ -964,9 +963,9 @@ describe('UserCrudService - updateOrganizerProfile', () => {
       input.dto as any,
     );
 
-    // console.log('[UT-M073-01] Input :', input);
-    // console.log('[UT-M073-01] Expected :', expected);
-    // console.log('[UT-M073-01] Actual :', result);
+    // console.log('[UT-M074-01] Input :', input);
+    // console.log('[UT-M074-01] Expected :', expected);
+    // console.log('[UT-M074-01] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(mockPrisma.organizerProfile.update).toHaveBeenCalledWith(
@@ -978,7 +977,7 @@ describe('UserCrudService - updateOrganizerProfile', () => {
     expect(mockPrisma.organizerProfile.update).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-M073-02: should update with partial dto and only send provided fields to prisma', async () => {
+  it('UT-M074-02: should update with partial dto and only send provided fields to prisma', async () => {
     const input = {
       userId: MOCK_USER_ID_2,
       dto: { name: 'Renamed Department' },
@@ -995,9 +994,9 @@ describe('UserCrudService - updateOrganizerProfile', () => {
       input.dto as any,
     );
 
-    // console.log('[UT-M073-02] Input :', input);
-    // console.log('[UT-M073-02] Expected name: Renamed Department');
-    // console.log('[UT-M073-02] Actual name:', result.name);
+    // console.log('[UT-M074-02] Input :', input);
+    // console.log('[UT-M074-02] Expected name: Renamed Department');
+    // console.log('[UT-M074-02] Actual name:', result.name);
 
     expect(result.name).toBe('Renamed Department');
     expect(mockPrisma.organizerProfile.update).toHaveBeenCalledWith({
@@ -1006,7 +1005,7 @@ describe('UserCrudService - updateOrganizerProfile', () => {
     });
   });
 
-  it('UT-M073-03: should update with empty string fields and persist them', async () => {
+  it('UT-M074-03: should update with empty string fields and persist them', async () => {
     const input = {
       userId: MOCK_USER_ID_3,
       dto: { bio: '', contactEmail: '' },
@@ -1035,9 +1034,9 @@ describe('UserCrudService - updateOrganizerProfile', () => {
       input.dto as any,
     );
 
-    // console.log('[UT-M073-03] Input :', input);
-    // console.log('[UT-M073-03] Expected :', expected);
-    // console.log('[UT-M073-03] Actual :', result);
+    // console.log('[UT-M074-03] Input :', input);
+    // console.log('[UT-M074-03] Expected :', expected);
+    // console.log('[UT-M074-03] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(result.bio).toBe('');
@@ -1048,7 +1047,7 @@ describe('UserCrudService - updateOrganizerProfile', () => {
     });
   });
 
-  it('UT-M073-04: should throw SaveProfileException when prisma update fails', async () => {
+  it('UT-M074-04: should throw SaveProfileException when prisma update fails', async () => {
     const input = { userId: MOCK_USER_ID_1, dto: { name: 'Fail Test' } };
     mockPrisma.organizerProfile.update.mockRejectedValueOnce(
       new Error('DB connection failed'),
@@ -1075,7 +1074,7 @@ describe('UserCrudService - mapToReturnParticipantProfileDto', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M074-01: should return fully mapped dto when all fields are present', () => {
+  it('UT-M075-01: should return fully mapped dto when all fields are present', () => {
     const input = mockFullParticipantProfile;
     const expected = {
       id: MOCK_PARTICIPANT_PROFILE_ID_1,
@@ -1094,14 +1093,14 @@ describe('UserCrudService - mapToReturnParticipantProfileDto', () => {
 
     const result = (service as any).mapToReturnParticipantProfileDto(input);
 
-    // console.log('[UT-M074-01] Input :', input);
-    // console.log('[UT-M074-01] Expected :', expected);
-    // console.log('[UT-M074-01] Actual :', result);
+    // console.log('[UT-M075-01] Input :', input);
+    // console.log('[UT-M075-01] Expected :', expected);
+    // console.log('[UT-M075-01] Actual :', result);
 
     expect(result).toEqual(expected);
   });
 
-  it('UT-M074-02: should apply defaults when optional fields are null', () => {
+  it('UT-M075-02: should apply defaults when optional fields are null', () => {
     const input = mockMinimalParticipantProfile;
     const expected = {
       id: mockMinimalParticipantProfile.id,
@@ -1120,9 +1119,9 @@ describe('UserCrudService - mapToReturnParticipantProfileDto', () => {
 
     const result = (service as any).mapToReturnParticipantProfileDto(input);
 
-    // console.log('[UT-M074-02] Input :', input);
-    // console.log('[UT-M074-02] Expected :', expected);
-    // console.log('[UT-M074-02] Actual :', result);
+    // console.log('[UT-M075-02] Input :', input);
+    // console.log('[UT-M075-02] Expected :', expected);
+    // console.log('[UT-M075-02] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(result.lastName).toBe('');
@@ -1140,7 +1139,7 @@ describe('UserCrudService - mapToReturnOrganizerProfileDto', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M075-01: should return fully mapped dto when all fields are present', () => {
+  it('UT-M076-01: should return fully mapped dto when all fields are present', () => {
     const input = mockFullOrganizerProfile;
     const expected = {
       id: MOCK_ORGANIZER_PROFILE_ID_1,
@@ -1156,14 +1155,14 @@ describe('UserCrudService - mapToReturnOrganizerProfileDto', () => {
 
     const result = (service as any).mapToReturnOrganizerProfileDto(input);
 
-    // console.log('[UT-M075-01] Input :', input);
-    // console.log('[UT-M075-01] Expected :', expected);
-    // console.log('[UT-M075-01] Actual :', result);
+    // console.log('[UT-M076-01] Input :', input);
+    // console.log('[UT-M076-01] Expected :', expected);
+    // console.log('[UT-M076-01] Actual :', result);
 
     expect(result).toEqual(expected);
   });
 
-  it('UT-M075-02: should apply defaults when optional fields are null', () => {
+  it('UT-M076-02: should apply defaults when optional fields are null', () => {
     const input = mockMinimalOrganizerProfile;
     const expected = {
       id: mockMinimalOrganizerProfile.id,
@@ -1179,9 +1178,9 @@ describe('UserCrudService - mapToReturnOrganizerProfileDto', () => {
 
     const result = (service as any).mapToReturnOrganizerProfileDto(input);
 
-    // console.log('[UT-M075-02] Input :', input);
-    // console.log('[UT-M075-02] Expected :', expected);
-    // console.log('[UT-M075-02] Actual :', result);
+    // console.log('[UT-M076-02] Input :', input);
+    // console.log('[UT-M076-02] Expected :', expected);
+    // console.log('[UT-M076-02] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(result.bio).toBe('');
