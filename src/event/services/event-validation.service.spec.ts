@@ -31,41 +31,41 @@ describe('EventValidationService - validatePromptText', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M003-01: should not throw for valid English prompt', () => {
+  it('UT-2-001-01: should not throw for valid English prompt', () => {
     expect(() =>
       service.validatePromptText('Workshop on Machine Learning'),
     ).not.toThrow();
   });
 
-  it('UT-M003-02: should not throw for valid Thai prompt', () => {
+  it('UT-2-001-02: should not throw for valid Thai prompt', () => {
     expect(() =>
       service.validatePromptText('งานกีฬาสี มหาวิทยาลัยเชียงใหม่'),
     ).not.toThrow();
   });
 
-  it('UT-M003-03: should not throw for valid mixed Thai and English prompt', () => {
+  it('UT-2-001-03: should not throw for valid mixed Thai and English prompt', () => {
     expect(() =>
       service.validatePromptText('CAMT วิศวกรรมซอฟต์แวร์ Workshop'),
     ).not.toThrow();
   });
 
-  it('UT-M003-04: should not throw for valid prompt mixed with symbols', () => {
+  it('UT-2-001-04: should not throw for valid prompt mixed with symbols', () => {
     expect(() =>
       service.validatePromptText('!!! CAMT Halloween Night 2026 @@@'),
     ).not.toThrow();
   });
 
-  it('UT-M003-05: should not throw for numbers only', () => {
+  it('UT-2-001-05: should not throw for numbers only', () => {
     expect(() => service.validatePromptText('12345')).not.toThrow();
   });
 
-  it('UT-M003-06: should not throw for whitespace padded valid prompt', () => {
+  it('UT-2-001-06: should not throw for whitespace padded valid prompt', () => {
     expect(() =>
       service.validatePromptText('   CAMT Study Trip   '),
     ).not.toThrow();
   });
 
-  it('UT-M003-07: should throw InvalidPromptException for empty string', () => {
+  it('UT-2-001-07: should throw InvalidPromptException for empty string', () => {
     expect(() => service.validatePromptText('')).toThrow(
       InvalidPromptException,
     );
@@ -74,7 +74,7 @@ describe('EventValidationService - validatePromptText', () => {
     );
   });
 
-  it('UT-M003-08: should throw InvalidPromptException for whitespace only', () => {
+  it('UT-2-001-08: should throw InvalidPromptException for whitespace only', () => {
     expect(() => service.validatePromptText('     ')).toThrow(
       InvalidPromptException,
     );
@@ -83,7 +83,7 @@ describe('EventValidationService - validatePromptText', () => {
     );
   });
 
-  it('UT-M003-09: should throw InvalidPromptException for symbols only', () => {
+  it('UT-2-001-09: should throw InvalidPromptException for symbols only', () => {
     expect(() => service.validatePromptText('@#$%^&*!')).toThrow(
       InvalidPromptException,
     );
@@ -108,7 +108,7 @@ describe('EventValidationService - validatePublishDateRange', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M004-01: should not throw when startAt is before endAt', () => {
+  it('UT-2-002-01: should not throw when startAt is before endAt', () => {
     const startAt = new Date('2026-10-31T09:00:00.000Z');
     const endAt = new Date('2026-10-31T12:00:00.000Z');
     expect(() =>
@@ -116,7 +116,7 @@ describe('EventValidationService - validatePublishDateRange', () => {
     ).not.toThrow();
   });
 
-  it('UT-M004-02: should throw InvalidDateRangeException when startAt equals endAt', () => {
+  it('UT-2-002-02: should throw InvalidDateRangeException when startAt equals endAt', () => {
     const startAt = new Date('2026-10-31T09:00:00.000Z');
     const endAt = new Date('2026-10-31T09:00:00.000Z');
     expect(() => service.validatePublishDateRange(startAt, endAt)).toThrow(
@@ -127,7 +127,7 @@ describe('EventValidationService - validatePublishDateRange', () => {
     );
   });
 
-  it('UT-M004-03: should throw InvalidDateRangeException when startAt is after endAt', () => {
+  it('UT-2-002-03: should throw InvalidDateRangeException when startAt is after endAt', () => {
     const startAt = new Date('2026-10-31T12:00:00.000Z');
     const endAt = new Date('2026-10-31T09:00:00.000Z');
     expect(() => service.validatePublishDateRange(startAt, endAt)).toThrow(
@@ -154,7 +154,7 @@ describe('EventValidationService - validateEventExists', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M005-01: should resolve without error when event exists', async () => {
+  it('UT-2-003-01: should resolve without error when event exists', async () => {
     const eventId = 'mock-event-uuid-1234';
     const mockFoundEvent = { id: eventId };
     mockPrisma.event.findUnique.mockResolvedValueOnce(mockFoundEvent);
@@ -166,7 +166,7 @@ describe('EventValidationService - validateEventExists', () => {
     expect(mockPrisma.event.findUnique).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-M005-02: should throw EventNotFoundException when event does not exist', async () => {
+  it('UT-2-003-02: should throw EventNotFoundException when event does not exist', async () => {
     const eventId = 'non-existent-uuid-9999';
     mockPrisma.event.findUnique.mockResolvedValueOnce(null);
 
@@ -193,7 +193,7 @@ describe('EventValidationService - validateEventOwnership', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M006-01: should resolve without error when organizer owns the event', async () => {
+  it('UT-2-004-01: should resolve without error when organizer owns the event', async () => {
     const eventId = 'mock-event-uuid-1234';
     const organizerId = 'mock-org-uuid-1234';
     const mockFoundEvent = { organizerId };
@@ -209,7 +209,7 @@ describe('EventValidationService - validateEventOwnership', () => {
     expect(mockPrisma.event.findUnique).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-M006-02: should throw EventNotFoundException when event does not exist', async () => {
+  it('UT-2-004-02: should throw EventNotFoundException when event does not exist', async () => {
     const eventId = 'non-existent-uuid-9999';
     const organizerId = 'mock-org-uuid-1234';
     mockPrisma.event.findUnique.mockResolvedValueOnce(null);
@@ -223,7 +223,7 @@ describe('EventValidationService - validateEventOwnership', () => {
     });
   });
 
-  it('UT-M006-03: should throw ForbiddenException when organizer does not own the event', async () => {
+  it('UT-2-004-03: should throw ForbiddenException when organizer does not own the event', async () => {
     const eventId = 'mock-event-uuid-1234';
     const actualOwnerId = 'mock-owner-uuid-1234';
     const requestingOrganizerId = 'mock-non-matching-org-uuid-5678';
@@ -245,7 +245,7 @@ describe('EventValidationService - validateEventOwnership', () => {
   });
 });
 
-describe('EventValidationService - validateStatusTransition', () => {
+describe('EventValidationService - ', () => {
   let service: EventValidationService;
 
   beforeEach(async () => {

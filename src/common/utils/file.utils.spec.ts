@@ -63,48 +63,48 @@ const large_image_file = createMockFile(
 
 describe('validateImageFile', () => {
 
-  it('UT-M001-01: should not throw for valid JPEG file within size limit', () => {
+  it('UT-1-001-01: should not throw for valid JPEG file within size limit', () => {
     const file = small_jpg_file;
     expect(() => validateImageFile(file)).not.toThrow();
   });
 
-  it('UT-M001-02: should not throw for valid PNG file within size limit', () => {
+  it('UT-1-001-02: should not throw for valid PNG file within size limit', () => {
     const file = small_png_file;
     expect(() => validateImageFile(file)).not.toThrow();
   });
 
-  it('UT-M001-03: should not throw for valid WEBP file within size limit', () => {
+  it('UT-1-001-03: should not throw for valid WEBP file within size limit', () => {
     const file = small_webp_file;
     expect(() => validateImageFile(file)).not.toThrow();
   });
 
-  it('UT-M001-04: should not throw for file size exactly at 5MB limit', () => {
+  it('UT-1-001-04: should not throw for file size exactly at 5MB limit', () => {
     const file = exactly_5mb_file; // size = 5,242,880 bytes
     expect(() => validateImageFile(file)).not.toThrow();
   });
 
-  it('UT-M001-05: should throw InvalidImageException when file is null', () => {
+  it('UT-1-001-05: should throw InvalidImageException when file is null', () => {
     const file = null as any;
 
     expect(() => validateImageFile(file)).toThrow(InvalidImageException);
     expect(() => validateImageFile(file)).toThrow('No input file provided');
   });
 
-  it('UT-M001-06: should throw InvalidImageException when file is undefined', () => {
+  it('UT-1-001-06: should throw InvalidImageException when file is undefined', () => {
     const file = undefined as any;
 
     expect(() => validateImageFile(file)).toThrow(InvalidImageException);
     expect(() => validateImageFile(file)).toThrow('No input file provided');
   });
 
-  it('UT-M001-07: should throw InvalidImageException for unsupported GIF format', () => {
+  it('UT-1-001-07: should throw InvalidImageException for unsupported GIF format', () => {
     const file = gif_file; // mimetype: 'image/gif'
 
     expect(() => validateImageFile(file)).toThrow(InvalidImageException);
     expect(() => validateImageFile(file)).toThrow('Unsupported image format');
   });
 
-  it('UT-M001-08: should throw InvalidImageException for file size is over 5MB', () => {
+  it('UT-1-001-08: should throw InvalidImageException for file size is over 5MB', () => {
     const file = large_image_file;
 
     expect(() => validateImageFile(file)).toThrow(InvalidImageException);

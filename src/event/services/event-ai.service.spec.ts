@@ -339,7 +339,7 @@ describe('EventAiService - callAiWithFallback', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M010-01: should return Groq response and not call Zai when Groq succeeds', async () => {
+  it('UT-2-008-01: should return Groq response and not call Zai when Groq succeeds', async () => {
     const prompt = 'CMU Marathon 2026, 2 Dec 2026, CMU Stadium, 500 seats';
     const mockGroqResponse = JSON.stringify(allFieldPresentAiResponse);
     const groqSpy = jest
@@ -353,10 +353,10 @@ describe('EventAiService - callAiWithFallback', () => {
       prompt,
       'generation',
     );
-    // console.log('[UT-M010-01] Input prompt:', prompt);
-    // console.log('[UT-M010-01] Input context: generation');
-    // console.log('[UT-M010-01] Expected result:', mockGroqResponse);
-    // console.log('[UT-M010-01] Actual result:', result);
+    // console.log('[UT-2-008-01] Input prompt:', prompt);
+    // console.log('[UT-2-008-01] Input context: generation');
+    // console.log('[UT-2-008-01] Expected result:', mockGroqResponse);
+    // console.log('[UT-2-008-01] Actual result:', result);
 
     // Assert
     expect(result).toBe(mockGroqResponse);
@@ -364,7 +364,7 @@ describe('EventAiService - callAiWithFallback', () => {
     expect(zaiSpy).not.toHaveBeenCalled();
   });
 
-  it('UT-M010-02: should call Zai and return Zai response when Groq fails', async () => {
+  it('UT-2-008-02: should call Zai and return Zai response when Groq fails', async () => {
     const prompt = 'CMU Marathon 2026, 2 Dec 2026, CMU Stadium, 500 seats';
     const mockZaiResponse = JSON.stringify(allFieldPresentAiResponse);
     const groqSpy = jest
@@ -378,17 +378,17 @@ describe('EventAiService - callAiWithFallback', () => {
       prompt,
       'generation',
     );
-    // console.log('[UT-M010-02] Input prompt:', prompt);
-    // console.log('[UT-M010-02] Input context: generation');
-    // console.log('[UT-M010-02] Expected result:', mockZaiResponse);
-    // console.log('[UT-M010-02] Actual result:', result);
+    // console.log('[UT-2-008-02] Input prompt:', prompt);
+    // console.log('[UT-2-008-02] Input context: generation');
+    // console.log('[UT-2-008-02] Expected result:', mockZaiResponse);
+    // console.log('[UT-2-008-02] Actual result:', result);
 
     expect(result).toBe(mockZaiResponse);
     expect(groqSpy).toHaveBeenCalledTimes(1);
     expect(zaiSpy).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-M010-03: should throw AiGenerationException when both Groq and Zai fail and context is generation', async () => {
+  it('UT-2-008-03: should throw AiGenerationException when both Groq and Zai fail and context is generation', async () => {
     const prompt = 'CMU Marathon 2026, 2 Dec 2026, CMU Stadium, 500 seats';
     jest
       .spyOn(service as any, 'callGroq')
@@ -409,7 +409,7 @@ describe('EventAiService - callAiWithFallback', () => {
     );
   });
 
-  it('UT-M010-04: should throw AiTranslationException when both Groq and Zai fail and context is translation', async () => {
+  it('UT-2-008-04: should throw AiTranslationException when both Groq and Zai fail and context is translation', async () => {
     const prompt = JSON.stringify(onlyEnDto);
     jest
       .spyOn(service as any, 'callGroq')
@@ -430,7 +430,7 @@ describe('EventAiService - callAiWithFallback', () => {
     );
   });
 
-  it('UT-M010-05: should forward image to callGroq when image is provided and Groq succeeds', async () => {
+  it('UT-2-008-05: should forward image to callGroq when image is provided and Groq succeeds', async () => {
     const prompt = 'Extract event details from this image';
     const file = event_test_png; // mimetype: 'image/png'
     const mockGroqResponse = JSON.stringify(allFieldPresentAiResponse);
@@ -446,18 +446,18 @@ describe('EventAiService - callAiWithFallback', () => {
       'generation',
       file,
     );
-    // console.log('[UT-M010-05] Input file:', file.originalname, '| mimetype:', file.mimetype);
-    // console.log('[UT-M010-05] Input prompt:', prompt);
-    // console.log('[UT-M010-05] Input context: generation');
-    // console.log('[UT-M010-05] Expected: callGroq called with image, result:', mockGroqResponse);
-    // console.log('[UT-M010-05] Actual result:', result);
+    // console.log('[UT-2-008-05] Input file:', file.originalname, '| mimetype:', file.mimetype);
+    // console.log('[UT-2-008-05] Input prompt:', prompt);
+    // console.log('[UT-2-008-05] Input context: generation');
+    // console.log('[UT-2-008-05] Expected: callGroq called with image, result:', mockGroqResponse);
+    // console.log('[UT-2-008-05] Actual result:', result);
 
     expect(result).toBe(mockGroqResponse);
     expect(groqSpy).toHaveBeenCalledWith(prompt, file);
     expect(zaiSpy).not.toHaveBeenCalled();
   });
 
-  it('UT-M010-06: should forward image to callZai when image provided and Groq fails', async () => {
+  it('UT-2-008-06: should forward image to callZai when image provided and Groq fails', async () => {
     const prompt = 'Extract event details from this image';
     const file = event_test_png;
     const mockZaiResponse = JSON.stringify(allFieldPresentAiResponse);
@@ -473,10 +473,10 @@ describe('EventAiService - callAiWithFallback', () => {
       'generation',
       file,
     );
-    // console.log('[UT-M010-06] Input file:', file.originalname, '| mimetype:', file.mimetype);
-    // console.log('[UT-M010-06] Input context: generation');
-    // console.log('[UT-M010-06] Expected: callZai called with image, result:', mockZaiResponse);
-    // console.log('[UT-M010-06] Actual result:', result);
+    // console.log('[UT-2-008-06] Input file:', file.originalname, '| mimetype:', file.mimetype);
+    // console.log('[UT-2-008-06] Input context: generation');
+    // console.log('[UT-2-008-06] Expected: callZai called with image, result:', mockZaiResponse);
+    // console.log('[UT-2-008-06] Actual result:', result);
 
     expect(result).toBe(mockZaiResponse);
     expect(groqSpy).toHaveBeenCalledWith(prompt, file);
@@ -493,41 +493,41 @@ describe('EventAiService - parseJson', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M011-01: should return parsed object when input is plain valid JSON string', () => {
+  it('UT-2-009-01: should return parsed object when input is plain valid JSON string', () => {
     const input = JSON.stringify(allFieldPresentAiResponse);
 
     const result = (service as any).parseJson(input);
-    // console.log('[UT-M011-01] Input:', input);
-    // console.log('[UT-M011-01] Expected:', allFieldPresentAiResponse);
-    // console.log('[UT-M011-01] Actual:', result);
+    // console.log('[UT-2-009-01] Input:', input);
+    // console.log('[UT-2-009-01] Expected:', allFieldPresentAiResponse);
+    // console.log('[UT-2-009-01] Actual:', result);
 
     expect(result).toEqual(allFieldPresentAiResponse);
   });
 
-  it('UT-M011-02: should strip json fences and return parsed object', () => {
+  it('UT-2-009-02: should strip json fences and return parsed object', () => {
     const input =
       '```json\n' + JSON.stringify(allFieldPresentAiResponse) + '\n```';
 
     const result = (service as any).parseJson(input);
-    // console.log('[UT-M011-02] Input:', input);
-    // console.log('[UT-M011-02] Expected:', allFieldPresentAiResponse);
-    // console.log('[UT-M011-02] Actual:', result);
+    // console.log('[UT-2-009-02] Input:', input);
+    // console.log('[UT-2-009-02] Expected:', allFieldPresentAiResponse);
+    // console.log('[UT-2-009-02] Actual:', result);
 
     expect(result).toEqual(allFieldPresentAiResponse);
   });
 
-  it('UT-M011-03: should strip only fences with no language tag and return parsed object', () => {
+  it('UT-2-009-03: should strip only fences with no language tag and return parsed object', () => {
     const input = '```\n' + JSON.stringify(allFieldPresentAiResponse) + '\n```';
 
     const result = (service as any).parseJson(input);
-    // console.log('[UT-M011-03] Input:', input);
-    // console.log('[UT-M011-03] Expected:', allFieldPresentAiResponse);
-    // console.log('[UT-M011-03] Actual:', result);
+    // console.log('[UT-2-009-03] Input:', input);
+    // console.log('[UT-2-009-03] Expected:', allFieldPresentAiResponse);
+    // console.log('[UT-2-009-03] Actual:', result);
 
     expect(result).toEqual(allFieldPresentAiResponse);
   });
 
-  it('UT-M011-04: should throw AiResponseParseException when input is malformed JSON', () => {
+  it('UT-2-009-04: should throw AiResponseParseException when input is malformed JSON', () => {
     const input = 'this is not { valid } json !!!';
 
     expect(() => (service as any).parseJson(input)).toThrow(
@@ -538,7 +538,7 @@ describe('EventAiService - parseJson', () => {
     );
   });
 
-  it('UT-M011-05: should throw AiResponseParseException when input is empty string', () => {
+  it('UT-2-009-05: should throw AiResponseParseException when input is empty string', () => {
     const input = '';
 
     expect(() => (service as any).parseJson(input)).toThrow(
@@ -549,7 +549,7 @@ describe('EventAiService - parseJson', () => {
     );
   });
 
-  it('UT-M011-06: should throw AiResponseParseException when input is only whitespace', () => {
+  it('UT-2-009-06: should throw AiResponseParseException when input is only whitespace', () => {
     const input = '   ';
 
     expect(() => (service as any).parseJson(input)).toThrow(
@@ -570,7 +570,7 @@ describe('EventAiService - mapAiResponseToEventDto', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M012-01: should correctly map all fields when full valid response is provided', () => {
+  it('UT-2-010-01: should correctly map all fields when full valid response is provided', () => {
     const input = allFieldPresentAiResponse;
     const expected: GeneratedEventDto = {
       title: { en: 'CMU Marathon 2026', th: 'มาราธอน มช. 2026' },
@@ -620,9 +620,9 @@ describe('EventAiService - mapAiResponseToEventDto', () => {
     };
 
     const result = service.mapAiResponseToEventDto(input);
-    // console.log('[UT-M012-01] Input:', input);
-    // console.log('[UT-M012-01] Expected result:', expected);
-    // console.log('[UT-M012-01] Actual result:', result );
+    // console.log('[UT-2-010-01] Input:', input);
+    // console.log('[UT-2-010-01] Expected result:', expected);
+    // console.log('[UT-2-010-01] Actual result:', result );
 
     expect(result).toEqual(expected);
     expect(result.title).toEqual({
@@ -644,7 +644,7 @@ describe('EventAiService - mapAiResponseToEventDto', () => {
     expect(result.agenda).toHaveLength(3);
   });
 
-  it('UT-M012-02: should apply defaults for missing optional fields when partial response provided', () => {
+  it('UT-2-010-02: should apply defaults for missing optional fields when partial response provided', () => {
     const input = someFieldMissingAiResponse;
     const expected: Partial<GeneratedEventDto> = {
       title: { en: 'CMU Marathon 2026', th: 'มาราธอน มช. 2026' },
@@ -669,9 +669,9 @@ describe('EventAiService - mapAiResponseToEventDto', () => {
     };
 
     const result = service.mapAiResponseToEventDto(input);
-    // console.log('[UT-M012-02] Input :', input);
-    // console.log('[UT-M012-02] Expected : ', expected);
-    // console.log('[UT-M012-02] Actual result :', result);
+    // console.log('[UT-2-010-02] Input :', input);
+    // console.log('[UT-2-010-02] Expected : ', expected);
+    // console.log('[UT-2-010-02] Actual result :', result);
 
     expect(result).toEqual(expected);
     expect(result.mapLink).toBe('');
@@ -682,13 +682,13 @@ describe('EventAiService - mapAiResponseToEventDto', () => {
     expect(result.cateringDescription).toEqual({ en: '', th: '' });
   });
 
-  it('UT-M012-03: should apply all defaults when response has no fields', () => {
+  it('UT-2-010-03: should apply all defaults when response has no fields', () => {
     const input = {};
     const expected = { ...emptyAiResponse };
     const result = service.mapAiResponseToEventDto(input);
-    // console.log('[UT-M012-03] Input:', input);
-    // console.log('[UT-M012-03] Expected:', expected);
-    // console.log('[UT-M012-03] Actual result:', result);
+    // console.log('[UT-2-010-03] Input:', input);
+    // console.log('[UT-2-010-03] Expected:', expected);
+    // console.log('[UT-2-010-03] Actual result:', result);
 
     expect(result).toEqual(expected);
     expect(result.title).toEqual({ en: '', th: '' });
@@ -712,7 +712,7 @@ describe('EventAiService - mapAiResponseToEventDto', () => {
     expect(result.seatLimit).toBeUndefined();
   });
 
-  it('UT-M012-04: should default bilingual fields to empty string when en or th is missing', () => {
+  it('UT-2-010-04: should default bilingual fields to empty string when en or th is missing', () => {
     const input = {
       title: { en: 'CMU Marathon 2026' },
       description: { th: 'งานมาราธอนประจำปี' },
@@ -740,16 +740,16 @@ describe('EventAiService - mapAiResponseToEventDto', () => {
     };
 
     const result = service.mapAiResponseToEventDto(input);
-    // console.log('[UT-M012-04] Input:', input);
-    // console.log('[UT-M012-04] Expected:', expected);
-    // console.log('[UT-M012-04] Actual result:', result);
+    // console.log('[UT-2-010-04] Input:', input);
+    // console.log('[UT-2-010-04] Expected:', expected);
+    // console.log('[UT-2-010-04] Actual result:', result);
 
     expect(result).toEqual(expected);
     expect(result.title).toEqual({ en: 'CMU Marathon 2026', th: '' });
     expect(result.description).toEqual({ en: '', th: 'งานมาราธอนประจำปี' });
   });
 
-  it('UT-M012-05: should map valid agenda array to AgendaItem[]', () => {
+  it('UT-2-010-05: should map valid agenda array to AgendaItem[]', () => {
     const input = {
       agenda: [
         {
@@ -800,9 +800,9 @@ describe('EventAiService - mapAiResponseToEventDto', () => {
     };
 
     const result = service.mapAiResponseToEventDto(input);
-    // console.log('[UT-M012-05] Input :', input);
-    // console.log('[UT-M012-05] Expected:', expected);
-    // console.log('[UT-M012-05] Actual :', result);
+    // console.log('[UT-2-010-05] Input :', input);
+    // console.log('[UT-2-010-05] Expected:', expected);
+    // console.log('[UT-2-010-05] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(result.agenda).toEqual([
@@ -817,59 +817,59 @@ describe('EventAiService - mapAiResponseToEventDto', () => {
     ]);
   });
 
-  it('UT-M012-06: should return empty agenda when agenda is empty array', () => {
+  it('UT-2-010-06: should return empty agenda when agenda is empty array', () => {
     const input = { agenda: [] };
     const expected = { ...emptyAiResponse, agenda: [] };
 
     const result = service.mapAiResponseToEventDto(input);
-    // console.log('[UT-M012-06] Input :', input);
-    // console.log('[UT-M012-06] Expected :', expected);
-    // console.log('[UT-M012-06] Actual :', result);
+    // console.log('[UT-2-010-06] Input :', input);
+    // console.log('[UT-2-010-06] Expected :', expected);
+    // console.log('[UT-2-010-06] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(result.agenda).toEqual([]);
   });
 
-  it('UT-M012-07: should return empty agenda when agenda is not an array', () => {
+  it('UT-2-010-07: should return empty agenda when agenda is not an array', () => {
     const input = { agenda: 'Opening Ceremony will start at 5:00 AM' };
     const expected = { ...emptyAiResponse, agenda: [] };
 
     const result = service.mapAiResponseToEventDto(input);
-    // console.log('[UT-M012-07] Input :', input);
-    // console.log('[UT-M012-07] Expected :', expected);
-    // console.log('[UT-M012-07] Actual :', result);
+    // console.log('[UT-2-010-07] Input :', input);
+    // console.log('[UT-2-010-07] Expected :', expected);
+    // console.log('[UT-2-010-07] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(result.agenda).toEqual([]);
   });
 
-  it('UT-M012-08: should filter out invalid categories and keep only allowed ones', () => {
+  it('UT-2-010-08: should filter out invalid categories and keep only allowed ones', () => {
     const input = { category: ['SPORT', 'INVALID_CATEGORY', 'WORKSHOP'] };
     const expected = { ...emptyAiResponse, category: ['SPORT', 'WORKSHOP'] };
 
     const result = service.mapAiResponseToEventDto(input);
-    // console.log('[UT-M012-08] Input :', input);
-    // console.log('[UT-M012-08] Expected :', expected);
-    // console.log('[UT-M012-08] Actual :', result);
+    // console.log('[UT-2-010-08] Input :', input);
+    // console.log('[UT-2-010-08] Expected :', expected);
+    // console.log('[UT-2-010-08] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(result.category).toEqual(['SPORT', 'WORKSHOP']);
   });
 
-  it('UT-M012-09: should return empty category when category is not an array', () => {
+  it('UT-2-010-09: should return empty category when category is not an array', () => {
     const input = { category: 'SPORT' };
     const expected = { ...emptyAiResponse, category: [] };
 
     const result = service.mapAiResponseToEventDto(input);
-    // console.log('[UT-M012-09] Input :', input);
-    // console.log('[UT-M012-09] Expected :', expected);
-    // console.log('[UT-M012-09] Actual :', result);
+    // console.log('[UT-2-010-09] Input :', input);
+    // console.log('[UT-2-010-09] Expected :', expected);
+    // console.log('[UT-2-010-09] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(result.category).toEqual([]);
   });
 
-  it('UT-M012-10: should convert valid startAt and endAt strings to Date objects', () => {
+  it('UT-2-010-10: should convert valid startAt and endAt strings to Date objects', () => {
     const input = {
       startAt: '2026-12-01T23:00:00.000Z',
       endAt: '2026-12-02T05:00:00.000Z',
@@ -881,16 +881,16 @@ describe('EventAiService - mapAiResponseToEventDto', () => {
     };
 
     const result = service.mapAiResponseToEventDto(input);
-    // console.log('[UT-M012-10] Input :', input);
-    // console.log('[UT-M012-10] Expected :', expected);
-    // console.log('[UT-M012-10] Actual :', result);
+    // console.log('[UT-2-010-10] Input :', input);
+    // console.log('[UT-2-010-10] Expected :', expected);
+    // console.log('[UT-2-010-10] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(result.startAt).toEqual(new Date('2026-12-01T23:00:00.000Z'));
     expect(result.endAt).toEqual(new Date('2026-12-02T05:00:00.000Z'));
   });
 
-  it('UT-M012-11: should set startAt and endAt to undefined when missing', () => {
+  it('UT-2-010-11: should set startAt and endAt to undefined when missing', () => {
     const input = {};
     const expected = {
       ...emptyAiResponse,
@@ -899,35 +899,35 @@ describe('EventAiService - mapAiResponseToEventDto', () => {
     };
 
     const result = service.mapAiResponseToEventDto(input);
-    // console.log('[UT-M012-11] Input :', input);
-    // console.log('[UT-M012-11] Expected :', expected);
-    // console.log('[UT-M012-11] Actual :', result);
+    // console.log('[UT-2-010-11] Input :', input);
+    // console.log('[UT-2-010-11] Expected :', expected);
+    // console.log('[UT-2-010-11] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(result.startAt).toBeUndefined();
     expect(result.endAt).toBeUndefined();
   });
 
-  it('UT-M012-12: should map seatLimit correctly when valid integer provided', () => {
+  it('UT-2-010-12: should map seatLimit correctly when valid integer provided', () => {
     const input = { seatLimit: 500 };
     const expected = { ...emptyAiResponse, seatLimit: 500 };
 
     const result = service.mapAiResponseToEventDto(input);
-    // console.log('[UT-M012-12] Input :', input);
-    // console.log('[UT-M012-12] Expected :', expected);
-    // console.log('[UT-M012-12] Actual :', result);
+    // console.log('[UT-2-010-12] Input :', input);
+    // console.log('[UT-2-010-12] Expected :', expected);
+    // console.log('[UT-2-010-12] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(result.seatLimit).toBe(500);
   });
 
-  it('UT-M012-13: should set seatLimit to undefined when missing', () => {
+  it('UT-2-010-13: should set seatLimit to undefined when missing', () => {
     const input = {};
     const expected = { ...emptyAiResponse, seatLimit: undefined };
     const result = service.mapAiResponseToEventDto(input);
-    // console.log('[UT-M012-13] Input :', input);
-    // console.log('[UT-M012-13] Expected :', expected);
-    // console.log('[UT-M012-13] Actual :', result);
+    // console.log('[UT-2-010-13] Input :', input);
+    // console.log('[UT-2-010-13] Expected :', expected);
+    // console.log('[UT-2-010-13] Actual :', result);
 
     expect(result).toEqual(expected);
     expect(result.seatLimit).toBeUndefined();
@@ -947,15 +947,15 @@ describe('EventAiService - sanitizeAiEventResponse', () => {
     jest.restoreAllMocks();
   });
 
-  it('UT-M013-01: should return sanitized dto when all fields are valid', () => {
+  it('UT-2-011-01: should return sanitized dto when all fields are valid', () => {
     const dto = createMockGeneratedEventDto();
     jest.spyOn(urlUtils, 'isValidUrl').mockReturnValue(true);
     const expected = { ...dto };
 
     const result = service.sanitizeAiEventResponse(dto);
-    // console.log('[UT-M013-01] Input dto:', dto);
-    // console.log('[UT-M013-01] Expected sanitized dto:', expected);
-    // console.log('[UT-M013-01] Actual sanitized dto:', result);
+    // console.log('[UT-2-011-01] Input dto:', dto);
+    // console.log('[UT-2-011-01] Expected sanitized dto:', expected);
+    // console.log('[UT-2-011-01] Actual sanitized dto:', result);
 
     expect(result).toEqual(expected);
     expect(result.seatLimit).toBe(30);
@@ -965,50 +965,50 @@ describe('EventAiService - sanitizeAiEventResponse', () => {
     expect(result.category).toEqual(['WORKSHOP']);
   });
 
-  it('UT-M013-02: should set seatLimit to undefined when seatLimit is 0', () => {
+  it('UT-2-011-02: should set seatLimit to undefined when seatLimit is 0', () => {
     const dto = { ...createMockGeneratedEventDto(), seatLimit: 0 };
     jest.spyOn(urlUtils, 'isValidUrl').mockReturnValue(true);
     const expected = { ...dto, seatLimit: undefined };
 
     const result = service.sanitizeAiEventResponse(dto);
-    // console.log('[UT-M013-02] Input dto:', dto);
-    // console.log('[UT-M013-02] Expected sanitized dto:', expected);
-    // console.log('[UT-M013-02] Actual sanitized dto:', result);
+    // console.log('[UT-2-011-02] Input dto:', dto);
+    // console.log('[UT-2-011-02] Expected sanitized dto:', expected);
+    // console.log('[UT-2-011-02] Actual sanitized dto:', result);
 
     expect(result).toEqual(expected);
     expect(result.seatLimit).toBeUndefined();
   });
 
-  it('UT-M013-03: should set seatLimit to undefined when seatLimit is negative', () => {
+  it('UT-2-011-03: should set seatLimit to undefined when seatLimit is negative', () => {
     const dto = { ...createMockGeneratedEventDto(), seatLimit: -1 };
     jest.spyOn(urlUtils, 'isValidUrl').mockReturnValue(true);
     const expected = { ...dto, seatLimit: undefined };
 
     // Act
     const result = service.sanitizeAiEventResponse(dto);
-    // console.log('[UT-M013-03] Input dto:', dto);
-    // console.log('[UT-M013-03] Expected sanitized dto:', expected);
-    // console.log('[UT-M013-03] Actual sanitized dto:', result);
+    // console.log('[UT-2-011-03] Input dto:', dto);
+    // console.log('[UT-2-011-03] Expected sanitized dto:', expected);
+    // console.log('[UT-2-011-03] Actual sanitized dto:', result);
 
     expect(result).toEqual(expected);
     expect(result.seatLimit).toBeUndefined();
   });
 
-  it('UT-M013-04: should set seatLimit to undefined when seatLimit is a float', () => {
+  it('UT-2-011-04: should set seatLimit to undefined when seatLimit is a float', () => {
     const dto = { ...createMockGeneratedEventDto(), seatLimit: 30.5 };
     jest.spyOn(urlUtils, 'isValidUrl').mockReturnValue(true);
     const expected = { ...dto, seatLimit: undefined };
 
     const result = service.sanitizeAiEventResponse(dto);
-    // console.log('[UT-M013-04] Input dto:', dto);
-    // console.log('[UT-M013-04] Expected sanitized dto:', expected);
-    // console.log('[UT-M013-04] Actual sanitized dto:', result);
+    // console.log('[UT-2-011-04] Input dto:', dto);
+    // console.log('[UT-2-011-04] Expected sanitized dto:', expected);
+    // console.log('[UT-2-011-04] Actual sanitized dto:', result);
 
     expect(result).toEqual(expected);
     expect(result.seatLimit).toBeUndefined();
   });
 
-  it('UT-M013-05: should set mapLink to "" when isValidUrl returns false for mapLink', () => {
+  it('UT-2-011-05: should set mapLink to "" when isValidUrl returns false for mapLink', () => {
     const dto = {
       ...createMockGeneratedEventDto(),
       mapLink: 'this-is-not-a-url',
@@ -1019,15 +1019,15 @@ describe('EventAiService - sanitizeAiEventResponse', () => {
     });
     const expected = { ...dto, mapLink: '' };
     const result = service.sanitizeAiEventResponse(dto);
-    // console.log('[UT-M013-05] Input dto:', dto);
-    // console.log('[UT-M013-05] Expected sanitized dto:', expected);
-    // console.log('[UT-M013-05] Actual sanitized dto:', result);
+    // console.log('[UT-2-011-05] Input dto:', dto);
+    // console.log('[UT-2-011-05] Expected sanitized dto:', expected);
+    // console.log('[UT-2-011-05] Actual sanitized dto:', result);
 
     expect(result).toEqual(expected);
     expect(result.mapLink).toBe('');
   });
 
-  it('UT-M013-06: should set externalUrl to "" when isValidUrl returns false for externalUrl', () => {
+  it('UT-2-011-06: should set externalUrl to "" when isValidUrl returns false for externalUrl', () => {
     const dto = {
       ...createMockGeneratedEventDto(),
       externalUrl: 'this-is-not-a-url',
@@ -1039,15 +1039,15 @@ describe('EventAiService - sanitizeAiEventResponse', () => {
     const expected = { ...dto, externalUrl: '' };
 
     const result = service.sanitizeAiEventResponse(dto);
-    // console.log('[UT-M013-06] Input dto:', dto);
-    // console.log('[UT-M013-06] Expected sanitized dto:', expected);
-    // console.log('[UT-M013-06] Actual sanitized dto:', result);
+    // console.log('[UT-2-011-06] Input dto:', dto);
+    // console.log('[UT-2-011-06] Expected sanitized dto:', expected);
+    // console.log('[UT-2-011-06] Actual sanitized dto:', result);
 
     expect(result).toEqual(expected);
     expect(result.externalUrl).toBe('');
   });
 
-  it('UT-M013-07: should set contactEmail to "" when contactEmail does not contain @', () => {
+  it('UT-2-011-07: should set contactEmail to "" when contactEmail does not contain @', () => {
     const dto = {
       ...createMockGeneratedEventDto(),
       contactEmail: 'invalidemail',
@@ -1055,61 +1055,61 @@ describe('EventAiService - sanitizeAiEventResponse', () => {
     jest.spyOn(urlUtils, 'isValidUrl').mockReturnValue(true);
     const expected = { ...dto, contactEmail: '' };
     const result = service.sanitizeAiEventResponse(dto);
-    // console.log('[UT-M013-07] Input dto:', dto);
-    // console.log('[UT-M013-07] Expected sanitized dto:', expected);
-    // console.log('[UT-M013-07] Actual sanitized dto:', result);
+    // console.log('[UT-2-011-07] Input dto:', dto);
+    // console.log('[UT-2-011-07] Expected sanitized dto:', expected);
+    // console.log('[UT-2-011-07] Actual sanitized dto:', result);
 
     expect(result).toEqual(expected);
     expect(result.contactEmail).toBe('');
   });
 
-  it('UT-M013-08: should set category to [] when category is empty array', () => {
+  it('UT-2-011-08: should set category to [] when category is empty array', () => {
     const dto = { ...createMockGeneratedEventDto(), category: [] };
     jest.spyOn(urlUtils, 'isValidUrl').mockReturnValue(true);
     const expected = { ...dto, category: [] };
     const result = service.sanitizeAiEventResponse(dto);
-    // console.log('[UT-M013-08] Input dto:', dto);
-    // console.log('[UT-M013-08] Expected sanitized dto:', expected);
-    // console.log('[UT-M013-08] Actual sanitized dto:', result);
+    // console.log('[UT-2-011-08] Input dto:', dto);
+    // console.log('[UT-2-011-08] Expected sanitized dto:', expected);
+    // console.log('[UT-2-011-08] Actual sanitized dto:', result);
 
     expect(result).toEqual(expected);
     expect(result.category).toEqual([]);
   });
 
-  it('UT-M013-09: should keep seatLimit when valid positive integer', () => {
+  it('UT-2-011-09: should keep seatLimit when valid positive integer', () => {
     const dto = { ...createMockGeneratedEventDto(), seatLimit: 50 };
     jest.spyOn(urlUtils, 'isValidUrl').mockReturnValue(true);
     const expected = { ...dto };
     const result = service.sanitizeAiEventResponse(dto);
-    // console.log('[UT-M013-09] Input dto:', dto);
-    // console.log('[UT-M013-09] Expected sanitized dto:', expected);
-    // console.log('[UT-M013-09] Actual sanitized dto:', result);
+    // console.log('[UT-2-011-09] Input dto:', dto);
+    // console.log('[UT-2-011-09] Expected sanitized dto:', expected);
+    // console.log('[UT-2-011-09] Actual sanitized dto:', result);
 
     expect(result).toEqual(expected);
     expect(result.seatLimit).toBe(50);
   });
 
-  it('UT-M013-10: should keep mapLink when isValidUrl returns true', () => {
+  it('UT-2-011-10: should keep mapLink when isValidUrl returns true', () => {
     const dto = createMockGeneratedEventDto();
     jest.spyOn(urlUtils, 'isValidUrl').mockReturnValue(true);
     const expected = { ...dto };
     const result = service.sanitizeAiEventResponse(dto);
-    // console.log('[UT-M013-10] Input dto:', dto);
-    // console.log('[UT-M013-10] Expected sanitized dto:', expected);
-    // console.log('[UT-M013-10] Actual sanitized dto:', result);
+    // console.log('[UT-2-011-10] Input dto:', dto);
+    // console.log('[UT-2-011-10] Expected sanitized dto:', expected);
+    // console.log('[UT-2-011-10] Actual sanitized dto:', result);
 
     expect(result).toEqual(expected);
     expect(result.mapLink).toBe('https://maps.google.com');
   });
 
-  it('UT-M013-11: should keep contactEmail when valid email containing @', () => {
+  it('UT-2-011-11: should keep contactEmail when valid email containing @', () => {
     const dto = createMockGeneratedEventDto();
     jest.spyOn(urlUtils, 'isValidUrl').mockReturnValue(true);
     const expected = { ...dto };
     const result = service.sanitizeAiEventResponse(dto);
-    // console.log('[UT-M013-11] Input dto:', dto);
-    // console.log('[UT-M013-11] Expected sanitized dto:', expected);
-    // console.log('[UT-M013-11] Actual sanitized dto:', result);
+    // console.log('[UT-2-011-11] Input dto:', dto);
+    // console.log('[UT-2-011-11] Expected sanitized dto:', expected);
+    // console.log('[UT-2-011-11] Actual sanitized dto:', result);
 
     expect(result).toEqual(expected);
     expect(result.contactEmail).toBe('jane@cmu.ac.th');

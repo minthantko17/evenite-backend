@@ -27,7 +27,7 @@ describe('FormValidationService - validateFormTypeNotDuplicated', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M039-01: should resolve without throwing when REGISTRATION form does not yet exist', async () => {
+  it('UT-3-001-01: should resolve without throwing when REGISTRATION form does not yet exist', async () => {
     const input = {
       eventId: 'e1000000-0000-0000-0000-000000000001',
       type: FormType.REGISTRATION,
@@ -39,9 +39,9 @@ describe('FormValidationService - validateFormTypeNotDuplicated', () => {
       input.type,
     );
 
-    // console.log('[UT-M039-01] Input :', input);
-    // console.log('[UT-M039-01] Expected : resolves undefined');
-    // console.log('[UT-M039-01] Actual :', result);
+    // console.log('[UT-3-001-01] Input :', input);
+    // console.log('[UT-3-001-01] Expected : resolves undefined');
+    // console.log('[UT-3-001-01] Actual :', result);
 
     await expect(result).resolves.toBeUndefined();
     expect(mockPrisma.form.findUnique).toHaveBeenCalledWith({
@@ -50,7 +50,7 @@ describe('FormValidationService - validateFormTypeNotDuplicated', () => {
     expect(mockPrisma.form.findUnique).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-M039-02: should throw FormAlreadyExistsException when REGISTRATION form already exists', async () => {
+  it('UT-3-001-02: should throw FormAlreadyExistsException when REGISTRATION form already exists', async () => {
     const input = {
       eventId: 'e1000000-0000-0000-0000-000000000001',
       type: FormType.REGISTRATION,
@@ -70,7 +70,7 @@ describe('FormValidationService - validateFormTypeNotDuplicated', () => {
     ).rejects.toThrow('A form of this type already exists for this event.');
   });
 
-  it('UT-M039-03: should throw FormAlreadyExistsException when FEEDBACK form already exists', async () => {
+  it('UT-3-001-03: should throw FormAlreadyExistsException when FEEDBACK form already exists', async () => {
     const input = {
       eventId: 'e2000000-0000-0000-0000-000000000002',
       type: FormType.FEEDBACK,
@@ -105,15 +105,15 @@ describe('FormValidationService - validateFormNotLocked', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M040-01: should resolve without throwing when event status is DRAFT', async () => {
+  it('UT-3-002-01: should resolve without throwing when event status is DRAFT', async () => {
     const input = { formId: 'f1000000-0000-0000-0000-000000000001' };
     const mockFoundForm = { event: { status: EventStatus.DRAFT } };
     mockPrisma.form.findUnique.mockResolvedValue(mockFoundForm);
 
     const result = service.validateFormNotLocked(input.formId);
-    // console.log('[UT-M040-01] Input :', input);
-    // console.log('[UT-M040-01] Expected : resolves undefined');
-    // console.log('[UT-M040-01] Actual :', result);
+    // console.log('[UT-3-002-01] Input :', input);
+    // console.log('[UT-3-002-01] Expected : resolves undefined');
+    // console.log('[UT-3-002-01] Actual :', result);
 
     await expect(result).resolves.toBeUndefined();
     expect(mockPrisma.form.findUnique).toHaveBeenCalledWith({
@@ -123,7 +123,7 @@ describe('FormValidationService - validateFormNotLocked', () => {
     expect(mockPrisma.form.findUnique).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-M040-02: should throw FormNotFoundException when form not found', async () => {
+  it('UT-3-002-02: should throw FormNotFoundException when form not found', async () => {
     const input = { formId: 'f9999999-9999-9999-9999-999999999999' };
     mockPrisma.form.findUnique.mockResolvedValueOnce(null);
     mockPrisma.form.findUnique.mockResolvedValueOnce(null);
@@ -136,7 +136,7 @@ describe('FormValidationService - validateFormNotLocked', () => {
     );
   });
 
-  it('UT-M040-03: should throw FormLockedException when event status is PUBLISHED', async () => {
+  it('UT-3-002-03: should throw FormLockedException when event status is PUBLISHED', async () => {
     const input = { formId: 'f1000000-0000-0000-0000-000000000001' };
     const mockFoundForm = { event: { status: EventStatus.PUBLISHED } };
     mockPrisma.form.findUnique.mockResolvedValueOnce(mockFoundForm);
@@ -150,7 +150,7 @@ describe('FormValidationService - validateFormNotLocked', () => {
     );
   });
 
-  it('UT-M040-04: should throw FormLockedException when event status is ONGOING', async () => {
+  it('UT-3-002-04: should throw FormLockedException when event status is ONGOING', async () => {
     const input = { formId: 'f1000000-0000-0000-0000-000000000001' };
     const mockFoundForm = { event: { status: EventStatus.ONGOING } };
     mockPrisma.form.findUnique.mockResolvedValueOnce(mockFoundForm);
@@ -160,7 +160,7 @@ describe('FormValidationService - validateFormNotLocked', () => {
     );
   });
 
-  it('UT-M040-05: should throw FormLockedException when event status is CONCLUDED', async () => {
+  it('UT-3-002-05: should throw FormLockedException when event status is CONCLUDED', async () => {
     const input = { formId: 'f1000000-0000-0000-0000-000000000001' };
     const mockFoundForm = { event: { status: EventStatus.CONCLUDED } };
     mockPrisma.form.findUnique.mockResolvedValueOnce(mockFoundForm);
@@ -170,7 +170,7 @@ describe('FormValidationService - validateFormNotLocked', () => {
     );
   });
 
-  it('UT-M040-06: should throw FormLockedException when event status is CANCELLED', async () => {
+  it('UT-3-002-06: should throw FormLockedException when event status is CANCELLED', async () => {
     const input = { formId: 'f1000000-0000-0000-0000-000000000001' };
     const mockFoundForm = { event: { status: EventStatus.CANCELLED } };
     mockPrisma.form.findUnique.mockResolvedValueOnce(mockFoundForm);
@@ -195,15 +195,15 @@ describe('FormValidationService - validateNoResponsesExist', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M041-01: should resolve without throwing when no responses exist', async () => {
+  it('UT-3-003-01: should resolve without throwing when no responses exist', async () => {
     const input = { formId: 'f1000000-0000-0000-0000-000000000001' };
     mockPrisma.formResponse.count.mockResolvedValue(0);
 
     const result = service.validateNoResponsesExist(input.formId);
 
-    // console.log('[UT-M041-01] Input :', input);
-    // console.log('[UT-M041-01] Expected : resolves undefined');
-    // console.log('[UT-M041-01] Actual :', result);
+    // console.log('[UT-3-003-01] Input :', input);
+    // console.log('[UT-3-003-01] Expected : resolves undefined');
+    // console.log('[UT-3-003-01] Actual :', result);
 
     await expect(result).resolves.toBeUndefined();
     expect(mockPrisma.formResponse.count).toHaveBeenCalledWith({
@@ -212,7 +212,7 @@ describe('FormValidationService - validateNoResponsesExist', () => {
     expect(mockPrisma.formResponse.count).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-M041-02: should throw FormAlreadyHasResponsesException when exactly 1 response exists', async () => {
+  it('UT-3-003-02: should throw FormAlreadyHasResponsesException when exactly 1 response exists', async () => {
     const input = { formId: 'f1000000-0000-0000-0000-000000000002' };
     mockPrisma.formResponse.count.mockResolvedValueOnce(1);
     mockPrisma.formResponse.count.mockResolvedValueOnce(1);
@@ -227,7 +227,7 @@ describe('FormValidationService - validateNoResponsesExist', () => {
     );
   });
 
-  it('UT-M041-03: should throw FormAlreadyHasResponsesException when multiple responses exist', async () => {
+  it('UT-3-003-03: should throw FormAlreadyHasResponsesException when multiple responses exist', async () => {
     const input = { formId: 'f2000000-0000-0000-0000-000000000002' };
     mockPrisma.formResponse.count.mockResolvedValueOnce(5);
 
@@ -251,14 +251,14 @@ describe('FormValidationService - validateFormFields', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-M042-01: should not throw when fields array is empty', () => {
+  it('UT-3-004-01: should not throw when fields array is empty', () => {
     const input = { fields: [] };
-    // console.log('[UT-M042-01] Input :', input);
-    // console.log('[UT-M042-01] Expected : no throw');
+    // console.log('[UT-3-004-01] Input :', input);
+    // console.log('[UT-3-004-01] Expected : no throw');
     expect(() => service.validateFormFields(input.fields)).not.toThrow();
   });
 
-  it('UT-M042-02: should not throw when TEXT field is valid', () => {
+  it('UT-3-004-02: should not throw when TEXT field is valid', () => {
     const input = {
       fields: [
         {
@@ -269,12 +269,12 @@ describe('FormValidationService - validateFormFields', () => {
         },
       ],
     };
-    // console.log('[UT-M042-02] Input :', input);
-    // console.log('[UT-M042-02] Expected : no throw');
+    // console.log('[UT-3-004-02] Input :', input);
+    // console.log('[UT-3-004-02] Expected : no throw');
     expect(() => service.validateFormFields(input.fields)).not.toThrow();
   });
 
-  it('UT-M042-03: should not throw when CHOICE field has exactly 2 options', () => {
+  it('UT-3-004-03: should not throw when CHOICE field has exactly 2 options', () => {
     const input = {
       fields: [
         {
@@ -285,12 +285,12 @@ describe('FormValidationService - validateFormFields', () => {
         },
       ],
     };
-    // console.log('[UT-M042-03] Input :', input);
-    // console.log('[UT-M042-03] Expected : no throw');
+    // console.log('[UT-3-004-03] Input :', input);
+    // console.log('[UT-3-004-03] Expected : no throw');
     expect(() => service.validateFormFields(input.fields)).not.toThrow();
   });
 
-  it('UT-M042-04: should not throw when CHECKBOX field has exactly 2 options', () => {
+  it('UT-3-004-04: should not throw when CHECKBOX field has exactly 2 options', () => {
     const input = {
       fields: [
         {
@@ -301,12 +301,12 @@ describe('FormValidationService - validateFormFields', () => {
         },
       ],
     };
-    // console.log('[UT-M042-04] Input :', input);
-    // console.log('[UT-M042-04] Expected : no throw');
+    // console.log('[UT-3-004-04] Input :', input);
+    // console.log('[UT-3-004-04] Expected : no throw');
     expect(() => service.validateFormFields(input.fields)).not.toThrow();
   });
 
-  it('UT-M042-05: should not throw when NUMBER, RATING, TEXTAREA, DATE fields have no options', () => {
+  it('UT-3-004-05: should not throw when NUMBER, RATING, TEXTAREA, DATE fields have no options', () => {
     const input = {
       fields: [
         {
@@ -330,20 +330,20 @@ describe('FormValidationService - validateFormFields', () => {
         { type: FieldType.DATE, label: 'DOB', isRequired: false, options: [] },
       ],
     };
-    // console.log('[UT-M042-05] Input :', input);
-    // console.log('[UT-M042-05] Expected : no throw');
+    // console.log('[UT-3-004-05] Input :', input);
+    // console.log('[UT-3-004-05] Expected : no throw');
     expect(() => service.validateFormFields(input.fields)).not.toThrow();
   });
 
-  it('UT-M042-06: should throw FormFieldInvalidException when field has empty string label', () => {
+  it('UT-3-004-06: should throw FormFieldInvalidException when field has empty string label', () => {
     const input = {
       fields: [
         { type: FieldType.TEXT, label: '', isRequired: false, options: [] },
       ],
     };
     const expectedMessage = 'Field at index 0: label is required.';
-    // console.log('[UT-M042-06] Input :', input);
-    // console.log('[UT-M042-06] Expected :', expectedMessage);
+    // console.log('[UT-3-004-06] Input :', input);
+    // console.log('[UT-3-004-06] Expected :', expectedMessage);
     expect(() => service.validateFormFields(input.fields)).toThrow(
       FormFieldInvalidException,
     );
@@ -352,15 +352,15 @@ describe('FormValidationService - validateFormFields', () => {
     );
   });
 
-  it('UT-M042-07: should throw FormFieldInvalidException when field has whitespace-only label', () => {
+  it('UT-3-004-07: should throw FormFieldInvalidException when field has whitespace-only label', () => {
     const input = {
       fields: [
         { type: FieldType.TEXT, label: '   ', isRequired: false, options: [] },
       ],
     };
     const expectedMessage = 'Field at index 0: label is required.';
-    // console.log('[UT-M042-07] Input :', input);
-    // console.log('[UT-M042-07] Expected :', expectedMessage);
+    // console.log('[UT-3-004-07] Input :', input);
+    // console.log('[UT-3-004-07] Expected :', expectedMessage);
     expect(() => service.validateFormFields(input.fields)).toThrow(
       FormFieldInvalidException,
     );
@@ -369,7 +369,7 @@ describe('FormValidationService - validateFormFields', () => {
     );
   });
 
-  it('UT-M042-08: should throw FormFieldInvalidException when field has null label', () => {
+  it('UT-3-004-08: should throw FormFieldInvalidException when field has null label', () => {
     const input = {
       fields: [
         {
@@ -381,8 +381,8 @@ describe('FormValidationService - validateFormFields', () => {
       ],
     };
     const expectedMessage = 'Field at index 0: label is required.';
-    // console.log('[UT-M042-08] Input :', input);
-    // console.log('[UT-M042-08] Expected :', expectedMessage);
+    // console.log('[UT-3-004-08] Input :', input);
+    // console.log('[UT-3-004-08] Expected :', expectedMessage);
     expect(() => service.validateFormFields(input.fields)).toThrow(
       FormFieldInvalidException,
     );
@@ -391,7 +391,7 @@ describe('FormValidationService - validateFormFields', () => {
     );
   });
 
-  it('UT-M042-09: should throw FormFieldInvalidException when CHOICE field has 0 options', () => {
+  it('UT-3-004-09: should throw FormFieldInvalidException when CHOICE field has 0 options', () => {
     const input = {
       fields: [
         {
@@ -404,8 +404,8 @@ describe('FormValidationService - validateFormFields', () => {
     };
     const expectedMessage =
       'Field at index 0: at least two options are required for CHOICE type.';
-    // console.log('[UT-M042-09] Input :', input);
-    // console.log('[UT-M042-09] Expected :', expectedMessage);
+    // console.log('[UT-3-004-09] Input :', input);
+    // console.log('[UT-3-004-09] Expected :', expectedMessage);
     expect(() => service.validateFormFields(input.fields)).toThrow(
       FormFieldInvalidException,
     );
@@ -414,7 +414,7 @@ describe('FormValidationService - validateFormFields', () => {
     );
   });
 
-  it('UT-M042-10: should throw FormFieldInvalidException when CHOICE field has exactly 1 option', () => {
+  it('UT-3-004-10: should throw FormFieldInvalidException when CHOICE field has exactly 1 option', () => {
     const input = {
       fields: [
         {
@@ -427,8 +427,8 @@ describe('FormValidationService - validateFormFields', () => {
     };
     const expectedMessage =
       'Field at index 0: at least two options are required for CHOICE type.';
-    // console.log('[UT-M042-10] Input :', input);
-    // console.log('[UT-M042-10] Expected :', expectedMessage);
+    // console.log('[UT-3-004-10] Input :', input);
+    // console.log('[UT-3-004-10] Expected :', expectedMessage);
     expect(() => service.validateFormFields(input.fields)).toThrow(
       FormFieldInvalidException,
     );
@@ -437,7 +437,7 @@ describe('FormValidationService - validateFormFields', () => {
     );
   });
 
-  it('UT-M042-11: should throw FormFieldInvalidException when CHECKBOX field has 0 options', () => {
+  it('UT-3-004-11: should throw FormFieldInvalidException when CHECKBOX field has 0 options', () => {
     const input = {
       fields: [
         {
@@ -450,8 +450,8 @@ describe('FormValidationService - validateFormFields', () => {
     };
     const expectedMessage =
       'Field at index 0: at least two options are required for CHECKBOX type.';
-    // console.log('[UT-M042-11] Input :', input);
-    // console.log('[UT-M042-11] Expected :', expectedMessage);
+    // console.log('[UT-3-004-11] Input :', input);
+    // console.log('[UT-3-004-11] Expected :', expectedMessage);
     expect(() => service.validateFormFields(input.fields)).toThrow(
       FormFieldInvalidException,
     );
@@ -460,7 +460,7 @@ describe('FormValidationService - validateFormFields', () => {
     );
   });
 
-  it('UT-M042-12: should throw FormFieldInvalidException when CHECKBOX field has exactly 1 option', () => {
+  it('UT-3-004-12: should throw FormFieldInvalidException when CHECKBOX field has exactly 1 option', () => {
     const input = {
       fields: [
         {
@@ -473,8 +473,8 @@ describe('FormValidationService - validateFormFields', () => {
     };
     const expectedMessage =
       'Field at index 0: at least two options are required for CHECKBOX type.';
-    // console.log('[UT-M042-12] Input :', input);
-    // console.log('[UT-M042-12] Expected :', expectedMessage);
+    // console.log('[UT-3-004-12] Input :', input);
+    // console.log('[UT-3-004-12] Expected :', expectedMessage);
     expect(() => service.validateFormFields(input.fields)).toThrow(
       FormFieldInvalidException,
     );
@@ -483,7 +483,7 @@ describe('FormValidationService - validateFormFields', () => {
     );
   });
 
-  it('UT-M042-13: should throw FormFieldInvalidException at index 0 when first of multiple fields has empty label', () => {
+  it('UT-3-004-13: should throw FormFieldInvalidException at index 0 when first of multiple fields has empty label', () => {
     const input = {
       fields: [
         { type: FieldType.TEXT, label: '', isRequired: false, options: [] },
@@ -496,8 +496,8 @@ describe('FormValidationService - validateFormFields', () => {
       ],
     };
     const expectedMessage = 'Field at index 0: label is required.';
-    // console.log('[UT-M042-13] Input :', input);
-    // console.log('[UT-M042-13] Expected :', expectedMessage);
+    // console.log('[UT-3-004-13] Input :', input);
+    // console.log('[UT-3-004-13] Expected :', expectedMessage);
     expect(() => service.validateFormFields(input.fields)).toThrow(
       FormFieldInvalidException,
     );
@@ -506,7 +506,7 @@ describe('FormValidationService - validateFormFields', () => {
     );
   });
 
-  it('UT-M042-14: should throw FormFieldInvalidException at index 1 when second field has invalid options', () => {
+  it('UT-3-004-14: should throw FormFieldInvalidException at index 1 when second field has invalid options', () => {
     const input = {
       fields: [
         {
@@ -525,8 +525,8 @@ describe('FormValidationService - validateFormFields', () => {
     };
     const expectedMessage =
       'Field at index 1: at least two options are required for CHOICE type.';
-    // console.log('[UT-M042-14] Input :', input);
-    // console.log('[UT-M042-14] Expected :', expectedMessage);
+    // console.log('[UT-3-004-14] Input :', input);
+    // console.log('[UT-3-004-14] Expected :', expectedMessage);
     expect(() => service.validateFormFields(input.fields)).toThrow(
       FormFieldInvalidException,
     );
@@ -535,7 +535,7 @@ describe('FormValidationService - validateFormFields', () => {
     );
   });
 
-  it('UT-M042-15: should not throw when field type is an unrecognized value', () => {
+  it('UT-3-004-15: should not throw when field type is an unrecognized value', () => {
     const input = {
       fields: [
         {
@@ -546,8 +546,8 @@ describe('FormValidationService - validateFormFields', () => {
         },
       ],
     };
-    // console.log('[UT-M042-15] Input :', input);
-    // console.log('[UT-M042-15] Expected : no throw');
+    // console.log('[UT-3-004-15] Input :', input);
+    // console.log('[UT-3-004-15] Expected : no throw');
     expect(() => service.validateFormFields(input.fields)).not.toThrow();
   });
 });
