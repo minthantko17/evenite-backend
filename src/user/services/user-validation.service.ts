@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ParticipantProfile, OrganizerProfile, Role } from '@prisma/client';
+import { User, ParticipantProfile, OrganizerProfile, Role } from '@prisma/client';
 import { UserNotFoundException } from '../exceptions/user-not-found.exception';
 import { ProfileAlreadyExistsException } from '../exceptions/profile-already-exists.exception';
 import { InvalidRoleTransitionException } from '../exceptions/invalid-role-transition.exception';
@@ -19,21 +19,23 @@ import { InvalidMailException } from '../exceptions/invalid-mail.exception';
 import { InvalidUrlException } from '../exceptions/invalid-url.exception';
 import { PrismaService } from '../../prisma/prisma.service';
 import { isValidUrl } from '../../common/utils/url.utils';
+import { ReturnUserDto } from '../dto/return-user.dto';
 
 @Injectable()
 export class UserValidationService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async validateUserExists(userId: string): Promise<void> {
+  async validateUserExists(userId: string): Promise<{ id: string; currentRole: Role | null }> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId }
     });
     if (!user) {
       throw new UserNotFoundException();
     }
+    return { id: user.id, currentRole: user.currentRole };
   }
 
-  async validateParticipantProfileNotExists(userId: string): Promise<void> {
+  async validateParticipantProfileNotExists(userId: string): Promise<{ message: string }> {
     const participantProfile = await this.prisma.participantProfile.findUnique({
       where: { userId },
     });
@@ -42,9 +44,10 @@ export class UserValidationService {
         'Participant profile already exists.',
       );
     }
+    return { message: 'Participant profile does not exist yet.' };
   }
 
-  async validateOrganizerProfileNotExists(userId: string): Promise<void> {
+  async validateOrganizerProfileNotExists(userId: string): Promise<{ message: string }> {
     const organizerProfile = await this.prisma.organizerProfile.findUnique({
       where: { userId },
     });
@@ -53,6 +56,7 @@ export class UserValidationService {
         'Organizer profile already exists.',
       );
     }
+    return { message: 'Organizer profile does not exist yet.' };
   }
 
   // to prevent switching to same role

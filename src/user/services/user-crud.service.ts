@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Role, Prisma } from '@prisma/client';
+import { User, Role, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ParticipantProfile, OrganizerProfile } from '@prisma/client';
 import { CreateParticipantProfileDto } from '../dto/create-participant-profile.dto';
@@ -42,12 +42,13 @@ export class UserCrudService {
     return this.mapToReturnUserDto(result);
   }
 
-  async updateUserRole(userId: string, role: Role | null): Promise<void> {
+  async updateUserRole(userId: string, role: Role | null): Promise<{ id: string; currentRole: Role | null }> {
     try {
-      await this.prisma.user.update({
+      const result = await this.prisma.user.update({
         where: { id: userId },
         data: { currentRole: role },
       });
+      return { id: result.id, currentRole: result.currentRole };
     } catch {
       throw new SaveProfileException(
         'Failed to update user role. Please try again.',

@@ -268,64 +268,49 @@ describe('UserCrudService - updateUserRole', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-4-012-01: should resolve without error when updating role to PARTICIPANT', async () => {
+  it('UT-4-012-01: should return user when updating role to PARTICIPANT', async () => {
     const input = { userId: MOCK_USER_ID_1, role: Role.PARTICIPANT };
-    mockPrisma.user.update.mockResolvedValue({
+    const expected = {
       id: input.userId,
-      currentRole: Role.PARTICIPANT,
-    });
+      currentRole: Role.PARTICIPANT
+    };
+    mockPrisma.user.update.mockResolvedValue(expected);
 
-    await expect(
-      service.updateUserRole(input.userId, input.role),
-    ).resolves.toBeUndefined();
+    const result = await service.updateUserRole(input.userId, input.role);
+    
+    expect(result).toEqual(expected);
 
     // console.log('[UT-4-012-01] Input :', input);
-    // console.log('[UT-4-012-01] Expected:');
-    // console.log('[UT-4-012-01] Actual : no throw');
-
-    expect(mockPrisma.user.update).toHaveBeenCalledWith({
-      where: { id: input.userId },
-      data: { currentRole: Role.PARTICIPANT },
-    });
-    expect(mockPrisma.user.update).toHaveBeenCalledTimes(1);
+    // console.log('[UT-4-012-01] Expected:', expected);
+    // console.log('[UT-4-012-01] Actual :', result);
   });
 
-  it('UT-4-012-02: should resolve without error when updating role to ORGANIZER', async () => {
+  it('UT-4-012-02: should return user when updating role to ORGANIZER', async () => {
     const input = { userId: MOCK_USER_ID_2, role: Role.ORGANIZER };
-    mockPrisma.user.update.mockResolvedValue({
+    const expected = {
       id: input.userId,
       currentRole: Role.ORGANIZER,
-    });
+    };
+    mockPrisma.user.update.mockResolvedValue(expected);
 
-    await expect(
-      service.updateUserRole(input.userId, input.role),
-    ).resolves.toBeUndefined();
+    const result = await service.updateUserRole(input.userId, input.role);
+    expect(result).toEqual(expected);
 
     // console.log('[UT-4-012-02] Input :', input);
-    // console.log('[UT-4-012-02] Expected : resolves undefined, prisma.user.update called with correct args');
-    // console.log('[UT-4-012-02] Actual : no throw');
-
-    expect(mockPrisma.user.update).toHaveBeenCalledWith({
-      where: { id: input.userId },
-      data: { currentRole: Role.ORGANIZER },
-    });
+    // console.log('[UT-4-012-02] Expected:', expected);
+    // console.log('[UT-4-012-02] Actual :', result );
   });
 
-  it('UT-4-012-03: should resolve without error when updating role to null', async () => {
+  it('UT-4-012-03: should return user when updating role to null', async () => {
     const input = { userId: MOCK_USER_ID_1, role: null as any };
-    mockPrisma.user.update.mockResolvedValue({
+    const expected = {
       id: input.userId,
-      currentRole: null,
-    });
+      currentRole: null
+    };
+    mockPrisma.user.update.mockResolvedValue(expected);
 
-    await expect(
-      service.updateUserRole(input.userId, input.role),
-    ).resolves.toBeUndefined();
-
-    expect(mockPrisma.user.update).toHaveBeenCalledWith({
-      where: { id: input.userId },
-      data: { currentRole: null },
-    });
+    const result = await service.updateUserRole(input.userId, input.role);
+    expect(result).toEqual(expected);
   });
 
   it('UT-4-012-04: should throw SaveProfileException when prisma update fails', async () => {

@@ -43,7 +43,7 @@ describe('FormValidationService - validateFormTypeNotDuplicated', () => {
     // console.log('[UT-3-001-01] Expected : resolves undefined');
     // console.log('[UT-3-001-01] Actual :', result);
 
-    await expect(result).resolves.toBeUndefined();
+    await expect(result).resolves.toEqual({ message: 'Form type is not duplicated.' });
     expect(mockPrisma.form.findUnique).toHaveBeenCalledWith({
       where: { eventId_type: { eventId: input.eventId, type: input.type } },
     });
@@ -105,7 +105,7 @@ describe('FormValidationService - validateFormNotLocked', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-3-002-01: should resolve without throwing when event status is DRAFT', async () => {
+  it('UT-3-002-01: should return form is not locked for updating when event status is DRAFT', async () => {
     const input = { formId: 'f1000000-0000-0000-0000-000000000001' };
     const mockFoundForm = { event: { status: EventStatus.DRAFT } };
     mockPrisma.form.findUnique.mockResolvedValue(mockFoundForm);
@@ -115,7 +115,7 @@ describe('FormValidationService - validateFormNotLocked', () => {
     // console.log('[UT-3-002-01] Expected : resolves undefined');
     // console.log('[UT-3-002-01] Actual :', result);
 
-    await expect(result).resolves.toBeUndefined();
+    await expect(result).resolves.toEqual({ message: 'Form is not locked for updating.' });
     expect(mockPrisma.form.findUnique).toHaveBeenCalledWith({
       where: { id: input.formId },
       select: { event: { select: { status: true } } },
@@ -195,7 +195,7 @@ describe('FormValidationService - validateNoResponsesExist', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-3-003-01: should resolve without throwing when no responses exist', async () => {
+  it('UT-3-003-01: should return no response exists message when no responses exist', async () => {
     const input = { formId: 'f1000000-0000-0000-0000-000000000001' };
     mockPrisma.formResponse.count.mockResolvedValue(0);
 
@@ -205,7 +205,7 @@ describe('FormValidationService - validateNoResponsesExist', () => {
     // console.log('[UT-3-003-01] Expected : resolves undefined');
     // console.log('[UT-3-003-01] Actual :', result);
 
-    await expect(result).resolves.toBeUndefined();
+    await expect(result).resolves.toEqual({ message: 'No response exists for this form.' });
     expect(mockPrisma.formResponse.count).toHaveBeenCalledWith({
       where: { formId: input.formId },
     });

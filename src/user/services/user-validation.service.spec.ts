@@ -34,14 +34,15 @@ describe('UserValidationService - validateUserExists', () => {
   });
 
   it('UT-4-001-01: should resolve without throwing when user exists', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({
+    const expected  = {
       id: 'u1000000-0000-0000-0000-000000000001',
-      email: 'minthant@cmu.ac.th',
-    });
+      currentRole: null,
+    };
+    mockPrisma.user.findUnique.mockResolvedValue(expected);
     const result = service.validateUserExists(
       'u1000000-0000-0000-0000-000000000001',
     );
-    await expect(result).resolves.toBeUndefined();
+    await expect(result).resolves.toEqual(expected);
     await expect(()=>result).not.toThrow();
   });
 
@@ -69,12 +70,12 @@ describe('UserValidationService - validateParticipantProfileNotExists', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-4-002-01: should resolve without throwing when participant profile does not exist', async () => {
+  it('UT-4-002-01: should return participant profile not exists message when participant profile does not exist', async () => {
     mockPrisma.participantProfile.findUnique.mockResolvedValue(null);
     const result = service.validateParticipantProfileNotExists(
       'u2000000-0000-0000-0000-000000000002',
     );
-    await expect(result).resolves.toBeUndefined();
+    await expect(result).resolves.toEqual({ message: 'Participant profile does not exist yet.' });
     await expect(()=>result).not.toThrow();
   });
 
@@ -107,12 +108,12 @@ describe('UserValidationService - validateOrganizerProfileNotExists', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-4-003-01: should resolve without throwing when organizer profile does not exist', async () => {
+  it('UT-4-003-01: should return organizer profile not exists message when organizer profile does not exist', async () => {
     mockPrisma.organizerProfile.findUnique.mockResolvedValue(null);
     const result = service.validateOrganizerProfileNotExists(
       'u4000000-0000-0000-0000-000000000004',
     );
-    await expect(result).resolves.toBeUndefined();
+    await expect(result).resolves.toEqual({ message: 'Organizer profile does not exist yet.' });
     await expect(()=>result).not.toThrow();
   });
 
