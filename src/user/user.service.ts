@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { EventStatus } from '@prisma/client';
 import { UserCrudService } from './services/user-crud.service';
 import { UserValidationService } from './services/user-validation.service';
@@ -24,6 +24,8 @@ import { EventRegistrationWithEvent } from '../event/types/event.types';
 
 @Injectable()
 export class UserService {
+  private readonly logger = new Logger(UserService.name);
+  
   constructor(
     private readonly userCrudService: UserCrudService,
     private readonly userValidationService: UserValidationService,
@@ -85,11 +87,12 @@ export class UserService {
     );
 
     if (hasImageUrlField) {
-      await this.userStorageService.deleteOrphanImageIfReplaced(
+      const deletionResult = await this.userStorageService.deleteOrphanImageIfReplaced(
         participantProfile.imageUrl,
         dto.imageUrl,
         DEFAULT_PARTICIPANT_IMAGE_URL,
       );
+      this.logger.log(deletionResult.message);
     }
 
     return this.userCrudService.updateParticipantProfile(userId, dto);
@@ -153,11 +156,12 @@ export class UserService {
     );
 
     if (hasImageUrlField) {
-      await this.userStorageService.deleteOrphanImageIfReplaced(
+      const deletionResult = await this.userStorageService.deleteOrphanImageIfReplaced(
         organizerProfile.imageUrl,
         dto.imageUrl,
         DEFAULT_ORGANIZER_IMAGE_URL,
       );
+      this.logger.log(deletionResult.message);
     }
 
     return this.userCrudService.updateOrganizerProfile(userId, dto);

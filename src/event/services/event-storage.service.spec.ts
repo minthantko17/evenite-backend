@@ -230,90 +230,84 @@ describe('EventStorageService - deleteOrphanBannerIfReplaced', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-2-014-01: should call deleteBannerFromStorage with old URL when old and new URLs are different and old is not default', async () => {
+  it('UT-2-014-01: should return deletion successmessage when old and new URLs are different and old is not default', async () => {
     const oldBannerUrl = `${MOCK_SUPABASE_BASE_URL}/banners/old-banner-uuid.jpg`;
     const newBannerUrl = `${MOCK_SUPABASE_BASE_URL}/banners/new-banner-uuid.jpg`;
     const deleteSpy = jest
       .spyOn(service, 'deleteBannerFromStorage')
-      .mockResolvedValueOnce(undefined);
+      .mockResolvedValueOnce({ message: 'Orphan banner deleted successfully' });
 
-    await service.deleteOrphanBannerIfReplaced(oldBannerUrl, newBannerUrl);
-    // console.log('[UT-2-014-01] Expected: deleteBannerFromStorage called with ' + oldBannerUrl);
-    // console.log('[UT-2-014-01] Actual:   called with ' + deleteSpy.mock.calls[0]?.[0] );
+    const result = await service.deleteOrphanBannerIfReplaced(oldBannerUrl, newBannerUrl);
 
+    expect(result).toEqual({ message: 'Orphan banner deleted successfully' });
     expect(deleteSpy).toHaveBeenCalledWith(oldBannerUrl);
     expect(deleteSpy).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-2-014-02: should not call deleteBannerFromStorage when old and new URLs are the same', async () => {
+  it('UT-2-014-02: should return no orphan banner to delete message when old and new URLs are the same', async () => {
     const oldBannerUrl = `${MOCK_SUPABASE_BASE_URL}/banners/same-banner-uuid.jpg`;
     const newBannerUrl = `${MOCK_SUPABASE_BASE_URL}/banners/same-banner-uuid.jpg`;
     const deleteSpy = jest
       .spyOn(service, 'deleteBannerFromStorage')
-      .mockResolvedValueOnce(undefined);
+      .mockResolvedValueOnce({ message: 'Failed to delete banner from storage' });
 
-    await service.deleteOrphanBannerIfReplaced(oldBannerUrl, newBannerUrl);
-    // console.log('[UT-2-014-02] Expected: deleteBannerFromStorage call count = 0');
-    // console.log('[UT-2-014-02] Actual:   call count = ' + deleteSpy.mock.calls.length );
+    const result = await service.deleteOrphanBannerIfReplaced(oldBannerUrl, newBannerUrl);
 
+    expect(result).toEqual({ message: 'No orphan banner to delete' });
     expect(deleteSpy).not.toHaveBeenCalled();
   });
 
-  it('UT-2-014-03: should not call deleteBannerFromStorage when old URL is DEFAULT_BANNER_URL', async () => {
+  it('UT-2-014-03: should return no orphan banner to delete message when old URL is DEFAULT_BANNER_URL', async () => {
     const oldBannerUrl = DEFAULT_BANNER_URL; // 'https://placehold.co/600x400?text=No+Image'
     const newBannerUrl = `${MOCK_SUPABASE_BASE_URL}/banners/new-banner-uuid.jpg`;
     const deleteSpy = jest
       .spyOn(service, 'deleteBannerFromStorage')
-      .mockResolvedValueOnce(undefined);
+      .mockResolvedValueOnce({ message: 'Failed to delete banner from storage' });
 
-    await service.deleteOrphanBannerIfReplaced(oldBannerUrl, newBannerUrl);
-    // console.log('[UT-2-014-03] Expected: deleteBannerFromStorage call count = 0');
-    // console.log('[UT-2-014-03] Actual:   call count = ' + deleteSpy.mock.calls.length );
+    const result = await service.deleteOrphanBannerIfReplaced(oldBannerUrl, newBannerUrl);
 
+    expect(result).toEqual({ message: 'No orphan banner to delete' });
     expect(deleteSpy).not.toHaveBeenCalled();
   });
 
-  it('UT-2-014-04: should not call deleteBannerFromStorage when old URL is null', async () => {
+  it('UT-2-014-04: should return no orphan banner to delete message when old URL is null', async () => {
     const oldBannerUrl = null;
     const newBannerUrl = `${MOCK_SUPABASE_BASE_URL}/banners/new-banner-uuid.jpg`;
     const deleteSpy = jest
       .spyOn(service, 'deleteBannerFromStorage')
-      .mockResolvedValueOnce(undefined);
+      .mockResolvedValueOnce({ message: 'Failed to delete banner from storage' });
 
-    await service.deleteOrphanBannerIfReplaced(oldBannerUrl, newBannerUrl);
-    // console.log('[UT-2-014-04] Expected: deleteBannerFromStorage call count = 0');
-    // console.log('[UT-2-014-04] Actual:   call count = ' + deleteSpy.mock.calls.length );
+    const result = await service.deleteOrphanBannerIfReplaced(oldBannerUrl, newBannerUrl);
 
+    expect(result).toEqual({ message: 'No orphan banner to delete' });
     expect(deleteSpy).not.toHaveBeenCalled();
   });
 
-  it('UT-2-014-05: should call deleteBannerFromStorage with old URL when new URL is undefined and old is not default', async () => {
+  it('UT-2-014-05: should return deletion success message when new URL is undefined and old is not default', async () => {
     const oldBannerUrl = `${MOCK_SUPABASE_BASE_URL}/banners/old-banner-uuid.jpg`;
     const newBannerUrl = undefined;
 
     const deleteSpy = jest
       .spyOn(service, 'deleteBannerFromStorage')
-      .mockResolvedValueOnce(undefined);
+      .mockResolvedValueOnce({ message: 'Orphan banner deleted successfully' });
 
-    await service.deleteOrphanBannerIfReplaced(oldBannerUrl, newBannerUrl);
-    // console.log('[UT-2-014-05] Expected: deleteBannerFromStorage called with ' + oldBannerUrl );
-    // console.log('[UT-2-014-05] Actual:   called with ' + deleteSpy.mock.calls[0]?.[0] );
+    const result = await service.deleteOrphanBannerIfReplaced(oldBannerUrl, newBannerUrl);
 
+    expect(result).toEqual({ message: 'Orphan banner deleted successfully' });
     expect(deleteSpy).toHaveBeenCalledWith(oldBannerUrl);
     expect(deleteSpy).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-2-014-06: should not call deleteBannerFromStorage when old URL is DEFAULT_BANNER_URL and new URL is undefined', async () => {
+  it('UT-2-014-06: should return no orphan banner to delete message when old URL is DEFAULT_BANNER_URL and new URL is undefined', async () => {
     const oldBannerUrl = DEFAULT_BANNER_URL; // 'https://placehold.co/600x400?text=No+Image'
     const newBannerUrl = undefined;
     const deleteSpy = jest
       .spyOn(service, 'deleteBannerFromStorage')
-      .mockResolvedValueOnce(undefined);
+      .mockResolvedValueOnce({ message: 'Failed to delete banner from storage' });
 
-    await service.deleteOrphanBannerIfReplaced(oldBannerUrl, newBannerUrl);
-    // console.log('[UT-2-014-06] Expected: deleteBannerFromStorage call count = 0');
-    // console.log('[UT-2-014-06] Actual:   call count = ' + deleteSpy.mock.calls.length );
+    const result = await service.deleteOrphanBannerIfReplaced(oldBannerUrl, newBannerUrl);
 
+    expect(result).toEqual({ message: 'No orphan banner to delete' });
     expect(deleteSpy).not.toHaveBeenCalled();
   });
 });
@@ -330,36 +324,40 @@ describe('EventStorageService - deleteBannerFromStorage', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-2-015-01: should call Supabase remove with correct extracted file path when valid Supabase URL is given', async () => {
+  it('UT-2-015-01: should return success delete message when valid Supabase URL is given', async () => {
     const filePath = 'banners/mock-banner-uuid.jpg';
     const bannerUrl = `${MOCK_SUPABASE_BASE_URL}/${filePath}`;
     mockStorageFrom.remove.mockResolvedValueOnce({ error: null });
 
-    await service.deleteBannerFromStorage(bannerUrl);
+    const result = await service.deleteBannerFromStorage(bannerUrl);
     // console.log('[UT-2-015-01] Expected: remove called with [' + filePath + ']');
     // console.log('[UT-2-015-01] Actual:   remove called with ' + JSON.stringify(mockStorageFrom.remove.mock.calls[0]?.[0]));
 
+    expect(result).toEqual({ message: 'Orphan banner deleted successfully' });
     expect(mockStorageFrom.remove).toHaveBeenCalledWith([filePath]);
     expect(mockStorageFrom.remove).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-2-015-02: should not call Supabase remove when input is not a valid URL', async () => {
+  it('UT-2-015-02: should return fail to extract file path message when input is not a valid URL', async () => {
     const bannerUrl = 'not-a-valid-url';
+    jest.spyOn(service as any, 'extractFilePathFromUrl').mockReturnValueOnce(null);
+    mockStorageFrom.remove.mockResolvedValueOnce({ error: 'Invalid URL' });
 
-    await service.deleteBannerFromStorage(bannerUrl);
+    const result = await service.deleteBannerFromStorage(bannerUrl);
     // console.log('[UT-2-015-02] Expected: remove call count = 0');
     // console.log('[UT-2-015-02] Actual:   call count = ' + mockStorageFrom.remove.mock.calls.length );
 
+    expect(result).toEqual({ message: 'Failed to extract file path from URL' });
     expect(mockStorageFrom.remove).not.toHaveBeenCalled();
   });
 
-  it('UT-2-015-03: should not call Supabase remove when URL does not match Supabase storage pattern', async () => {
+  it('UT-2-015-03: should return fail to delete banner message when supabase remove fails', async () => {
     const bannerUrl = 'https://www.cmu.ac.th/files/banner.jpg';
+    jest.spyOn(service as any, 'extractFilePathFromUrl').mockReturnValueOnce(bannerUrl);
+    mockStorageFrom.remove.mockResolvedValueOnce({ error: 'Failed to delete banner from storage' });
 
-    await service.deleteBannerFromStorage(bannerUrl);
-    // console.log('[UT-2-015-03] Expected: remove call count = 0');
-    // console.log('[UT-2-015-03] Actual:   call count = ' + mockStorageFrom.remove.mock.calls.length );
+    const result = await service.deleteBannerFromStorage(bannerUrl);
 
-    expect(mockStorageFrom.remove).not.toHaveBeenCalled();
+    expect(result).toEqual({ message: 'Failed to delete banner from storage' });
   });
 });
