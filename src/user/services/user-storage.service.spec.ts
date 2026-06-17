@@ -295,7 +295,7 @@ describe('UserStorageService - deleteOrphanImageIfReplaced', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-4-009-01: should call deleteImageFromStorage with old URL when old and new participant URLs differ and old is not default', async () => {
+  it('UT-4-009-01: should return success message when old and new participant URLs differ and old is not default', async () => {
     const input = {
       oldImageUrl: `${MOCK_SUPABASE_BASE_URL}/participant/old-uuid.jpg`,
       newImageUrl: `${MOCK_SUPABASE_BASE_URL}/participant/new-uuid.jpg`,
@@ -303,23 +303,20 @@ describe('UserStorageService - deleteOrphanImageIfReplaced', () => {
     };
     const deleteSpy = jest
       .spyOn(service, 'deleteImageFromStorage')
-      .mockResolvedValueOnce(undefined);
+      .mockResolvedValueOnce({ message: 'Orphan image deleted successfully' });
 
-    await service.deleteOrphanImageIfReplaced(
+    const result = await service.deleteOrphanImageIfReplaced(
       input.oldImageUrl,
       input.newImageUrl,
       input.defaultUrl,
     );
 
-    // console.log('[UT-4-009-01] Input :', input);
-    // console.log('[UT-4-009-01] Expected : deleteImageFromStorage called with', input.oldImageUrl);
-    // console.log('[UT-4-009-01] Actual : called with', deleteSpy.mock.calls[0]?.[0]);
-
+    expect(result).toEqual({ message: 'Orphan image deleted successfully' });
     expect(deleteSpy).toHaveBeenCalledWith(input.oldImageUrl);
     expect(deleteSpy).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-4-009-02: should call deleteImageFromStorage with old URL when old and new organizer URLs differ and old is not default', async () => {
+  it('UT-4-009-02: should return success message when old and new organizer URLs differ and old is not default', async () => {
     const input = {
       oldImageUrl: `${MOCK_SUPABASE_BASE_URL}/organizer/old-uuid.png`,
       newImageUrl: `${MOCK_SUPABASE_BASE_URL}/organizer/new-uuid.png`,
@@ -327,23 +324,20 @@ describe('UserStorageService - deleteOrphanImageIfReplaced', () => {
     };
     const deleteSpy = jest
       .spyOn(service, 'deleteImageFromStorage')
-      .mockResolvedValueOnce(undefined);
+      .mockResolvedValueOnce({ message: 'Orphan image deleted successfully' }  );
 
-    await service.deleteOrphanImageIfReplaced(
+    const result = await service.deleteOrphanImageIfReplaced(
       input.oldImageUrl,
       input.newImageUrl,
       input.defaultUrl,
     );
 
-    // console.log('[UT-4-009-02] Input :', input);
-    // console.log('[UT-4-009-02] Expected : deleteImageFromStorage called with', input.oldImageUrl);
-    // console.log('[UT-4-009-02] Actual : called with', deleteSpy.mock.calls[0]?.[0]);
-
+    expect(result).toEqual({ message: 'Orphan image deleted successfully' });
     expect(deleteSpy).toHaveBeenCalledWith(input.oldImageUrl);
     expect(deleteSpy).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-4-009-03: should not call deleteImageFromStorage when old and new URLs are the same', async () => {
+  it('UT-4-009-03: should return no orphan image message when old and new URLs are the same', async () => {
     const sameUrl = `${MOCK_SUPABASE_BASE_URL}/participant/same-uuid.jpg`;
     const input = {
       oldImageUrl: sameUrl,
@@ -352,22 +346,19 @@ describe('UserStorageService - deleteOrphanImageIfReplaced', () => {
     };
     const deleteSpy = jest
       .spyOn(service, 'deleteImageFromStorage')
-      .mockResolvedValueOnce(undefined);
+      .mockResolvedValueOnce({ message: 'Failed to delete image from storage' });
 
-    await service.deleteOrphanImageIfReplaced(
+    const result = await service.deleteOrphanImageIfReplaced(
       input.oldImageUrl,
       input.newImageUrl,
       input.defaultUrl,
     );
 
-    // console.log('[UT-4-009-03] Input :', input);
-    // console.log('[UT-4-009-03] Expected : deleteImageFromStorage call count = 0');
-    // console.log('[UT-4-009-03] Actual : call count =', deleteSpy.mock.calls.length);
-
+    expect(result).toEqual({ message: 'No orphan image to delete' });
     expect(deleteSpy).not.toHaveBeenCalled();
   });
 
-  it('UT-4-009-04: should not call deleteImageFromStorage when old URL is DEFAULT_PARTICIPANT_IMAGE_URL', async () => {
+  it('UT-4-009-04: should return no orphan image message when old URL is DEFAULT_PARTICIPANT_IMAGE_URL', async () => {
     const input = {
       oldImageUrl: DEFAULT_PARTICIPANT_IMAGE_URL,
       newImageUrl: `${MOCK_SUPABASE_BASE_URL}/participant/new-uuid.jpg`,
@@ -375,22 +366,19 @@ describe('UserStorageService - deleteOrphanImageIfReplaced', () => {
     };
     const deleteSpy = jest
       .spyOn(service, 'deleteImageFromStorage')
-      .mockResolvedValueOnce(undefined);
+      .mockResolvedValueOnce({ message: 'Failed to delete image from storage' });
 
-    await service.deleteOrphanImageIfReplaced(
+    const result = await service.deleteOrphanImageIfReplaced(
       input.oldImageUrl,
       input.newImageUrl,
       input.defaultUrl,
     );
 
-    // console.log('[UT-4-009-04] Input :', input);
-    // console.log('[UT-4-009-04] Expected : deleteImageFromStorage call count = 0');
-    // console.log('[UT-4-009-04] Actual : call count =', deleteSpy.mock.calls.length);
-
+    expect(result).toEqual({ message: 'No orphan image to delete' });
     expect(deleteSpy).not.toHaveBeenCalled();
   });
 
-  it('UT-4-009-05: should not call deleteImageFromStorage when old URL is DEFAULT_ORGANIZER_IMAGE_URL', async () => {
+  it('UT-4-009-05: should return no orphan image message when old URL is DEFAULT_ORGANIZER_IMAGE_URL', async () => {
     const input = {
       oldImageUrl: DEFAULT_ORGANIZER_IMAGE_URL,
       newImageUrl: `${MOCK_SUPABASE_BASE_URL}/organizer/new-uuid.png`,
@@ -398,22 +386,19 @@ describe('UserStorageService - deleteOrphanImageIfReplaced', () => {
     };
     const deleteSpy = jest
       .spyOn(service, 'deleteImageFromStorage')
-      .mockResolvedValueOnce(undefined);
+      .mockResolvedValueOnce({ message: 'Failed to delete image from storage' });
 
-    await service.deleteOrphanImageIfReplaced(
+    const result = await service.deleteOrphanImageIfReplaced(
       input.oldImageUrl,
       input.newImageUrl,
       input.defaultUrl,
     );
 
-    // console.log('[UT-4-009-05] Input :', input);
-    // console.log('[UT-4-009-05] Expected : deleteImageFromStorage call count = 0');
-    // console.log('[UT-4-009-05] Actual : call count =', deleteSpy.mock.calls.length);
-
+    expect(result).toEqual({ message: 'No orphan image to delete' });
     expect(deleteSpy).not.toHaveBeenCalled();
   });
 
-  it('UT-4-009-06: should not call deleteImageFromStorage when old URL is null', async () => {
+  it('UT-4-009-06: should return no orphan image message when old URL is null', async () => {
     const input = {
       oldImageUrl: null,
       newImageUrl: `${MOCK_SUPABASE_BASE_URL}/participant/new-uuid.jpg`,
@@ -421,18 +406,15 @@ describe('UserStorageService - deleteOrphanImageIfReplaced', () => {
     };
     const deleteSpy = jest
       .spyOn(service, 'deleteImageFromStorage')
-      .mockResolvedValueOnce(undefined);
+      .mockResolvedValueOnce({ message: 'Failed to delete image from storage' });
 
-    await service.deleteOrphanImageIfReplaced(
+    const result = await service.deleteOrphanImageIfReplaced(
       input.oldImageUrl,
       input.newImageUrl,
       input.defaultUrl,
     );
 
-    // console.log('[UT-4-009-06] Input :', input);
-    // console.log('[UT-4-009-06] Expected : deleteImageFromStorage call count = 0');
-    // console.log('[UT-4-009-06] Actual : call count =', deleteSpy.mock.calls.length);
-
+    expect(result).toEqual({ message: 'No orphan image to delete' });
     expect(deleteSpy).not.toHaveBeenCalled();
   });
 });
@@ -446,57 +428,48 @@ describe('UserStorageService - deleteImageFromStorage', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-4-010-01: should call Supabase remove with correct extracted path when valid participant Supabase URL is given', async () => {
+  it('UT-4-010-01: should return success message when valid participant Supabase URL is given', async () => {
     const filePath = 'participant/mock-participant-uuid.jpg';
     const input = { imageUrl: `${MOCK_SUPABASE_BASE_URL}/${filePath}` };
     mockStorageFrom.remove.mockResolvedValueOnce({ error: null });
 
-    await service.deleteImageFromStorage(input.imageUrl);
+    const result = await service.deleteImageFromStorage(input.imageUrl);
 
-    // console.log('[UT-4-010-01] Input :', input);
-    // console.log('[UT-4-010-01] Expected : remove called with [' + filePath + ']');
-    // console.log('[UT-4-010-01] Actual : remove called with', mockStorageFrom.remove.mock.calls[0]?.[0]);
-
+    expect(result).toEqual({ message: 'Orphan image deleted successfully' });
     expect(mockStorageFrom.remove).toHaveBeenCalledWith([filePath]);
     expect(mockStorageFrom.remove).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-4-010-02: should call Supabase remove with correct extracted path when valid organizer Supabase URL is given', async () => {
+  it('UT-4-010-02: should return success message when valid organizer Supabase URL is given', async () => {
     const filePath = 'organizer/mock-organizer-uuid.png';
     const input = { imageUrl: `${MOCK_SUPABASE_BASE_URL}/${filePath}` };
     mockStorageFrom.remove.mockResolvedValueOnce({ error: null });
 
-    await service.deleteImageFromStorage(input.imageUrl);
+    const result = await service.deleteImageFromStorage(input.imageUrl);
 
-    // console.log('[UT-4-010-02] Input :', input);
-    // console.log('[UT-4-010-02] Expected : remove called with [' + filePath + ']');
-    // console.log('[UT-4-010-02] Actual : remove called with', mockStorageFrom.remove.mock.calls[0]?.[0]);
-
+    expect(result).toEqual({ message: 'Orphan image deleted successfully' });
     expect(mockStorageFrom.remove).toHaveBeenCalledWith([filePath]);
     expect(mockStorageFrom.remove).toHaveBeenCalledTimes(1);
   });
 
-  it('UT-4-010-03: should not call Supabase remove when input is not a valid URL', async () => {
+  it('UT-4-010-03: should return fail to extract file path message when input is not a valid URL', async () => {
     const input = { imageUrl: 'not-a-valid-url' };
+    jest.spyOn(service as any, 'extractPathFromUrl').mockReturnValueOnce(null);
+    mockStorageFrom.remove.mockResolvedValueOnce({ error: 'Invalid URL' });
 
-    await service.deleteImageFromStorage(input.imageUrl);
+    const result = await service.deleteImageFromStorage(input.imageUrl);
 
-    // console.log('[UT-4-010-03] Input :', input);
-    // console.log('[UT-4-010-03] Expected : remove call count = 0');
-    // console.log('[UT-4-010-03] Actual : call count =', mockStorageFrom.remove.mock.calls.length);
-
+    expect(result).toEqual({ message: 'Failed to extract file path from URL' });
     expect(mockStorageFrom.remove).not.toHaveBeenCalled();
   });
 
-  it('UT-4-010-04: should not call Supabase remove when URL does not match Supabase storage pattern', async () => {
+  it('UT-4-010-04: should return fail to delete image message when supabase remove fails', async () => {
     const input = { imageUrl: 'https://www.cmu.ac.th/profile/image.jpg' };
+    jest.spyOn(service as any, 'extractPathFromUrl').mockReturnValueOnce(input. imageUrl);
+    mockStorageFrom.remove.mockResolvedValueOnce({ error: 'Failed to delete image from storage' });
 
-    await service.deleteImageFromStorage(input.imageUrl);
+    const result = await service.deleteImageFromStorage(input.imageUrl);
 
-    // console.log('[UT-4-010-04] Input :', input);
-    // console.log('[UT-4-010-04] Expected : remove call count = 0');
-    // console.log('[UT-4-010-04] Actual : call count =', mockStorageFrom.remove.mock.calls.length);
-
-    expect(mockStorageFrom.remove).not.toHaveBeenCalled();
+    expect(result).toEqual({ message: 'Failed to delete image from storage' });
   });
 });

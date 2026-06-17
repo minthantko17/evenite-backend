@@ -59,20 +59,28 @@ export class UserStorageService {
     oldImageUrl: string | null,
     newImageUrl: string,
     defaultUrl: string,
-  ): Promise<void> {
+  ): Promise<{ message: string }> {
     if (
       oldImageUrl &&
       oldImageUrl !== newImageUrl &&
       oldImageUrl !== defaultUrl
     ) {
-      await this.deleteImageFromStorage(oldImageUrl);
+      const result = await this.deleteImageFromStorage(oldImageUrl);
+      return result;
     }
+    return { message: 'No orphan image to delete' };
   }
 
-  async deleteImageFromStorage(imageUrl: string): Promise<void> {
+  async deleteImageFromStorage(imageUrl: string): Promise<{ message: string }> {
     const filePath = this.extractPathFromUrl(imageUrl);
-    if (!filePath) return;
-    await this.supabase.storage.from(this.BUCKET).remove([filePath]);
+    if (!filePath) {
+      return { message: 'Failed to extract file path from URL' };
+    }
+   const result = await this.supabase.storage.from(this.BUCKET).remove([filePath]);
+    if (result.error) {
+      return { message: 'Failed to delete image from storage' };
+    }
+    return { message: 'Orphan image deleted successfully' };
   }
 
   // --- private helpers ---

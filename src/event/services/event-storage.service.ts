@@ -49,7 +49,7 @@ export class EventStorageService {
   async deleteOrphanBannerIfReplaced(
     oldBannerUrl: string | null,
     newBannerUrl: string | undefined,
-  ): Promise<void> {
+  ): Promise<{ message: string }> {
     const resolvedNew = this.resolveBannerUrl(newBannerUrl);
 
     if (
@@ -57,14 +57,22 @@ export class EventStorageService {
       oldBannerUrl !== resolvedNew &&
       oldBannerUrl !== DEFAULT_BANNER_URL
     ) {
-      await this.deleteBannerFromStorage(oldBannerUrl);
+      const result = await this.deleteBannerFromStorage(oldBannerUrl);
+      return result;
     }
+    return { message: 'No orphan banner to delete' };
   }
 
-  async deleteBannerFromStorage(bannerUrl: string): Promise<void> {
+  async deleteBannerFromStorage(bannerUrl: string): Promise<{ message: string }> {
     const filePath = this.extractFilePathFromUrl(bannerUrl);
-    if (!filePath) return;
-    await this.supabase.storage.from(BUCKET_NAME).remove([filePath]);
+    if (!filePath) {
+      return { message: 'Failed to extract file path from URL' };
+    }
+    const { error } = await this.supabase.storage.from(BUCKET_NAME).remove([filePath]);
+    if (error) {
+      return { message: 'Failed to delete banner from storage' };
+    }
+    return { message: 'Orphan banner deleted successfully' };
   }
 
   // --- private helpers ---

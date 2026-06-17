@@ -1,4 +1,4 @@
-import { Injectable, ForbiddenException } from '@nestjs/common';
+import { Injectable, ForbiddenException, Logger } from '@nestjs/common';
 import { Event, EventStatus } from '@prisma/client';
 import { EventValidationService } from './services/event-validation.service';
 import { EventAiService } from './services/event-ai.service';
@@ -15,6 +15,8 @@ import { validateImageFile } from '../common/utils/file.utils';
 
 @Injectable()
 export class EventService {
+  private readonly logger = new Logger(EventService.name);
+  
   constructor(
     private readonly eventValidationService: EventValidationService,
     private readonly eventAiService: EventAiService,
@@ -67,10 +69,11 @@ export class EventService {
       EventStatus.DRAFT,
       dto.id,
     );
-    await this.eventStorageService.deleteOrphanBannerIfReplaced(
+    const deletionResult = await this.eventStorageService.deleteOrphanBannerIfReplaced(
       oldBannerUrl,
       dto.bannerUrl,
     );
+    this.logger.log(deletionResult.message);
 
     return savedEvent;
   }
@@ -102,10 +105,11 @@ export class EventService {
       dto.id,
     );
 
-    await this.eventStorageService.deleteOrphanBannerIfReplaced(
+    const deletionResult = await this.eventStorageService.deleteOrphanBannerIfReplaced(
       oldBannerUrl,
       dto.bannerUrl,
     );
+    this.logger.log(deletionResult.message);
 
     return publishedEvent;
   }

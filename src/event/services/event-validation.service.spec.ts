@@ -7,7 +7,7 @@ import * as path from 'path';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ForbiddenException } from '@nestjs/common';
 import { EventNotFoundException } from '../exceptions/event-not-found.exception';
-import { EventStatus } from '@prisma/client';
+import { Event, EventStatus } from '@prisma/client';
 import { EventStatusChangeException } from '../exceptions/event-status-change.exception';
 
 const mockPrisma = {
@@ -154,12 +154,28 @@ describe('EventValidationService - validateEventExists', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-2-003-01: should resolve without error when event exists', async () => {
+  it('UT-2-003-01: should return the event when it exists', async () => {
     const eventId = 'mock-event-uuid-1234';
-    const mockFoundEvent = { id: eventId };
+    const mockFoundEvent = {
+      id: eventId,
+      organizerId: 'mock-organizer-uuid-5678',
+      universityId: 'mock-university-uuid-9012',
+      title: 'Mock Event',
+      description: 'Mock event description',
+      startAt: new Date('2026-10-31T09:00:00.000Z'),
+      endAt: new Date('2026-10-31T12:00:00.000Z'),
+      createdAt: new Date('2026-10-01T08:00:00.000Z'),
+      updatedAt: new Date('2026-10-15T10:00:00.000Z'),
+      publishedAt: null,
+      status: EventStatus.DRAFT,
+    };
     mockPrisma.event.findUnique.mockResolvedValueOnce(mockFoundEvent);
 
-    await expect(service.validateEventExists(eventId)).resolves.toBeUndefined();
+    const result = await service.validateEventExists(eventId);
+    console.log('Result from validateEventExists:', result);
+    console.log('expected: ', mockFoundEvent);
+
+    expect(result).toEqual(mockFoundEvent);
     expect(mockPrisma.event.findUnique).toHaveBeenCalledWith({
       where: { id: eventId },
     });
@@ -193,15 +209,19 @@ describe('EventValidationService - validateEventOwnership', () => {
     jest.clearAllMocks();
   });
 
-  it('UT-2-004-01: should resolve without error when organizer owns the event', async () => {
+  it('UT-2-004-01: should return the organizer ID when organizer owns the event', async () => {
     const eventId = 'mock-event-uuid-1234';
     const organizerId = 'mock-org-uuid-1234';
     const mockFoundEvent = { organizerId };
     mockPrisma.event.findUnique.mockResolvedValueOnce(mockFoundEvent);
+    const expected = { organizerProfileId: organizerId };
+    
+    const result =await
+      service.validateEventOwnership(eventId, organizerId);
+    console.log('Expected: ', expected);
+    console.log('Result: ', result);
 
-    await expect(
-      service.validateEventOwnership(eventId, organizerId),
-    ).resolves.toBeUndefined();
+    expect(result).toEqual(expected);
     expect(mockPrisma.event.findUnique).toHaveBeenCalledWith({
       where: { id: eventId },
       select: { organizerId: true },

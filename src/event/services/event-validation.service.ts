@@ -4,7 +4,7 @@ import { InvalidDateRangeException } from '../exceptions/invalid-date-range.exce
 import { EventNotFoundException } from '../exceptions/event-not-found.exception';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventStatusChangeException } from '../exceptions/event-status-change.exception';
-import { EventStatus } from '@prisma/client';
+import { Event, EventStatus } from '@prisma/client';
 
 @Injectable()
 export class EventValidationService {
@@ -28,19 +28,20 @@ export class EventValidationService {
     }
   }
 
-  async validateEventExists(eventId: string): Promise<void> {
+  async validateEventExists(eventId: string): Promise<Event> {
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },
     });
     if (!event) {
       throw new EventNotFoundException();
     }
+    return event;
   }
 
   async validateEventOwnership(
     eventId: string,
     organizerProfileId: string,
-  ): Promise<void> {
+  ): Promise< { organizerProfileId: string } > {
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },
       select: { organizerId: true },
@@ -55,6 +56,7 @@ export class EventValidationService {
         'You do not have permission to edit this event.',
       );
     }
+    return { organizerProfileId: event.organizerId };
   }
 
   validateStatusTransition(

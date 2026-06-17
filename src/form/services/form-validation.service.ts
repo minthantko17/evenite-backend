@@ -19,15 +19,16 @@ export class FormValidationService {
   async validateFormTypeNotDuplicated(
     eventId: string,
     type: FormType,
-  ): Promise<void> {
+  ): Promise<{message: string}> {
     const existing = await this.prisma.form.findUnique({
       where: { eventId_type: { eventId, type } },
     });
     if (existing) throw new FormAlreadyExistsException();
+    return { message: 'Form type is not duplicated.' };
   }
 
   // form is locked for updating if event is not in DRAFT status
-  async validateFormNotLocked(formId: string): Promise<void> {
+  async validateFormNotLocked(formId: string): Promise<{ message: string }> {
     const form = await this.prisma.form.findUnique({
       where: { id: formId },
       select: { event: { select: { status: true } } },
@@ -38,15 +39,17 @@ export class FormValidationService {
     if (form.event.status !== EventStatus.DRAFT) {
       throw new FormLockedException();
     }
+    return { message: 'Form is not locked for updating.' };
   }
 
-  async validateNoResponsesExist(formId: string): Promise<void> {
+  async validateNoResponsesExist(formId: string): Promise<{ message: string }> {
     const count = await this.prisma.formResponse.count({
       where: { formId },
     });
     if (count > 0) {
       throw new FormAlreadyHasResponsesException();
     }
+    return { message: 'No response exists for this form.' };
   }
 
   validateFormFields(fields: FormFieldInputDto[]): void {
