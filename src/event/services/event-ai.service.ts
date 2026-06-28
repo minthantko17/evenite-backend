@@ -112,7 +112,7 @@ export class EventAiService {
    *
    * For groq
    * - text generation: openai/gpt-oss-120b
-   * - image generation: meta-llama/llama-4-scout-17b-16e-instruct
+   * - image generation: qwen/qwen3.6-27b or meta-llama/llama-4-scout-17b-16e-instruct
    */
   private readonly groqTextModel = process.env.GROQ_TEXT_MODEL ?? 'openai/gpt-oss-120b';
   private readonly groqImageModel = process.env.GROQ_IMAGE_MODEL ?? 'qwen/qwen3.6-27b';
@@ -152,13 +152,9 @@ export class EventAiService {
       'generation',
       file,
     );
-    console.log('Raw response from AI:', rawResponse);
     const parsedResponse = this.parseJson(rawResponse);
-    console.log('Parsed response from AI:', parsedResponse);
     const mappedResponse = this.mapAiResponseToEventDto(parsedResponse);
-    console.log('Mapped response to DTO:', mappedResponse);
     const sanitizedResponse = this.sanitizeAiEventResponse(mappedResponse);
-    console.log('Sanitized response:', sanitizedResponse);
     return sanitizedResponse;
   }
 

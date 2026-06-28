@@ -172,8 +172,8 @@ describe('EventValidationService - validateEventExists', () => {
     mockPrisma.event.findUnique.mockResolvedValueOnce(mockFoundEvent);
 
     const result = await service.validateEventExists(eventId);
-    console.log('Result from validateEventExists:', result);
-    console.log('expected: ', mockFoundEvent);
+    // console.log('Result from validateEventExists:', result);
+    // console.log('expected: ', mockFoundEvent);
 
     expect(result).toEqual(mockFoundEvent);
     expect(mockPrisma.event.findUnique).toHaveBeenCalledWith({
@@ -218,8 +218,8 @@ describe('EventValidationService - validateEventOwnership', () => {
     
     const result =await
       service.validateEventOwnership(eventId, organizerId);
-    console.log('Expected: ', expected);
-    console.log('Result: ', result);
+    // console.log('Expected: ', expected);
+    // console.log('Result: ', result);
 
     expect(result).toEqual(expected);
     expect(mockPrisma.event.findUnique).toHaveBeenCalledWith({
