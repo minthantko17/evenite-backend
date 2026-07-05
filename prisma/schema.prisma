@@ -22,6 +22,13 @@ enum RegistrationStatus {
   CANCELLED
 }
 
+enum TicketStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  // USED     // for Feature #6
+}
+
 enum EventStatus {
   DRAFT
   PUBLISHED
@@ -135,6 +142,7 @@ model Event {
   startAt             DateTime?
   endAt               DateTime?
   seatLimit           Int?
+  seatsTaken          Int         @default(0)
   status              EventStatus @default(DRAFT)
   hasCatering         Boolean     @default(false)
   isCateringFree      Boolean     @default(false)
@@ -167,8 +175,21 @@ model EventRegistration {
   participant ParticipantProfile @relation(fields: [participantId], references: [id])
   event       Event              @relation(fields: [eventId], references: [id])
   formResponses FormResponse[]
+  ticket     Ticket?
 
   @@unique([participantId, eventId])
+}
+
+model Ticket {
+  id                  String       @id @default(uuid())
+  eventRegistrationId String       @unique
+  qrToken             String       @unique
+  status              TicketStatus @default(ACTIVE)
+  participantSnapshot Json
+  issuedAt            DateTime     @default(now())
+
+  eventRegistration EventRegistration @relation(fields: [eventRegistrationId], references: [id], onDelete: Cascade)
+  // attendance Attendance?   // for Feature #6
 }
 
 model Form {
@@ -205,15 +226,15 @@ model FormField {
 model FormResponse {
   id             String     @id @default(uuid())
   formId         String
-  eventRegistrationId String?  // nullable until Feature #5
+  eventRegistrationId String
   createdAt      DateTime   @default(now())
 
   form           Form                @relation(fields: [formId], references: [id], onDelete: Cascade)
   fieldResponses FormFieldResponse[]
-  eventRegistration EventRegistration? @relation(fields: [eventRegistrationId], references: [id])
+  eventRegistration EventRegistration @relation(fields: [eventRegistrationId], references: [id])
 
   @@unique([id, formId])
-  // @@unique([eventRegistrationId, formId]) // just temp, so gotta uncomment in Feature #5
+  @@unique([eventRegistrationId, formId]) 
 }
 
 model FormFieldResponse {
