@@ -12,7 +12,7 @@ export class ReturnRegistrantDto {
   id!: string;  // EventRegistration.id
   status!: RegistrationStatus;
   createdAt!: Date;
-  ticketStatus!: TicketStatus;
-  ticketIssuedAt!: Date;
+  ticketStatus!: TicketStatus | null;
+  ticketIssuedAt!: Date | null;
   participantSnapshot!: ParticipantSnapshotDto;
 }
