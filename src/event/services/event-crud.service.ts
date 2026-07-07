@@ -153,10 +153,12 @@ export class EventCrudService {
     }
   }
 
-  async cancelAllRegistrationsAndTickets(eventId: string): Promise<void> {
+  async cancelAllRegistrationsAndTickets(
+    eventId: string,
+  ): Promise<{ cancelledRegistrations: number; cancelledTickets: number }> {
     try {
-      await this.prisma.$transaction(async (tx) => {
-        await tx.eventRegistration.updateMany({
+      return await this.prisma.$transaction(async (tx) => {
+        const registrationResult = await tx.eventRegistration.updateMany({
           where: {
             eventId,
             status: RegistrationStatus.CONFIRMED,
@@ -164,13 +166,18 @@ export class EventCrudService {
           data: { status: RegistrationStatus.CANCELLED },
         });
 
-        await tx.ticket.updateMany({
+        const ticketResult = await tx.ticket.updateMany({
           where: {
             status: TicketStatus.ACTIVE,
             eventRegistration: { eventId },
           },
           data: { status: TicketStatus.CANCELLED },
         });
+
+        return {
+          cancelledRegistrations: registrationResult.count,
+          cancelledTickets: ticketResult.count,
+        };
       });
     } catch (error) {
       this.logger.error('Failed to cancel registrations and tickets', error);

@@ -133,7 +133,11 @@ export class EventService {
 
     // cancel all registrations and tickets when event is cancelled
     if (newStatus === EventStatus.CANCELLED) {
-      await this.eventCrudService.cancelAllRegistrationsAndTickets(eventId);
+      const result =
+        await this.eventCrudService.cancelAllRegistrationsAndTickets(eventId);
+      this.logger.log(
+        `Cancelled ${result.cancelledRegistrations} registrations and ${result.cancelledTickets} tickets for event ${eventId}`,
+      );
     }
 
     return this.eventCrudService.updateEventStatus(eventId, newStatus);
