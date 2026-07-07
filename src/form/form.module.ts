@@ -19,5 +19,10 @@ import { EventModule } from '../event/event.module';
     FormValidationService,
     FormCrudService,
   ],
+  exports: [
+    FormService,
+    FormValidationService,
+    FormCrudService,
+  ]
 })
 export class FormModule {}

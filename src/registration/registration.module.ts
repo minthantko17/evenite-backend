@@ -15,6 +15,10 @@ import { RegistrationController } from './registration.controller';
     RegistrationCrudService,
     RegistrationService,
   ],
-  exports: [RegistrationService],
+  exports: [
+    RegistrationService,
+    RegistrationValidationService,
+    RegistrationCrudService,
+  ],
 })
 export class RegistrationModule {}

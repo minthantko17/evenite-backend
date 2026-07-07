@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { FormType, FieldType, RegistrationStatus } from '@prisma/client';
+import { FormType, FieldType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateFormDto } from '../dto/create-form.dto';
 import { UpdateFormDto } from '../dto/update-form.dto';
@@ -282,11 +282,10 @@ export class FormCrudService {
   
   // --------------------------------------------------------------
 
-  // Temp: Following is just for dev/testing purpose only.
   async createFormResponse(
     formId: string,
     dto: CreateFormResponseDto,
-    eventRegistrationId: string | null,
+    eventRegistrationId: string,
   ): Promise<ReturnFormSubmissionItem> {
     const fields = await this.prisma.formField.findMany({
       where: { formId },
@@ -395,30 +394,6 @@ export class FormCrudService {
     }
   }
 
-  // TEMP: mock event registration creation for form submission flow
-  async createEventRegistration(eventId: string, participantProfileId: string) {
-    return this.prisma.eventRegistration.create({
-      data: {
-        eventId,
-        participantId: participantProfileId,
-        status: RegistrationStatus.CONFIRMED,
-      },
-    });
-  }
-
-  // TEMP: mock registration lookup for form submission flow
-  async findEventRegistration(eventId: string, participantProfileId: string) {
-    return this.prisma.eventRegistration.findUnique({
-      where: {
-        participantId_eventId: {
-          participantId: participantProfileId,
-          eventId,
-        },
-      },
-    });
-  }
-
-  // TEMP: mock form submission with registration flow
   private mapValueToColumn(
     value: string | number | string[] | null | undefined,
     fieldType: FieldType,

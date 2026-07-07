@@ -68,20 +68,18 @@ export class FormController {
     );
   }
 
-  // TEMP: mock form submission
-  @Post(':type/responses')
-  async createFormResponse(
+  @Post('FEEDBACK/responses')
+  @Roles(Role.PARTICIPANT)
+  async createFeedbackFormResponse(
     @Param('eventId', ParseUUIDPipe) eventId: string,
-    @Param('type', new ParseEnumPipe(FormType)) type: FormType,
     @Body() dto: CreateFormResponseDto,
     @Req() req: Request,
   ): Promise<ReturnFormSubmissionItem> {
     const user = req.user as JwtAccessPayload;
-    return this.formService.createFormResponse(
+    return this.formService.createFeedbackFormResponse(
       eventId,
-      type,
       dto,
-      user.participantProfileId,
+      user.participantProfileId!,
     );
   }
 
