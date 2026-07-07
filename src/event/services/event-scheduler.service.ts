@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../prisma/prisma.service';
-import { EventStatus } from '@prisma/client';
+import { EventStatus, TicketStatus } from '@prisma/client';
 
 @Injectable()
 export class EventSchedulerService {
@@ -18,10 +18,7 @@ export class EventSchedulerService {
       where: {
         status: EventStatus.PUBLISHED,
         startAt: { lte: now },
-        OR: [
-            { endAt: { gt: now } },
-            { endAt: null },
-        ],
+        OR: [{ endAt: { gt: now } }, { endAt: null }],
       },
       data: { status: EventStatus.ONGOING },
     });
@@ -34,6 +31,35 @@ export class EventSchedulerService {
       },
       data: { status: EventStatus.CONCLUDED },
     });
+
+    // expire ACTIVE tickets for CONCLUDED events
+    const expiredTicketsResult = await this.prisma.ticket.updateMany({
+      where: {
+        status: TicketStatus.ACTIVE,
+        eventRegistration: {
+          event: {
+            OR: [
+              {
+                status: EventStatus.CONCLUDED,
+                endAt: { lte: now },
+              },
+              {
+                status: EventStatus.CONCLUDED,
+                endAt: null,
+                startAt: { lte: new Date(now.getTime() - 6 * 60 * 60 * 1000) },
+              },
+            ],
+          },
+        },
+      },
+      data: { status: TicketStatus.EXPIRED },
+    });
+
+    if (expiredTicketsResult.count > 0) {
+      this.logger.log(
+        `Auto-expired ${expiredTicketsResult.count} tickets for concluded events`,
+      );
+    }
 
     if (ongoingResult.count > 0) {
       this.logger.log(`Auto-updated ${ongoingResult.count} events to ONGOING`);

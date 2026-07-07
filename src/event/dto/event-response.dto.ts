@@ -20,6 +20,7 @@ export interface EventResponseDto {
   startAt: Date | null;
   endAt: Date | null;
   seatLimit: number | null;
+  seatsTaken: number;
   hasCatering: boolean;
   isCateringFree: boolean;
   cateringDescription: BilingualField;

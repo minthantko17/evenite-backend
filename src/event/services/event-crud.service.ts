@@ -1,5 +1,11 @@
-import { Injectable } from '@nestjs/common';
-import { Prisma, Event, EventStatus } from '@prisma/client';
+import { Injectable, Logger } from '@nestjs/common';
+import {
+  Prisma,
+  Event,
+  EventStatus,
+  RegistrationStatus,
+  TicketStatus,
+} from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventStorageService } from './event-storage.service';
 import { EventDataUtils } from '../utils/event-data.utils';
@@ -12,10 +18,10 @@ import type { AgendaItem } from '../dto/agenda-item.dto';
 import { SaveEventException } from '../exceptions/save-event.exception';
 import { EventNotFoundException } from '../exceptions/event-not-found.exception';
 import { EventStatusChangeException } from '../exceptions/event-status-change.exception';
-import { EventRegistrationWithEvent } from '../types/event.types';
 
 @Injectable()
 export class EventCrudService {
+  private readonly logger = new Logger(EventCrudService.name);
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventStorageService: EventStorageService,
@@ -129,25 +135,6 @@ export class EventCrudService {
     return events.map((event) => this.mapToEventResponseDto(event));
   }
 
-  // TODO: refine in Feature #5
-  async getRegisteredEventsByParticipantId(
-    participantProfileId: string,
-    universityId: string,
-    status?: EventStatus,
-  ): Promise<EventRegistrationWithEvent[]> {
-    return this.prisma.eventRegistration.findMany({
-      where: {
-        participantId: participantProfileId,
-        event: {
-          universityId,
-          ...(status && { status }),
-        },
-      },
-      include: { event: true },
-      orderBy: { createdAt: 'desc' },
-    });
-  }
-
   async updateEventStatus(
     eventId: string,
     status: EventStatus,
@@ -162,6 +149,31 @@ export class EventCrudService {
       });
       return this.mapToEventResponseDto(updated);
     } catch {
+      throw new EventStatusChangeException();
+    }
+  }
+
+  async cancelAllRegistrationsAndTickets(eventId: string): Promise<void> {
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.eventRegistration.updateMany({
+          where: {
+            eventId,
+            status: RegistrationStatus.CONFIRMED,
+          },
+          data: { status: RegistrationStatus.CANCELLED },
+        });
+
+        await tx.ticket.updateMany({
+          where: {
+            status: TicketStatus.ACTIVE,
+            eventRegistration: { eventId },
+          },
+          data: { status: TicketStatus.CANCELLED },
+        });
+      });
+    } catch (error) {
+      this.logger.error('Failed to cancel registrations and tickets', error);
       throw new EventStatusChangeException();
     }
   }
@@ -223,6 +235,7 @@ export class EventCrudService {
       startAt: event.startAt ?? null,
       endAt: event.endAt ?? null,
       seatLimit: event.seatLimit ?? null,
+      seatsTaken: event.seatsTaken ?? 0,
       hasCatering: event.hasCatering ?? false,
       isCateringFree: event.isCateringFree ?? false,
       cateringDescription: event.cateringDescription as BilingualField,

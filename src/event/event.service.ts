@@ -4,7 +4,6 @@ import { EventValidationService } from './services/event-validation.service';
 import { EventAiService } from './services/event-ai.service';
 import { EventStorageService } from './services/event-storage.service';
 import { EventCrudService } from './services/event-crud.service';
-import { EventRegistrationWithEvent } from './types/event.types';
 import { GeneratedEventDto } from './dto/generated-event.dto';
 import { SaveDraftDto } from './dto/save-draft.dto';
 import { PublishEventDto } from './dto/publish-event.dto';
@@ -16,7 +15,7 @@ import { validateImageFile } from '../common/utils/file.utils';
 @Injectable()
 export class EventService {
   private readonly logger = new Logger(EventService.name);
-  
+
   constructor(
     private readonly eventValidationService: EventValidationService,
     private readonly eventAiService: EventAiService,
@@ -69,10 +68,11 @@ export class EventService {
       EventStatus.DRAFT,
       dto.id,
     );
-    const deletionResult = await this.eventStorageService.deleteOrphanBannerIfReplaced(
-      oldBannerUrl,
-      dto.bannerUrl,
-    );
+    const deletionResult =
+      await this.eventStorageService.deleteOrphanBannerIfReplaced(
+        oldBannerUrl,
+        dto.bannerUrl,
+      );
     this.logger.log(deletionResult.message);
 
     return savedEvent;
@@ -105,10 +105,11 @@ export class EventService {
       dto.id,
     );
 
-    const deletionResult = await this.eventStorageService.deleteOrphanBannerIfReplaced(
-      oldBannerUrl,
-      dto.bannerUrl,
-    );
+    const deletionResult =
+      await this.eventStorageService.deleteOrphanBannerIfReplaced(
+        oldBannerUrl,
+        dto.bannerUrl,
+      );
     this.logger.log(deletionResult.message);
 
     return publishedEvent;
@@ -129,6 +130,11 @@ export class EventService {
       event.status,
       newStatus,
     );
+
+    // cancel all registrations and tickets when event is cancelled
+    if (newStatus === EventStatus.CANCELLED) {
+      await this.eventCrudService.cancelAllRegistrationsAndTickets(eventId);
+    }
 
     return this.eventCrudService.updateEventStatus(eventId, newStatus);
   }
@@ -186,19 +192,6 @@ export class EventService {
   ): Promise<EventResponseDto[]> {
     return this.eventCrudService.getEventsByOrganizerId(
       organizerProfileId,
-      universityId,
-      status,
-    );
-  }
-
-  // TODO: refine in Feature #5
-  async getRegisteredEvents(
-    participantProfileId: string,
-    universityId: string,
-    status?: EventStatus,
-  ): Promise<EventRegistrationWithEvent[]> {
-    return this.eventCrudService.getRegisteredEventsByParticipantId(
-      participantProfileId,
       universityId,
       status,
     );
