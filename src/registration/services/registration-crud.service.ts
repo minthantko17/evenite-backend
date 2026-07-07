@@ -38,6 +38,7 @@ import {
 } from '../dto/return-ticket-detail.dto';
 import { BilingualField } from '../../event/dto/bilingual-field.dto';
 import { EventNotFoundException } from '../../event/exceptions/event-not-found.exception';
+import { TicketNotFoundException } from '../exceptions/ticket-not-found.exception';
 
 // snapshot keys — identity-relevant autoFillKey fields only
 // contact fields (email, phone, lineId) intentionally excluded
@@ -159,7 +160,6 @@ export class RegistrationCrudService {
     }
   }
 
-  // looks up registration by composite key — used by cancel flow + validation
   async findRegistrationByParticipantAndEvent(
     eventId: string,
     participantProfileId: string,
@@ -221,7 +221,7 @@ export class RegistrationCrudService {
     );
   }
 
-  // brief info for ticket list
+  // brief info for My ticket list
   async getTicketsByParticipant(
     participantProfileId: string,
     ticketStatus?: TicketStatus,
@@ -258,8 +258,7 @@ export class RegistrationCrudService {
     );
   }
 
-  // ticket detail call from event page
-  async getTicketByEventAndParticipant(
+  async getTicketByEventIdAndParticipantId(
     eventId: string,
     participantProfileId: string,
   ): Promise<ReturnTicketDetailDto> {
@@ -280,8 +279,11 @@ export class RegistrationCrudService {
       },
     });
 
-    if (!registration || !registration.ticket) {
+    if (!registration) {
       throw new RegistrationNotFoundException();
+    }
+    if (!registration.ticket) {
+      throw new TicketNotFoundException();
     }
 
     return this.mapToReturnTicketDetailDto(
@@ -291,10 +293,8 @@ export class RegistrationCrudService {
     );
   }
 
-  // ticket detail call from My Tickets list
   async getTicketById(
-    ticketId: string,
-    participantProfileId: string,
+    ticketId: string
   ): Promise<ReturnTicketDetailDto> {
     const ticket = await this.prisma.ticket.findUnique({
       where: { id: ticketId },
@@ -311,12 +311,7 @@ export class RegistrationCrudService {
       },
     });
 
-    if (!ticket) throw new RegistrationNotFoundException();
-
-    // intentionally vague — don't reveal ticket existence to wrong participant
-    if (ticket.eventRegistration.participantId !== participantProfileId) {
-      throw new RegistrationNotFoundException();
-    }
+    if (!ticket) throw new TicketNotFoundException();
 
     return this.mapToReturnTicketDetailDto(
       ticket.eventRegistration,
@@ -325,7 +320,13 @@ export class RegistrationCrudService {
     );
   }
 
-  // ---------- Private Transaction Steps ----------
+  async countConfirmedRegistrations(eventId: string): Promise<number> {
+    return this.prisma.eventRegistration.count({
+      where: { eventId, status: RegistrationStatus.CONFIRMED },
+    });
+  }
+
+  // PRIVATE HELPERS
 
   // Claim seat for race condition — check and increment are one atomic operation, concurrent requests can't both succeed
   private async claimSeat(
@@ -453,8 +454,6 @@ export class RegistrationCrudService {
     `;
     return result[0];
   }
-
-  // ---------- Private Helpers ----------
 
   // to display participant snapshot on ticket
   private async extractIdentitySnapshot(
@@ -588,7 +587,7 @@ export class RegistrationCrudService {
     }
   }
 
-  // ---------- Private Mappers ----------
+  // MAPPERS
 
   private mapToReturnRegistrantDto(reg: any): ReturnRegistrantDto {
     const participantSnapshot = (reg.ticket

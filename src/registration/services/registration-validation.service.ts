@@ -5,6 +5,7 @@ import { EventNotRegisterableException } from '../exceptions/event-not-registera
 import { AlreadyRegisteredException } from '../exceptions/already-registered.exception';
 import { RegistrationAlreadyCancelledException } from '../exceptions/registration-already-cancelled.exception';
 import { RegistrationNotCancellableException } from '../exceptions/registration-not-cancellable.exception';
+import { RegistrationNotFoundException } from '../exceptions/registration-not-found.exception';
 
 @Injectable()
 export class RegistrationValidationService {
@@ -84,4 +85,25 @@ export class RegistrationValidationService {
 
     return { message: 'Registration can be cancelled.' };
   }
+
+  async validateTicketOwnership(
+  ticketId: string,
+  participantProfileId: string,
+): Promise<{ message: string }> {
+  const ticket = await this.prisma.ticket.findUnique({
+    where: { id: ticketId },
+    select: {
+      eventRegistration: {
+        select: { participantId: true },
+      },
+    },
+  });
+
+  // intentionally return only Reg not found to avoid leaking ticket existence
+  if (!ticket || ticket.eventRegistration.participantId !== participantProfileId) {
+    throw new RegistrationNotFoundException();
+  }
+
+  return { message: 'Ticket ownership validated.' };
+}
 }

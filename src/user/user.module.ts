@@ -22,6 +22,7 @@ import { EventModule } from '../event/event.module';
     UserStorageService,
   ],
   exports: [
+    UserService,
     UserCrudService,
     UserValidationService,
   ],
