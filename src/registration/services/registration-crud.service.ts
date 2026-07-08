@@ -8,7 +8,7 @@ import {
   Prisma,
   FormResponse,
   EventRegistration,
-  Ticket
+  Ticket,
 } from '@prisma/client';
 import { ALLOWED_AUTOFILL_KEYS } from '../../form/constants/form.constants';
 import { ReturnFormField } from '../../form/dto/return-form-with-fields.dto';
@@ -70,6 +70,20 @@ export class RegistrationCrudService {
       return await this.prisma.$transaction(async (tx) => {
         // seat check and update first to prevent race condition
         await this.claimSeat(eventId, seatLimit, tx);
+
+        // check and delete Cancelled reg (if exists)
+        const cancelledRegistration =
+          await this.findCancelledRegistration(
+            eventId,
+            participantProfileId,
+            tx,
+          );
+        if (cancelledRegistration) {
+          await this.deleteExistingCancelledRegistration(
+            cancelledRegistration.id,
+            tx,
+          );
+        }
 
         // create EventRegistration
         const registration = await this.createRegistration(
@@ -293,9 +307,7 @@ export class RegistrationCrudService {
     );
   }
 
-  async getTicketById(
-    ticketId: string
-  ): Promise<ReturnTicketDetailDto> {
+  async getTicketById(ticketId: string): Promise<ReturnTicketDetailDto> {
     const ticket = await this.prisma.ticket.findUnique({
       where: { id: ticketId },
       include: {
@@ -359,6 +371,47 @@ export class RegistrationCrudService {
     return result[0];
   }
 
+  private async findCancelledRegistration(
+    eventId: string,
+    participantProfileId: string,
+    tx: Prisma.TransactionClient,
+  ): Promise<{ id: string } | null> {
+    const registration = await tx.eventRegistration.findUnique({
+      where: {
+        participantId_eventId: {
+          participantId: participantProfileId,
+          eventId,
+        },
+      },
+      select: { id: true, status: true },
+    });
+
+    if (registration?.status !== RegistrationStatus.CANCELLED) {
+      return null;
+    }
+    return { id: registration.id };
+  }
+
+  private async deleteExistingCancelledRegistration(
+    registrationId: string,
+    tx: Prisma.TransactionClient,
+  ): Promise<{ deletedRegistrationId: string }> {
+    // delete FormResponse and cascades to FormFieldResponse
+    await tx.formResponse.deleteMany({
+      where: { eventRegistrationId: registrationId },
+    });
+
+    await tx.ticket.deleteMany({
+      where: { eventRegistrationId: registrationId },
+    });
+
+    await tx.eventRegistration.delete({
+      where: { id: registrationId },
+    });
+
+    return { deletedRegistrationId: registrationId };
+  }
+
   private async createRegistration(
     eventId: string,
     participantProfileId: string,
@@ -389,7 +442,6 @@ export class RegistrationCrudService {
         fieldResponses: {
           create: answers.map((answer) => ({
             formFieldId: answer.formFieldId,
-            formId,
             ...this.mapAnswerValueToColumns(
               answer.value,
               fieldTypeMap.get(answer.formFieldId)!,
