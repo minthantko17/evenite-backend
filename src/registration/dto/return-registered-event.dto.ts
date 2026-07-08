@@ -6,20 +6,21 @@ export class ReturnRegisteredEventOrganizerDto {
   imageUrl!: string;
 }
 
-export class ReturnRegisteredEventInfoDto {
-  id!: string;
+export class ReturnRegisteredEventRegistrationDto {
+  id!: string; // EventRegistration.id
+  status!: RegistrationStatus;
+  createdAt!: Date;
+}
+
+export class ReturnRegisteredEventDto {
+  id!: string; // Event.id
   title!: BilingualField;
   bannerUrl!: string;
   startAt!: Date | null;
   endAt!: Date | null;
   location!: BilingualField;
   status!: EventStatus;
-  organizer!: ReturnRegisteredEventOrganizerDto;
-}
 
-export class ReturnRegisteredEventDto {
-  id!: string; // EventRegistration.id
-  status!: RegistrationStatus;
-  createdAt!: Date;
-  event!: ReturnRegisteredEventInfoDto;
+  organizer!: ReturnRegisteredEventOrganizerDto;
+  registration!: ReturnRegisteredEventRegistrationDto;
 }

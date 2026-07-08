@@ -23,7 +23,7 @@ import {
 } from '../dto/return-registrant.dto';
 import {
   ReturnRegisteredEventDto,
-  ReturnRegisteredEventInfoDto,
+  ReturnRegisteredEventRegistrationDto,
   ReturnRegisteredEventOrganizerDto,
 } from '../dto/return-registered-event.dto';
 import {
@@ -72,12 +72,11 @@ export class RegistrationCrudService {
         await this.claimSeat(eventId, seatLimit, tx);
 
         // check and delete Cancelled reg (if exists)
-        const cancelledRegistration =
-          await this.findCancelledRegistration(
-            eventId,
-            participantProfileId,
-            tx,
-          );
+        const cancelledRegistration = await this.findCancelledRegistration(
+          eventId,
+          participantProfileId,
+          tx,
+        );
         if (cancelledRegistration) {
           await this.deleteExistingCancelledRegistration(
             cancelledRegistration.id,
@@ -211,7 +210,7 @@ export class RegistrationCrudService {
   }
 
   // just brief info to use in My Events list
-  async getRegistrationsByParticipant(
+  async getRegisteredEvents(
     participantProfileId: string,
     eventStatus?: EventStatus,
   ): Promise<ReturnRegisteredEventDto[]> {
@@ -231,7 +230,7 @@ export class RegistrationCrudService {
     });
 
     return registrations.map((reg) =>
-      this.mapToReturnRegisteredEventListDto(reg),
+      this.mapToReturnRegisteredEventDto(reg),
     );
   }
 
@@ -661,7 +660,7 @@ export class RegistrationCrudService {
     };
   }
 
-  private mapToReturnRegisteredEventListDto(
+  private mapToReturnRegisteredEventDto(
     reg: any,
   ): ReturnRegisteredEventDto {
     const organizer: ReturnRegisteredEventOrganizerDto = {
@@ -669,7 +668,7 @@ export class RegistrationCrudService {
       imageUrl: reg.event.organizer?.imageUrl ?? '',
     };
 
-    const eventInfo: ReturnRegisteredEventInfoDto = {
+    return {
       id: reg.event.id,
       title: reg.event.title as BilingualField,
       bannerUrl: reg.event.bannerUrl ?? '',
@@ -678,13 +677,11 @@ export class RegistrationCrudService {
       location: reg.event.location as BilingualField,
       status: reg.event.status,
       organizer,
-    };
-
-    return {
-      id: reg.id,
-      status: reg.status,
-      createdAt: reg.createdAt,
-      event: eventInfo,
+      registration: {
+        id: reg.id,
+        status: reg.status,
+        createdAt: reg.createdAt,
+      },
     };
   }
 

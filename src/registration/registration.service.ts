@@ -104,7 +104,7 @@ export class RegistrationService {
     participantProfileId: string,
     eventStatus?: EventStatus,
   ): Promise<ReturnRegisteredEventDto[]> {
-    return this.registrationCrudService.getRegistrationsByParticipant(
+    return this.registrationCrudService.getRegisteredEvents(
       participantProfileId,
       eventStatus,
     );
