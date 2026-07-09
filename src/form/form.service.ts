@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { FormType, RegistrationStatus } from '@prisma/client';
+import { Injectable, ForbiddenException } from '@nestjs/common';
+import { FormType, EventStatus } from '@prisma/client';
 import { FormValidationService } from './services/form-validation.service';
 import { FormCrudService } from './services/form-crud.service';
 import { CreateFormDto } from './dto/create-form.dto';
@@ -101,7 +101,20 @@ export class FormService {
     dto: CreateFormResponseDto,
     participantProfileId: string,
   ): Promise<ReturnFormSubmissionItem> {
-    await this.eventValidationService.validateEventExists(eventId);
+    const event =
+      await this.eventValidationService.validateEventExists(eventId);
+
+    // feedback only allowed for ONGOING or CONCLUDED events
+    const allowedStatuses: EventStatus[] = [
+      EventStatus.ONGOING,
+      EventStatus.CONCLUDED,
+    ];
+    if (!allowedStatuses.includes(event.status)) {
+      throw new ForbiddenException(
+        'Feedback can only be submitted for ongoing or concluded events.',
+      );
+    }
+
     const form = await this.formCrudService.getFormByEventAndType(
       eventId,
       FormType.FEEDBACK,
@@ -111,15 +124,16 @@ export class FormService {
       dto.answers,
     );
 
-    const registration = await this.formValidationService.validateParticipantIsRegistered(
-      eventId,
-      participantProfileId,
-    );
+    const registration =
+      await this.formValidationService.validateParticipantIsRegistered(
+        eventId,
+        participantProfileId,
+      );
 
     return this.formCrudService.createFormResponse(
       form.id,
       dto,
-      registration.registrationId
+      registration.registrationId,
     );
   }
 
