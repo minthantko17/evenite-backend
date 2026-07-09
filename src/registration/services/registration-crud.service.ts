@@ -229,9 +229,7 @@ export class RegistrationCrudService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return registrations.map((reg) =>
-      this.mapToReturnRegisteredEventDto(reg),
-    );
+    return registrations.map((reg) => this.mapToReturnRegisteredEventDto(reg));
   }
 
   // brief info for My ticket list
@@ -485,7 +483,17 @@ export class RegistrationCrudService {
     registrationId: string,
     status: TicketStatus,
     tx: Prisma.TransactionClient,
-  ): Promise<Ticket> {
+  ): Promise<Ticket | null> {
+    const ticket = await tx.ticket.findUnique({
+      where: { eventRegistrationId: registrationId },
+    });
+    if (!ticket) {
+      this.logger.warn(
+        `No ticket found for registration ${registrationId} — skipping ticket status update`,
+      );
+      return null;
+    }
+
     const result = await tx.ticket.update({
       where: { eventRegistrationId: registrationId },
       data: { status },
@@ -660,9 +668,7 @@ export class RegistrationCrudService {
     };
   }
 
-  private mapToReturnRegisteredEventDto(
-    reg: any,
-  ): ReturnRegisteredEventDto {
+  private mapToReturnRegisteredEventDto(reg: any): ReturnRegisteredEventDto {
     const organizer: ReturnRegisteredEventOrganizerDto = {
       name: reg.event.organizer?.name ?? '',
       imageUrl: reg.event.organizer?.imageUrl ?? '',
