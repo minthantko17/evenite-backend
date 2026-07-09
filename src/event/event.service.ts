@@ -124,21 +124,12 @@ export class EventService {
       eventId,
       organizerProfileId,
     );
-    const event = await this.eventCrudService.getEventById(eventId);
 
+    const event = await this.eventCrudService.getEventById(eventId);
     this.eventValidationService.validateStatusTransition(
       event.status,
       newStatus,
     );
-
-    // cancel all registrations and tickets when event is cancelled
-    if (newStatus === EventStatus.CANCELLED) {
-      const result =
-        await this.eventCrudService.cancelAllRegistrationsAndTickets(eventId);
-      this.logger.log(
-        `Cancelled ${result.cancelledRegistrations} registrations and ${result.cancelledTickets} tickets for event ${eventId}`,
-      );
-    }
 
     return this.eventCrudService.updateEventStatus(eventId, newStatus);
   }

@@ -137,50 +137,46 @@ export class EventCrudService {
 
   async updateEventStatus(
     eventId: string,
-    status: EventStatus,
+    newStatus: EventStatus,
   ): Promise<EventResponseDto> {
     try {
-      const updated = await this.prisma.event.update({
-        where: { id: eventId },
-        data: { status },
-        include: {
-          forms: { select: { id: true, type: true } },
-        },
-      });
-      return this.mapToEventResponseDto(updated);
-    } catch {
-      throw new EventStatusChangeException();
-    }
-  }
-
-  async cancelAllRegistrationsAndTickets(
-    eventId: string,
-  ): Promise<{ cancelledRegistrations: number; cancelledTickets: number }> {
-    try {
       return await this.prisma.$transaction(async (tx) => {
-        const registrationResult = await tx.eventRegistration.updateMany({
-          where: {
-            eventId,
-            status: RegistrationStatus.CONFIRMED,
+        // if Cancelled, cancel all registrations and tickets
+        if (newStatus === EventStatus.CANCELLED) {
+          const registrationResult = await tx.eventRegistration.updateMany({
+            where: {
+              eventId,
+              status: RegistrationStatus.CONFIRMED,
+            },
+            data: { status: RegistrationStatus.CANCELLED },
+          });
+
+          const ticketResult = await tx.ticket.updateMany({
+            where: {
+              status: TicketStatus.ACTIVE,
+              eventRegistration: { eventId },
+            },
+            data: { status: TicketStatus.CANCELLED },
+          });
+
+          this.logger.log(
+            `Cancelled ${registrationResult.count} registrations and ${ticketResult.count} tickets for event ${eventId}`,
+          );
+        }
+
+        // update event status
+        const updated = await tx.event.update({
+          where: { id: eventId },
+          data: { status: newStatus },
+          include: {
+            forms: { select: { id: true, type: true } },
           },
-          data: { status: RegistrationStatus.CANCELLED },
         });
 
-        const ticketResult = await tx.ticket.updateMany({
-          where: {
-            status: TicketStatus.ACTIVE,
-            eventRegistration: { eventId },
-          },
-          data: { status: TicketStatus.CANCELLED },
-        });
-
-        return {
-          cancelledRegistrations: registrationResult.count,
-          cancelledTickets: ticketResult.count,
-        };
+        return this.mapToEventResponseDto(updated);
       });
     } catch (error) {
-      this.logger.error('Failed to cancel registrations and tickets', error);
+      this.logger.error('Failed to update event status', error);
       throw new EventStatusChangeException();
     }
   }
