@@ -64,12 +64,11 @@ export class RegistrationCrudService {
     participantProfileId: string,
     form: ReturnFormWithFields,
     answers: CreateFormFieldAnswerDto[],
-    seatLimit: number | null,
   ): Promise<ReturnTicketDetailDto> {
     try {
       return await this.prisma.$transaction(async (tx) => {
         // seat check and update first to prevent race condition
-        await this.claimSeat(eventId, seatLimit, tx);
+        await this.claimSeat(eventId, tx);
 
         // check and delete Cancelled reg (if exists)
         const cancelledRegistration = await this.findCancelledRegistration(
@@ -340,28 +339,22 @@ export class RegistrationCrudService {
   // Claim seat for race condition — check and increment are one atomic operation, concurrent requests can't both succeed
   private async claimSeat(
     eventId: string,
-    seatLimit: number | null,
     tx: Prisma.TransactionClient,
   ): Promise<{ id: string; seatsTaken: number }> {
-    if (seatLimit === null) {
-      const result = await tx.$queryRaw<{ id: string; seatsTaken: number }[]>`
-        UPDATE "Event"
-        SET "seatsTaken" = "seatsTaken" + 1
-        WHERE id = ${eventId}
-        RETURNING id, "seatsTaken"
-      `;
-      return result[0];
-    }
-
     const result = await tx.$queryRaw<{ id: string; seatsTaken: number }[]>`
-      UPDATE "Event"
-      SET "seatsTaken" = "seatsTaken" + 1
-      WHERE id = ${eventId}
-        AND "seatsTaken" < "seatLimit"
-      RETURNING id, "seatsTaken"
-    `;
-    // seat is full when affected row result === 0
+    UPDATE "Event"
+    SET "seatsTaken" = "seatsTaken" + 1
+    WHERE id = ${eventId}
+      AND ("seatLimit" IS NULL OR "seatsTaken" < "seatLimit")
+    RETURNING id, "seatsTaken"
+  `;
+
     if (result.length === 0) {
+      const event = await tx.event.findUnique({
+        where: { id: eventId },
+        select: { id: true },
+      });
+      if (!event) throw new EventNotFoundException();
       throw new EventFullException();
     }
 

@@ -60,7 +60,6 @@ export class RegistrationService {
       participantProfileId,
       form,
       dto.answers,
-      event.seatLimit,
     );
   }
 
