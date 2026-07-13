@@ -1,5 +1,13 @@
-import { Injectable } from '@nestjs/common';
-import { EventStatus, FormType, TicketStatus } from '@prisma/client';
+import { Injectable, Logger } from '@nestjs/common';
+import {
+  EventStatus,
+  FormType,
+  EventRegistration,
+  RegistrationStatus,
+  Ticket,
+  TicketStatus,
+} from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
 import { RegistrationCrudService } from './services/registration-crud.service';
 import { RegistrationValidationService } from './services/registration-validation.service';
 import { EventValidationService } from '../event/services/event-validation.service';
@@ -12,10 +20,16 @@ import { ReturnRegistrantDto } from './dto/return-registrant.dto';
 import { ReturnParticipantTicketListDto } from './dto/return-participant-ticket-list.dto';
 import { EventFullException } from './exceptions/event-full.exception';
 import { RegistrationNotFoundException } from './exceptions/registration-not-found.exception';
+import { SaveRegistrationException } from './exceptions/save-registration.exception';
+import { EventNotFoundException } from '../event/exceptions/event-not-found.exception';
+import { TicketNotFoundException } from './exceptions/ticket-not-found.exception';
 
 @Injectable()
 export class RegistrationService {
+  private readonly logger = new Logger(RegistrationService.name);
+
   constructor(
+    private readonly prisma: PrismaService,
     private readonly registrationCrudService: RegistrationCrudService,
     private readonly registrationValidationService: RegistrationValidationService,
     private readonly eventValidationService: EventValidationService,
@@ -54,12 +68,79 @@ export class RegistrationService {
         throw new EventFullException();
     }
 
-    // register and get ticket
-    return this.registrationCrudService.createRegistrationWithTicket(
-      eventId,
-      participantProfileId,
-      form,
-      dto.answers,
+    // get participant snapshot for ticket creation
+    const participantSnapshot =
+      await this.registrationCrudService.extractIdentitySnapshot(
+        form.fields,
+        dto.answers,
+        participantProfileId,
+      );
+
+    let registration: EventRegistration;
+    let ticket: Ticket;
+
+    try {
+      const result = await this.prisma.$transaction(async (tx) => {
+        // check and delete CANCELLED reg if exists (to allow re-reg)
+        const cancelledReg =
+          await this.registrationCrudService.findCancelledRegistration(
+            eventId,
+            participantProfileId,
+            tx,
+          );
+        if (cancelledReg) {
+          await this.registrationCrudService.deleteExistingCancelledRegistration(
+            cancelledReg.id,
+            tx,
+          );
+        }
+
+        // seat check and update (in transaction) to prevent race condition
+        await this.registrationCrudService.claimSeat(eventId, tx);
+
+        const reg = await this.registrationCrudService.createRegistration(
+          eventId,
+          participantProfileId,
+          tx,
+        );
+
+        // create FormResponse + FormFieldResponse
+        await this.registrationCrudService.createFormResponse(
+          form.id,
+          reg.id,
+          dto.answers,
+          form.fields,
+          tx,
+        );
+
+        const tkt = await this.registrationCrudService.createTicket(
+          reg.id,
+          participantSnapshot,
+          tx,
+        );
+
+        return { registration: reg, ticket: tkt };
+      });
+
+      registration = result.registration;
+      ticket = result.ticket;
+    } catch (error) {
+      if (error instanceof EventFullException) throw error;
+      if (error instanceof EventNotFoundException) throw error;
+      this.logger.error('Failed to create registration', error);
+      throw new SaveRegistrationException();
+    }
+
+    const eventDetail =
+      await this.registrationCrudService.getEventWithOrganizer(eventId);
+    if (!eventDetail) {
+      throw new EventNotFoundException();
+    }
+
+    return this.registrationCrudService.mapToReturnTicketDetailDto(
+      registration,
+      ticket,
+      eventDetail,
     );
   }
 
@@ -70,7 +151,6 @@ export class RegistrationService {
     const event =
       await this.eventValidationService.validateEventExists(eventId);
 
-    // find existing registration
     const registration =
       await this.registrationCrudService.findRegistrationByParticipantAndEvent(
         eventId,
@@ -81,13 +161,44 @@ export class RegistrationService {
     // checks: registration status, event status, event startAt
     this.registrationValidationService.validateCancellable(registration, event);
 
-    return this.registrationCrudService.cancelRegistration(
-      registration.id,
-      eventId,
+    let updatedRegistration: EventRegistration;
+    let updatedTicket: Ticket;
+
+    try {
+      const result = await this.prisma.$transaction(async (tx) => {
+        const reg = await this.registrationCrudService.updateRegistrationStatus(
+          registration.id,
+          RegistrationStatus.CANCELLED,
+          tx,
+        );
+        const tkt = await this.registrationCrudService.updateTicketStatus(
+          registration.id,
+          TicketStatus.CANCELLED,
+          tx,
+        );
+        await this.registrationCrudService.decrementSeatsTaken(eventId, tx);
+        return { registration: reg, ticket: tkt };
+      });
+
+      updatedRegistration = result.registration;
+      updatedTicket = result.ticket;
+    } catch (error) {
+      if (error instanceof TicketNotFoundException) throw error;
+      this.logger.error('Failed to cancel registration', error);
+      throw new SaveRegistrationException();
+    }
+
+    const eventDetail =
+      await this.registrationCrudService.getEventWithOrganizer(eventId);
+    if (!eventDetail) throw new EventNotFoundException();
+
+    return this.registrationCrudService.mapToReturnTicketDetailDto(
+      updatedRegistration,
+      updatedTicket,
+      eventDetail,
     );
   }
 
-  // organizer — list all registrants for event
   async getRegistrantsByEvent(
     eventId: string,
     organizerProfileId: string,

@@ -9,12 +9,12 @@ import {
   FormResponse,
   EventRegistration,
   Ticket,
+  Event,
+  OrganizerProfile,
 } from '@prisma/client';
 import { ALLOWED_AUTOFILL_KEYS } from '../../form/constants/form.constants';
 import { ReturnFormField } from '../../form/dto/return-form-with-fields.dto';
-import { ReturnFormWithFields } from '../../form/dto/return-form-with-fields.dto';
 import { CreateFormFieldAnswerDto } from '../../form/dto/create-form-response.dto';
-import { SaveRegistrationException } from '../exceptions/save-registration.exception';
 import { RegistrationNotFoundException } from '../exceptions/registration-not-found.exception';
 import { EventFullException } from '../exceptions/event-full.exception';
 import {
@@ -23,7 +23,6 @@ import {
 } from '../dto/return-registrant.dto';
 import {
   ReturnRegisteredEventDto,
-  ReturnRegisteredEventRegistrationDto,
   ReturnRegisteredEventOrganizerDto,
 } from '../dto/return-registered-event.dto';
 import {
@@ -40,8 +39,6 @@ import { BilingualField } from '../../event/dto/bilingual-field.dto';
 import { EventNotFoundException } from '../../event/exceptions/event-not-found.exception';
 import { TicketNotFoundException } from '../exceptions/ticket-not-found.exception';
 
-// snapshot keys — identity-relevant autoFillKey fields only
-// contact fields (email, phone, lineId) intentionally excluded
 const PARTICIPANT_SNAPSHOT_KEYS = [
   'firstName',
   'lastName',
@@ -52,124 +49,19 @@ const PARTICIPANT_SNAPSHOT_KEYS = [
 
 type ParticipantSnapshotKey = (typeof PARTICIPANT_SNAPSHOT_KEYS)[number];
 
+type EventWithOrganizer = Event & {
+  organizer: Pick<OrganizerProfile, 'name' | 'imageUrl'>;
+};
+
 @Injectable()
 export class RegistrationCrudService {
   private readonly logger = new Logger(RegistrationCrudService.name);
 
   constructor(private readonly prisma: PrismaService) {}
 
-  // creates EventRegistration + FormResponse + Ticket with transaction
-  async createRegistrationWithTicket(
-    eventId: string,
-    participantProfileId: string,
-    form: ReturnFormWithFields,
-    answers: CreateFormFieldAnswerDto[],
-  ): Promise<ReturnTicketDetailDto> {
-    try {
-      return await this.prisma.$transaction(async (tx) => {
-        // seat check and update first to prevent race condition
-        await this.claimSeat(eventId, tx);
-
-        // check and delete Cancelled reg (if exists)
-        const cancelledRegistration = await this.findCancelledRegistration(
-          eventId,
-          participantProfileId,
-          tx,
-        );
-        if (cancelledRegistration) {
-          await this.deleteExistingCancelledRegistration(
-            cancelledRegistration.id,
-            tx,
-          );
-        }
-
-        // create EventRegistration
-        const registration = await this.createRegistration(
-          eventId,
-          participantProfileId,
-          tx,
-        );
-
-        // create FormResponse + FormFieldResponse
-        await this.createFormResponse(
-          form.id,
-          registration.id,
-          answers,
-          form.fields,
-          tx,
-        );
-
-        // build participant snapshot for ticket
-        const snapshot = await this.extractIdentitySnapshot(
-          form.fields,
-          answers,
-          participantProfileId,
-        );
-
-        // create Ticket module
-        const ticket = await this.createTicket(registration.id, snapshot, tx);
-
-        // fetch event and organizer data for ticket
-        const event = await tx.event.findUnique({
-          where: { id: eventId },
-          include: {
-            organizer: { select: { name: true, imageUrl: true } },
-          },
-        });
-        if (!event) {
-          throw new EventNotFoundException();
-        }
-
-        return this.mapToReturnTicketDetailDto(registration, ticket, event);
-      });
-    } catch (error) {
-      if (error instanceof EventNotFoundException) throw error;
-      if (error instanceof EventFullException) throw error;
-      this.logger.error('Failed to create registration', error);
-      throw new SaveRegistrationException();
-    }
-  }
-
-  async cancelRegistration(
-    registrationId: string,
-    eventId: string,
-  ): Promise<ReturnTicketDetailDto> {
-    try {
-      const event = await this.prisma.event.findUnique({
-        where: { id: eventId },
-        include: {
-          organizer: { select: { name: true, imageUrl: true } },
-        },
-      });
-      if (!event) {
-        throw new EventNotFoundException();
-      }
-
-      const result = await this.prisma.$transaction(async (tx) => {
-        const registration = await this.updateRegistrationStatus(
-          registrationId,
-          RegistrationStatus.CANCELLED,
-          tx,
-        );
-        const ticket = await this.updateTicketStatus(
-          registrationId,
-          TicketStatus.CANCELLED,
-          tx,
-        );
-        await this.decrementSeatsTaken(eventId, tx);
-        return { registration, ticket };
-      });
-
-      return this.mapToReturnTicketDetailDto(
-        result.registration,
-        result.ticket,
-        event,
-      );
-    } catch (error) {
-      if (error instanceof EventNotFoundException) throw error;
-      this.logger.error('Failed to cancel registration', error);
-      throw new SaveRegistrationException();
-    }
+  // returns tx if provided, falls back to prisma — allows methods to work inside or outside transaction
+  private getClient(tx?: Prisma.TransactionClient) {
+    return tx ?? this.prisma;
   }
 
   async findRegistrationByParticipantAndEvent(
@@ -187,7 +79,6 @@ export class RegistrationCrudService {
     });
   }
 
-  // list all registrants for event (for organizer )
   async getRegistrationsByEvent(
     eventId: string,
   ): Promise<ReturnRegistrantDto[]> {
@@ -208,7 +99,6 @@ export class RegistrationCrudService {
     return registrations.map((reg) => this.mapToReturnRegistrantDto(reg));
   }
 
-  // just brief info to use in My Events list
   async getRegisteredEvents(
     participantProfileId: string,
     eventStatus?: EventStatus,
@@ -231,7 +121,6 @@ export class RegistrationCrudService {
     return registrations.map((reg) => this.mapToReturnRegisteredEventDto(reg));
   }
 
-  // brief info for My ticket list
   async getTicketsByParticipant(
     participantProfileId: string,
     ticketStatus?: TicketStatus,
@@ -334,23 +223,34 @@ export class RegistrationCrudService {
     });
   }
 
-  // PRIVATE HELPERS
-
-  // Claim seat for race condition — check and increment are one atomic operation, concurrent requests can't both succeed
-  private async claimSeat(
+  // fetches event with organizer for post-transaction response building
+  async getEventWithOrganizer(
     eventId: string,
-    tx: Prisma.TransactionClient,
+  ): Promise<EventWithOrganizer | null> {
+    return this.prisma.event.findUnique({
+      where: { id: eventId },
+      include: {
+        organizer: { select: { name: true, imageUrl: true } },
+      },
+    }) as Promise<EventWithOrganizer | null>;
+  }
+
+  // NOTE: claimSeat is for race-safe seat claiming. Without tx call, race condition is possible.
+  async claimSeat(
+    eventId: string,
+    tx?: Prisma.TransactionClient,
   ): Promise<{ id: string; seatsTaken: number }> {
-    const result = await tx.$queryRaw<{ id: string; seatsTaken: number }[]>`
-    UPDATE "Event"
-    SET "seatsTaken" = "seatsTaken" + 1
-    WHERE id = ${eventId}
-      AND ("seatLimit" IS NULL OR "seatsTaken" < "seatLimit")
-    RETURNING id, "seatsTaken"
-  `;
+    const client = this.getClient(tx);
+    const result = await client.$queryRaw<{ id: string; seatsTaken: number }[]>`
+      UPDATE "Event"
+      SET "seatsTaken" = "seatsTaken" + 1
+      WHERE id = ${eventId}
+        AND ("seatLimit" IS NULL OR "seatsTaken" < "seatLimit")
+      RETURNING id, "seatsTaken"
+    `;
 
     if (result.length === 0) {
-      const event = await tx.event.findUnique({
+      const event = await client.event.findUnique({
         where: { id: eventId },
         select: { id: true },
       });
@@ -361,12 +261,12 @@ export class RegistrationCrudService {
     return result[0];
   }
 
-  private async findCancelledRegistration(
+  async findCancelledRegistration(
     eventId: string,
     participantProfileId: string,
-    tx: Prisma.TransactionClient,
+    tx?: Prisma.TransactionClient,
   ): Promise<{ id: string } | null> {
-    const registration = await tx.eventRegistration.findUnique({
+    const registration = await this.getClient(tx).eventRegistration.findUnique({
       where: {
         participantId_eventId: {
           participantId: participantProfileId,
@@ -382,32 +282,33 @@ export class RegistrationCrudService {
     return { id: registration.id };
   }
 
-  private async deleteExistingCancelledRegistration(
+  async deleteExistingCancelledRegistration(
     registrationId: string,
-    tx: Prisma.TransactionClient,
+    tx?: Prisma.TransactionClient,
   ): Promise<{ deletedRegistrationId: string }> {
-    // delete FormResponse and cascades to FormFieldResponse
-    await tx.formResponse.deleteMany({
+    const client = this.getClient(tx);
+
+    await client.formResponse.deleteMany({
       where: { eventRegistrationId: registrationId },
     });
 
-    await tx.ticket.deleteMany({
+    await client.ticket.deleteMany({
       where: { eventRegistrationId: registrationId },
     });
 
-    await tx.eventRegistration.delete({
+    await client.eventRegistration.delete({
       where: { id: registrationId },
     });
 
     return { deletedRegistrationId: registrationId };
   }
 
-  private async createRegistration(
+  async createRegistration(
     eventId: string,
     participantProfileId: string,
-    tx: Prisma.TransactionClient,
+    tx?: Prisma.TransactionClient,
   ): Promise<EventRegistration> {
-    return tx.eventRegistration.create({
+    return this.getClient(tx).eventRegistration.create({
       data: {
         eventId,
         participantId: participantProfileId,
@@ -416,16 +317,16 @@ export class RegistrationCrudService {
     });
   }
 
-  private async createFormResponse(
+  async createFormResponse(
     formId: string,
     eventRegistrationId: string,
     answers: CreateFormFieldAnswerDto[],
     fields: ReturnFormField[],
-    tx: Prisma.TransactionClient,
+    tx?: Prisma.TransactionClient,
   ): Promise<FormResponse> {
     const fieldTypeMap = new Map(fields.map((f) => [f.id, f.type]));
 
-    const result = await tx.formResponse.create({
+    const result = await this.getClient(tx).formResponse.create({
       data: {
         formId,
         eventRegistrationId,
@@ -443,14 +344,14 @@ export class RegistrationCrudService {
     return result;
   }
 
-  private async createTicket(
+  async createTicket(
     eventRegistrationId: string,
     snapshot: ParticipantSnapshotDto,
-    tx: Prisma.TransactionClient,
+    tx?: Prisma.TransactionClient,
   ): Promise<Ticket> {
     const qrToken = crypto.randomUUID();
 
-    return tx.ticket.create({
+    return this.getClient(tx).ticket.create({
       data: {
         eventRegistrationId,
         qrToken,
@@ -460,45 +361,45 @@ export class RegistrationCrudService {
     });
   }
 
-  private async updateRegistrationStatus(
+  async updateRegistrationStatus(
     registrationId: string,
     status: RegistrationStatus,
-    tx: Prisma.TransactionClient,
+    tx?: Prisma.TransactionClient,
   ): Promise<EventRegistration> {
-    const result = await tx.eventRegistration.update({
+    const result = await this.getClient(tx).eventRegistration.update({
       where: { id: registrationId },
       data: { status },
     });
     return result;
   }
 
-  private async updateTicketStatus(
+  async updateTicketStatus(
     registrationId: string,
     status: TicketStatus,
-    tx: Prisma.TransactionClient,
-  ): Promise<Ticket | null> {
-    const ticket = await tx.ticket.findUnique({
+    tx?: Prisma.TransactionClient,
+  ): Promise<Ticket> {
+    const client = this.getClient(tx);
+    const ticket = await client.ticket.findUnique({
       where: { eventRegistrationId: registrationId },
     });
+
     if (!ticket) {
-      this.logger.warn(
-        `No ticket found for registration ${registrationId} — skipping ticket status update`,
-      );
-      return null;
+      throw new TicketNotFoundException();
     }
 
-    const result = await tx.ticket.update({
+    const result = await client.ticket.update({
       where: { eventRegistrationId: registrationId },
       data: { status },
     });
     return result;
   }
 
-  private async decrementSeatsTaken(
+  async decrementSeatsTaken(
     eventId: string,
-    tx: Prisma.TransactionClient,
+    tx?: Prisma.TransactionClient,
   ): Promise<{ id: string; seatsTaken: number }> {
-    const result = await tx.$queryRaw<{ id: string; seatsTaken: number }[]>`
+    const client = this.getClient(tx);
+    const result = await client.$queryRaw<{ id: string; seatsTaken: number }[]>`
       UPDATE "Event"
       SET "seatsTaken" = GREATEST("seatsTaken" - 1, 0)
       WHERE id = ${eventId}
@@ -507,8 +408,7 @@ export class RegistrationCrudService {
     return result[0];
   }
 
-  // to display participant snapshot on ticket
-  private async extractIdentitySnapshot(
+  async extractIdentitySnapshot(
     fields: ReturnFormField[],
     answers: CreateFormFieldAnswerDto[],
     participantProfileId: string,
@@ -525,6 +425,7 @@ export class RegistrationCrudService {
         )
         .map((f) => [f.autoFillKey as ParticipantSnapshotKey, f.id]),
     );
+
     const snapshotFromForm: Record<ParticipantSnapshotKey, string | null> = {
       firstName: null,
       lastName: null,
@@ -532,6 +433,7 @@ export class RegistrationCrudService {
       studentId: null,
       major: null,
     };
+
     for (const key of PARTICIPANT_SNAPSHOT_KEYS) {
       const fieldId = fieldByAutoFillKey.get(key);
       const answer = fieldId
@@ -552,11 +454,13 @@ export class RegistrationCrudService {
     const needsProfileFallback = nameKeys.some(
       (key) => snapshotFromForm[key] === null,
     );
+
     let participantNameFromProfile: {
       firstName: string;
       lastName: string | null;
       nickname: string | null;
     } | null = null;
+
     if (needsProfileFallback) {
       participantNameFromProfile =
         await this.prisma.participantProfile.findUnique({
@@ -639,8 +543,6 @@ export class RegistrationCrudService {
     }
   }
 
-  // MAPPERS
-
   private mapToReturnRegistrantDto(reg: any): ReturnRegistrantDto {
     const participantSnapshot = (reg.ticket
       ?.participantSnapshot as ParticipantSnapshotDto) ?? {
@@ -705,7 +607,7 @@ export class RegistrationCrudService {
     };
   }
 
-  private mapToReturnTicketDetailDto(
+  mapToReturnTicketDetailDto(
     registration: any,
     ticket: any,
     event: any,
