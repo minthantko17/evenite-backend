@@ -7,12 +7,14 @@ import { UserCrudService } from './services/user-crud.service';
 import { UserValidationService } from './services/user-validation.service';
 import { UserStorageService } from './services/user-storage.service';
 import { EventModule } from '../event/event.module';
+import { RegistrationModule } from '../registration/registration.module';
 
 @Module({
   imports: [
     PrismaModule,
     AuthModule,
     EventModule,
+    RegistrationModule,
   ],
   controllers: [UserController],
   providers: [
@@ -22,6 +24,7 @@ import { EventModule } from '../event/event.module';
     UserStorageService,
   ],
   exports: [
+    UserService,
     UserCrudService,
     UserValidationService,
   ],

@@ -1,17 +1,25 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { FormType, FieldType, RegistrationStatus } from '@prisma/client';
+import { FormType, FieldType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateFormDto } from '../dto/create-form.dto';
 import { UpdateFormDto } from '../dto/update-form.dto';
 import { FormNotFoundException } from '../exceptions/form-not-found.exception';
 import { SaveFormException } from '../exceptions/save-form.exception';
-import { ReturnFormField, ReturnFormWithFields } from '../dto/return-form-with-fields.dto';
+import {
+  ReturnFormField,
+  ReturnFormWithFields,
+} from '../dto/return-form-with-fields.dto';
 import { ReturnFormSubmissions } from '../dto/return-form-submissions.dto';
-import { ReturnFormFieldSummary, ReturnFormSummary, ReturnSummaryAnswer } from '../dto/return-form-summary.dto';
+import {
+  ReturnFormFieldSummary,
+  ReturnFormSummary,
+  ReturnSummaryAnswer,
+} from '../dto/return-form-summary.dto';
 import { CreateFormResponseDto } from '../dto/create-form-response.dto';
 import { ReturnFormSubmissionItem } from '../dto/return-form-submissions.dto';
 import { ReturnFormFieldAnswer } from '../dto/return-form-submissions.dto';
 import { DeleteFormException } from '../exceptions/delete-form.exception';
+import { FormResponseAlreadyExistsException } from '../exceptions/form-response-already-exists.exception';
 
 @Injectable()
 export class FormCrudService {
@@ -131,7 +139,7 @@ export class FormCrudService {
       where: { eventId_type: { eventId, type } },
       include: {
         fields: { orderBy: { order: 'asc' } },
-      }
+      },
     });
     if (!form) throw new FormNotFoundException();
 
@@ -144,21 +152,24 @@ export class FormCrudService {
     return {
       formId: form.id,
       totalResponses: responses.length,
-      responses: responses.map((response) => ({
-        id: response.id,
-        createdAt: response.createdAt,
-        answers: form.fields.map((field)=>{
-          const fieldResponse = response.fieldResponses.find(
-            (fieldResponse) => fieldResponse.formFieldId === field.id
-          );
-          return{
-            formFieldId: field.id,
-            label: field.label,
-            type: field.type,
-            value: this.resolveFieldValue(fieldResponse, field.type),
-          } as ReturnFormFieldAnswer 
-        })
-      } as ReturnFormSubmissionItem)),
+      responses: responses.map(
+        (response) =>
+          ({
+            id: response.id,
+            createdAt: response.createdAt,
+            answers: form.fields.map((field) => {
+              const fieldResponse = response.fieldResponses.find(
+                (fieldResponse) => fieldResponse.formFieldId === field.id,
+              );
+              return {
+                formFieldId: field.id,
+                label: field.label,
+                type: field.type,
+                value: this.resolveFieldValue(fieldResponse, field.type),
+              } as ReturnFormFieldAnswer;
+            }),
+          }) as ReturnFormSubmissionItem,
+      ),
     } as ReturnFormSubmissions;
   }
 
@@ -210,12 +221,15 @@ export class FormCrudService {
   }
 
   private resolveFieldValue(
-    fieldResponse: {
-      valueText: string | null;
-      valueNumber: { toNumber(): number } | null;
-      valueDate: Date | null;
-      valueArray: string[];
-    } | null | undefined,
+    fieldResponse:
+      | {
+          valueText: string | null;
+          valueNumber: { toNumber(): number } | null;
+          valueDate: Date | null;
+          valueArray: string[];
+        }
+      | null
+      | undefined,
     fieldType: FieldType,
   ): string | number | Date | string[] | null {
     if (!fieldResponse) {
@@ -242,12 +256,18 @@ export class FormCrudService {
         return fieldResponse.valueText ?? '';
       case FieldType.NUMBER:
       case FieldType.RATING:
-        return fieldResponse.valueNumber !== null ? fieldResponse.valueNumber.toNumber() : null;
+        return fieldResponse.valueNumber !== null
+          ? fieldResponse.valueNumber.toNumber()
+          : null;
       case FieldType.DATE:
-        return fieldResponse.valueDate !== null ? fieldResponse.valueDate : null;
+        return fieldResponse.valueDate !== null
+          ? fieldResponse.valueDate
+          : null;
       case FieldType.CHOICE:
       case FieldType.CHECKBOX:
-        return fieldResponse.valueArray.length > 0 ? fieldResponse.valueArray : [];
+        return fieldResponse.valueArray.length > 0
+          ? fieldResponse.valueArray
+          : [];
       default:
         return null;
     }
@@ -279,14 +299,12 @@ export class FormCrudService {
     };
   }
 
-  
   // --------------------------------------------------------------
 
-  // Temp: Following is just for dev/testing purpose only.
   async createFormResponse(
     formId: string,
     dto: CreateFormResponseDto,
-    eventRegistrationId: string | null,
+    eventRegistrationId: string,
   ): Promise<ReturnFormSubmissionItem> {
     const fields = await this.prisma.formField.findMany({
       where: { formId },
@@ -326,14 +344,28 @@ export class FormCrudService {
       return {
         id: response.id,
         createdAt: response.createdAt,
-        answers: response.fieldResponses.map((fieldResponse) => ({
-          formFieldId: fieldResponse.formFieldId,
-          label: fieldResponse.formField.label,
-          type: fieldResponse.formField.type,
-          value: this.resolveFieldValue(fieldResponse, fieldResponse.formField.type),
-        } as ReturnFormFieldAnswer)),
+        answers: response.fieldResponses.map(
+          (fieldResponse) =>
+            ({
+              formFieldId: fieldResponse.formFieldId,
+              label: fieldResponse.formField.label,
+              type: fieldResponse.formField.type,
+              value: this.resolveFieldValue(
+                fieldResponse,
+                fieldResponse.formField.type,
+              ),
+            }) as ReturnFormFieldAnswer,
+        ),
       } as ReturnFormSubmissionItem;
     } catch (error) {
+      // P2002 = unique constraint violation
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        // throws when multiple feedback form responses are submitted
+        throw new FormResponseAlreadyExistsException();
+      }
       this.logger.error('Failed to create form response', error);
       throw new SaveFormException();
     }
@@ -395,30 +427,6 @@ export class FormCrudService {
     }
   }
 
-  // TEMP: mock event registration creation for form submission flow
-  async createEventRegistration(eventId: string, participantProfileId: string) {
-    return this.prisma.eventRegistration.create({
-      data: {
-        eventId,
-        participantId: participantProfileId,
-        status: RegistrationStatus.CONFIRMED,
-      },
-    });
-  }
-
-  // TEMP: mock registration lookup for form submission flow
-  async findEventRegistration(eventId: string, participantProfileId: string) {
-    return this.prisma.eventRegistration.findUnique({
-      where: {
-        participantId_eventId: {
-          participantId: participantProfileId,
-          eventId,
-        },
-      },
-    });
-  }
-
-  // TEMP: mock form submission with registration flow
   private mapValueToColumn(
     value: string | number | string[] | null | undefined,
     fieldType: FieldType,

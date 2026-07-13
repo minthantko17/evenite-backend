@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { FormType } from '@prisma/client';
+import { Injectable, ForbiddenException } from '@nestjs/common';
+import { FormType, EventStatus } from '@prisma/client';
 import { FormValidationService } from './services/form-validation.service';
 import { FormCrudService } from './services/form-crud.service';
 import { CreateFormDto } from './dto/create-form.dto';
@@ -60,7 +60,10 @@ export class FormService {
       eventId,
       organizerProfileId,
     );
-    const form = await this.formCrudService.getFormByEventAndType(eventId,type);
+    const form = await this.formCrudService.getFormByEventAndType(
+      eventId,
+      type,
+    );
     await this.formValidationService.validateFormNotLocked(form.id);
     await this.formValidationService.validateNoResponsesExist(form.id);
     if (dto.fields) {
@@ -93,47 +96,44 @@ export class FormService {
     return this.formCrudService.getFormResponsesSummary(eventId, type);
   }
 
-  // TEMP: mock form submission
-  async createFormResponse(
+  async createFeedbackFormResponse(
     eventId: string,
-    type: FormType,
     dto: CreateFormResponseDto,
-    participantProfileId: string | null,
+    participantProfileId: string,
   ): Promise<ReturnFormSubmissionItem> {
-    await this.eventValidationService.validateEventExists(eventId);
+    const event =
+      await this.eventValidationService.validateEventExists(eventId);
+
+    // feedback only allowed for ONGOING or CONCLUDED events
+    const allowedStatuses: EventStatus[] = [
+      EventStatus.ONGOING,
+      EventStatus.CONCLUDED,
+    ];
+    if (!allowedStatuses.includes(event.status)) {
+      throw new ForbiddenException(
+        'Feedback can only be submitted for ongoing or concluded events.',
+      );
+    }
+
     const form = await this.formCrudService.getFormByEventAndType(
       eventId,
-      type,
+      FormType.FEEDBACK,
     );
     this.formValidationService.validateFormFieldAnswers(
       form.fields,
       dto.answers,
     );
 
-    let eventRegistrationId: string | null = null;
-    if (participantProfileId) {
-      if (type === FormType.REGISTRATION) {
-        // TODO: need to validate registration exists for participantId and eventid..well later
-        // create new EventRegistration
-        const registration = await this.formCrudService.createEventRegistration(
-          eventId,
-          participantProfileId,
-        );
-        eventRegistrationId = registration.id;
-      } else if (type === FormType.FEEDBACK) {
-        // find existing EventRegistration to link feedback
-        const registration = await this.formCrudService.findEventRegistration(
-          eventId,
-          participantProfileId,
-        );
-        eventRegistrationId = registration?.id ?? null;
-      }
-    }
-    
+    const registration =
+      await this.formValidationService.validateParticipantIsRegistered(
+        eventId,
+        participantProfileId,
+      );
+
     return this.formCrudService.createFormResponse(
       form.id,
       dto,
-      eventRegistrationId,
+      registration.registrationId,
     );
   }
 

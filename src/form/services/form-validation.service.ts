@@ -1,5 +1,5 @@
-import { Injectable, ForbiddenException } from '@nestjs/common';
-import { FormType, FieldType, EventStatus } from '@prisma/client';
+import { Injectable } from '@nestjs/common';
+import { FormType, FieldType, EventStatus, RegistrationStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { FormFieldInputDto } from '../dto/create-form.dto';
 import { FormFieldInvalidException } from '../exceptions/form-field-invalid.exception';
@@ -10,16 +10,16 @@ import { FormAlreadyHasResponsesException } from '../exceptions/form-already-has
 import { CreateFormFieldAnswerDto } from '../dto/create-form-response.dto';
 import { ReturnFormField } from '../dto/return-form-with-fields.dto';
 import { ALLOWED_AUTOFILL_KEYS } from '../constants/form.constants';
+import { RegistrationNotFoundException } from '../../registration/exceptions/registration-not-found.exception';
 
 @Injectable()
 export class FormValidationService {
-
   constructor(private readonly prisma: PrismaService) {}
 
   async validateFormTypeNotDuplicated(
     eventId: string,
     type: FormType,
-  ): Promise<{message: string}> {
+  ): Promise<{ message: string }> {
     const existing = await this.prisma.form.findUnique({
       where: { eventId_type: { eventId, type } },
     });
@@ -79,6 +79,30 @@ export class FormValidationService {
         );
       }
     });
+  }
+
+  async validateParticipantIsRegistered(
+    eventId: string,
+    participantProfileId: string,
+  ): Promise<{ registrationId: string; status: RegistrationStatus }> {
+    const registration = await this.prisma.eventRegistration.findUnique({
+      where: {
+        participantId_eventId: {
+          participantId: participantProfileId,
+          eventId,
+        },
+      },
+      select: { id: true, status: true },
+    });
+
+    if (!registration || registration.status !== RegistrationStatus.CONFIRMED) {
+      throw new RegistrationNotFoundException();
+    }
+
+    return {
+      registrationId: registration.id,
+      status: registration.status,
+    };
   }
 
   // (me to my future self) following are related to method for dev purposes only

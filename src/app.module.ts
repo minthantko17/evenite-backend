@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { UniversityModule } from './university/university.module';
 import { UserModule } from './user/user.module';
 import { ScheduleModule } from "@nestjs/schedule";
+import { RegistrationModule } from './registration/registration.module';
 
 @Module({
   imports: [
@@ -17,7 +18,8 @@ import { ScheduleModule } from "@nestjs/schedule";
     FormModule,
     AuthModule,
     UniversityModule,
-    UserModule
+    UserModule,
+    RegistrationModule
   ],
   controllers: [AppController],
   providers: [AppService],

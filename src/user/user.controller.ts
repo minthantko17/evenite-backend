@@ -10,10 +10,12 @@ import {
   UploadedFile,
   Query,
   ParseEnumPipe,
+  Param,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Request } from 'express';
-import { EventStatus, Role } from '@prisma/client';
+import { EventStatus, Role, TicketStatus } from '@prisma/client';
 import { UserService } from './user.service';
 import { JwtAccessGuard } from '../auth/guards/jwt-access.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -28,8 +30,10 @@ import { ReturnUserDto } from './dto/return-user.dto';
 import { ReturnParticipantProfileDto } from './dto/return-participant-profile.dto';
 import { ReturnOrganizerProfileDto } from './dto/return-organizer-profile.dto';
 import { ReturnSwitchProfileDto } from './dto/return-switch-profile.dto';
-import { EventRegistrationWithEvent } from '../event/types/event.types';
 import { EventResponseDto } from '../event/dto/event-response.dto';
+import { ReturnRegisteredEventDto } from '../registration/dto/return-registered-event.dto';
+import { ReturnParticipantTicketListDto } from '../registration/dto/return-participant-ticket-list.dto';
+import { ReturnTicketDetailDto } from '../registration/dto/return-ticket-detail.dto';
 
 @Controller('users')
 @UseGuards(JwtAccessGuard, RolesGuard) // all endpoints require auth
@@ -89,16 +93,36 @@ export class UserController {
     return this.userService.uploadParticipantImage(file);
   }
 
-  // TODO: refine in Feature #5
   @Get('me/registered-events')
   @Roles(Role.PARTICIPANT)
   getCurrentUserRegisteredEvents(
     @Req() req: Request,
     @Query('status', new ParseEnumPipe(EventStatus, { optional: true }))
     status?: EventStatus,
-  ): Promise<EventRegistrationWithEvent[]> {
+  ): Promise<ReturnRegisteredEventDto[]> {
     const user = req.user as JwtAccessPayload;
     return this.userService.getRegisteredEvents(user.sub, status);
+  }
+
+  @Get('me/tickets')
+  @Roles(Role.PARTICIPANT)
+  getCurrentUserTickets(
+    @Req() req: Request,
+    @Query('ticketStatus', new ParseEnumPipe(TicketStatus, { optional: true }))
+    ticketStatus?: TicketStatus,
+  ): Promise<ReturnParticipantTicketListDto[]> {
+    const user = req.user as JwtAccessPayload;
+    return this.userService.getTickets(user.sub, ticketStatus);
+  }
+
+  @Get('me/tickets/:ticketId')
+  @Roles(Role.PARTICIPANT)
+  getCurrentUserTicketById(
+    @Param('ticketId', ParseUUIDPipe) ticketId: string,
+    @Req() req: Request,
+  ): Promise<ReturnTicketDetailDto> {
+    const user = req.user as JwtAccessPayload;
+    return this.userService.getTicketById(user.sub, ticketId);
   }
 
   // --- Organizer Profile Endpoints ----

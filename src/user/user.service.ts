@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { EventStatus } from '@prisma/client';
+import { EventStatus, TicketStatus } from '@prisma/client';
 import { UserCrudService } from './services/user-crud.service';
 import { UserValidationService } from './services/user-validation.service';
 import { UserStorageService } from './services/user-storage.service';
@@ -20,18 +20,22 @@ import {
 import { validateImageFile } from '../common/utils/file.utils';
 import { EventService } from '../event/event.service';
 import { EventResponseDto } from '../event/dto/event-response.dto';
-import { EventRegistrationWithEvent } from '../event/types/event.types';
+import { RegistrationService } from '../registration/registration.service';
+import { ReturnRegisteredEventDto } from '../registration/dto/return-registered-event.dto';
+import { ReturnParticipantTicketListDto } from '../registration/dto/return-participant-ticket-list.dto';
+import { ReturnTicketDetailDto } from '../registration/dto/return-ticket-detail.dto';
 
 @Injectable()
 export class UserService {
   private readonly logger = new Logger(UserService.name);
-  
+
   constructor(
     private readonly userCrudService: UserCrudService,
     private readonly userValidationService: UserValidationService,
     private readonly userStorageService: UserStorageService,
     private readonly authService: AuthService,
     private readonly eventService: EventService,
+    private readonly registrationService: RegistrationService,
   ) {}
 
   // --- User ---
@@ -77,7 +81,8 @@ export class UserService {
     dto: UpdateParticipantProfileDto,
   ): Promise<ReturnParticipantProfileDto> {
     await this.userValidationService.validateUserExists(userId);
-    const participantProfile = await this.userCrudService.getParticipantProfile(userId);
+    const participantProfile =
+      await this.userCrudService.getParticipantProfile(userId);
     this.userValidationService.validateParticipantProfileData(dto);
 
     const hasImageUrlField = dto.imageUrl !== undefined;
@@ -87,11 +92,12 @@ export class UserService {
     );
 
     if (hasImageUrlField) {
-      const deletionResult = await this.userStorageService.deleteOrphanImageIfReplaced(
-        participantProfile.imageUrl,
-        dto.imageUrl,
-        DEFAULT_PARTICIPANT_IMAGE_URL,
-      );
+      const deletionResult =
+        await this.userStorageService.deleteOrphanImageIfReplaced(
+          participantProfile.imageUrl,
+          dto.imageUrl,
+          DEFAULT_PARTICIPANT_IMAGE_URL,
+        );
       this.logger.log(deletionResult.message);
     }
 
@@ -146,7 +152,8 @@ export class UserService {
     dto: UpdateOrganizerProfileDto,
   ): Promise<ReturnOrganizerProfileDto> {
     await this.userValidationService.validateUserExists(userId);
-    const organizerProfile = await this.userCrudService.getOrganizerProfile(userId);
+    const organizerProfile =
+      await this.userCrudService.getOrganizerProfile(userId);
     this.userValidationService.validateOrganizerProfileData(dto);
 
     const hasImageUrlField = dto.imageUrl !== undefined;
@@ -156,11 +163,12 @@ export class UserService {
     );
 
     if (hasImageUrlField) {
-      const deletionResult = await this.userStorageService.deleteOrphanImageIfReplaced(
-        organizerProfile.imageUrl,
-        dto.imageUrl,
-        DEFAULT_ORGANIZER_IMAGE_URL,
-      );
+      const deletionResult =
+        await this.userStorageService.deleteOrphanImageIfReplaced(
+          organizerProfile.imageUrl,
+          dto.imageUrl,
+          DEFAULT_ORGANIZER_IMAGE_URL,
+        );
       this.logger.log(deletionResult.message);
     }
 
@@ -212,7 +220,6 @@ export class UserService {
 
   // --- Events ---
 
-  // NOTE: call method from Event Service
   async getCreatedEvents(
     userId: string,
     status?: EventStatus,
@@ -227,18 +234,39 @@ export class UserService {
     );
   }
 
-  // TODO: refine in Feature #5
   async getRegisteredEvents(
     userId: string,
     status?: EventStatus,
-  ): Promise<EventRegistrationWithEvent[]> {
-    const user = await this.userCrudService.getUserById(userId);
+  ): Promise<ReturnRegisteredEventDto[]> {
     const participantProfile =
       await this.userCrudService.getParticipantProfile(userId);
-    return this.eventService.getRegisteredEvents(
+    return this.registrationService.getRegisteredEvents(
       participantProfile.id,
-      user.universityId,
       status,
+    );
+  }
+
+  async getTickets(
+    userId: string,
+    ticketStatus?: TicketStatus,
+  ): Promise<ReturnParticipantTicketListDto[]> {
+    const participantProfile =
+      await this.userCrudService.getParticipantProfile(userId);
+    return this.registrationService.getTickets(
+      participantProfile.id,
+      ticketStatus,
+    );
+  }
+
+  async getTicketById(
+    userId: string,
+    ticketId: string,
+  ): Promise<ReturnTicketDetailDto> {
+    const participantProfile =
+      await this.userCrudService.getParticipantProfile(userId);
+    return this.registrationService.getTicketById(
+      ticketId,
+      participantProfile.id,
     );
   }
 }
