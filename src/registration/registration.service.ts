@@ -23,6 +23,9 @@ import { RegistrationNotFoundException } from './exceptions/registration-not-fou
 import { SaveRegistrationException } from './exceptions/save-registration.exception';
 import { EventNotFoundException } from '../event/exceptions/event-not-found.exception';
 import { TicketNotFoundException } from './exceptions/ticket-not-found.exception';
+import { SaveFormResponseException } from '../form/exceptions/save-form-response.exception';
+import { SaveTicketException } from './exceptions/save-ticket.exception';
+import { DeleteRegistrationException } from './exceptions/delete-registration.exception';
 
 @Injectable()
 export class RegistrationService {
@@ -128,6 +131,9 @@ export class RegistrationService {
       if (error instanceof EventFullException) throw error;
       if (error instanceof EventNotFoundException) throw error;
       if (error instanceof SaveRegistrationException) throw error;
+      if (error instanceof SaveFormResponseException) throw error;
+      if (error instanceof SaveTicketException) throw error;
+      if (error instanceof DeleteRegistrationException) throw error;
       this.logger.error('Failed to create registration', error);
       throw new SaveRegistrationException();
     }
@@ -185,6 +191,7 @@ export class RegistrationService {
     } catch (error) {
       if (error instanceof TicketNotFoundException) throw error;
       if (error instanceof SaveRegistrationException) throw error;
+      if (error instanceof SaveTicketException) throw error;
       this.logger.error('Failed to cancel registration', error);
       throw new SaveRegistrationException();
     }

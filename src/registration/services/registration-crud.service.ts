@@ -39,6 +39,9 @@ import { BilingualField } from '../../event/dto/bilingual-field.dto';
 import { EventNotFoundException } from '../../event/exceptions/event-not-found.exception';
 import { TicketNotFoundException } from '../exceptions/ticket-not-found.exception';
 import { SaveRegistrationException } from '../exceptions/save-registration.exception';
+import { SaveFormResponseException } from '../../form/exceptions/save-form-response.exception';
+import { SaveTicketException } from '../exceptions/save-ticket.exception';
+import { DeleteRegistrationException } from '../exceptions/delete-registration.exception';
 
 const PARTICIPANT_SNAPSHOT_KEYS = [
   'firstName',
@@ -305,7 +308,7 @@ export class RegistrationCrudService {
       return { deletedRegistrationId: registrationId };
     } catch (error) {
       this.logger.error('Failed to delete cancelled registration', error);
-      throw new SaveRegistrationException();
+      throw new DeleteRegistrationException();
     }
   }
 
@@ -357,7 +360,7 @@ export class RegistrationCrudService {
         'Failed to create form response in registration',
         error,
       );
-      throw new SaveRegistrationException();
+      throw new SaveFormResponseException();
     }
   }
 
@@ -378,7 +381,7 @@ export class RegistrationCrudService {
       });
     } catch (error) {
       this.logger.error('Failed to create ticket', error);
-      throw new SaveRegistrationException();
+      throw new SaveTicketException();
     }
   }
 
@@ -419,7 +422,7 @@ export class RegistrationCrudService {
       });
     } catch (error) {
       this.logger.error('Failed to update ticket status', error);
-      throw new SaveRegistrationException();
+      throw new SaveTicketException();
     }
   }
 

@@ -20,6 +20,7 @@ import { ReturnFormSubmissionItem } from '../dto/return-form-submissions.dto';
 import { ReturnFormFieldAnswer } from '../dto/return-form-submissions.dto';
 import { DeleteFormException } from '../exceptions/delete-form.exception';
 import { FormResponseAlreadyExistsException } from '../exceptions/form-response-already-exists.exception';
+import { SaveFormResponseException } from '../exceptions/save-form-response.exception';
 
 @Injectable()
 export class FormCrudService {
@@ -367,7 +368,7 @@ export class FormCrudService {
         throw new FormResponseAlreadyExistsException();
       }
       this.logger.error('Failed to create form response', error);
-      throw new SaveFormException();
+      throw new SaveFormResponseException();
     }
   }
 
