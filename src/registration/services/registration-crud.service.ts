@@ -38,6 +38,10 @@ import {
 import { BilingualField } from '../../event/dto/bilingual-field.dto';
 import { EventNotFoundException } from '../../event/exceptions/event-not-found.exception';
 import { TicketNotFoundException } from '../exceptions/ticket-not-found.exception';
+import { SaveRegistrationException } from '../exceptions/save-registration.exception';
+import { SaveFormResponseException } from '../../form/exceptions/save-form-response.exception';
+import { SaveTicketException } from '../exceptions/save-ticket.exception';
+import { DeleteRegistrationException } from '../exceptions/delete-registration.exception';
 
 const PARTICIPANT_SNAPSHOT_KEYS = [
   'firstName',
@@ -67,8 +71,8 @@ export class RegistrationCrudService {
   async findRegistrationByParticipantAndEvent(
     eventId: string,
     participantProfileId: string,
-  ): Promise<{ id: string; status: RegistrationStatus } | null> {
-    return this.prisma.eventRegistration.findUnique({
+  ): Promise<{ id: string; status: RegistrationStatus }> {
+    const registration = await this.prisma.eventRegistration.findUnique({
       where: {
         participantId_eventId: {
           participantId: participantProfileId,
@@ -77,6 +81,10 @@ export class RegistrationCrudService {
       },
       select: { id: true, status: true },
     });
+    if (!registration) {
+      throw new RegistrationNotFoundException();
+    }
+    return registration;
   }
 
   async getRegistrationsByEvent(
@@ -286,21 +294,22 @@ export class RegistrationCrudService {
     registrationId: string,
     tx?: Prisma.TransactionClient,
   ): Promise<{ deletedRegistrationId: string }> {
-    const client = this.getClient(tx);
-
-    await client.formResponse.deleteMany({
-      where: { eventRegistrationId: registrationId },
-    });
-
-    await client.ticket.deleteMany({
-      where: { eventRegistrationId: registrationId },
-    });
-
-    await client.eventRegistration.delete({
-      where: { id: registrationId },
-    });
-
-    return { deletedRegistrationId: registrationId };
+    try {
+      const client = this.getClient(tx);
+      await client.formResponse.deleteMany({
+        where: { eventRegistrationId: registrationId },
+      });
+      await client.ticket.deleteMany({
+        where: { eventRegistrationId: registrationId },
+      });
+      await client.eventRegistration.delete({
+        where: { id: registrationId },
+      });
+      return { deletedRegistrationId: registrationId };
+    } catch (error) {
+      this.logger.error('Failed to delete cancelled registration', error);
+      throw new DeleteRegistrationException();
+    }
   }
 
   async createRegistration(
@@ -308,13 +317,18 @@ export class RegistrationCrudService {
     participantProfileId: string,
     tx?: Prisma.TransactionClient,
   ): Promise<EventRegistration> {
-    return this.getClient(tx).eventRegistration.create({
-      data: {
-        eventId,
-        participantId: participantProfileId,
-        status: RegistrationStatus.CONFIRMED,
-      },
-    });
+    try {
+      return await this.getClient(tx).eventRegistration.create({
+        data: {
+          eventId,
+          participantId: participantProfileId,
+          status: RegistrationStatus.CONFIRMED,
+        },
+      });
+    } catch (error) {
+      this.logger.error('Failed to create registration', error);
+      throw new SaveRegistrationException();
+    }
   }
 
   async createFormResponse(
@@ -325,23 +339,29 @@ export class RegistrationCrudService {
     tx?: Prisma.TransactionClient,
   ): Promise<FormResponse> {
     const fieldTypeMap = new Map(fields.map((f) => [f.id, f.type]));
-
-    const result = await this.getClient(tx).formResponse.create({
-      data: {
-        formId,
-        eventRegistrationId,
-        fieldResponses: {
-          create: answers.map((answer) => ({
-            formFieldId: answer.formFieldId,
-            ...this.mapAnswerValueToColumns(
-              answer.value,
-              fieldTypeMap.get(answer.formFieldId)!,
-            ),
-          })),
+    try {
+      return await this.getClient(tx).formResponse.create({
+        data: {
+          formId,
+          eventRegistrationId,
+          fieldResponses: {
+            create: answers.map((answer) => ({
+              formFieldId: answer.formFieldId,
+              ...this.mapAnswerValueToColumns(
+                answer.value,
+                fieldTypeMap.get(answer.formFieldId)!,
+              ),
+            })),
+          },
         },
-      },
-    });
-    return result;
+      });
+    } catch (error) {
+      this.logger.error(
+        'Failed to create form response in registration',
+        error,
+      );
+      throw new SaveFormResponseException();
+    }
   }
 
   async createTicket(
@@ -350,15 +370,19 @@ export class RegistrationCrudService {
     tx?: Prisma.TransactionClient,
   ): Promise<Ticket> {
     const qrToken = crypto.randomUUID();
-
-    return this.getClient(tx).ticket.create({
-      data: {
-        eventRegistrationId,
-        qrToken,
-        status: TicketStatus.ACTIVE,
-        participantSnapshot: snapshot as unknown as Prisma.InputJsonValue,
-      },
-    });
+    try {
+      return await this.getClient(tx).ticket.create({
+        data: {
+          eventRegistrationId,
+          qrToken,
+          status: TicketStatus.ACTIVE,
+          participantSnapshot: snapshot as unknown as Prisma.InputJsonValue,
+        },
+      });
+    } catch (error) {
+      this.logger.error('Failed to create ticket', error);
+      throw new SaveTicketException();
+    }
   }
 
   async updateRegistrationStatus(
@@ -366,11 +390,15 @@ export class RegistrationCrudService {
     status: RegistrationStatus,
     tx?: Prisma.TransactionClient,
   ): Promise<EventRegistration> {
-    const result = await this.getClient(tx).eventRegistration.update({
-      where: { id: registrationId },
-      data: { status },
-    });
-    return result;
+    try {
+      return await this.getClient(tx).eventRegistration.update({
+        where: { id: registrationId },
+        data: { status },
+      });
+    } catch (error) {
+      this.logger.error('Failed to update registration status', error);
+      throw new SaveRegistrationException();
+    }
   }
 
   async updateTicketStatus(
@@ -387,25 +415,36 @@ export class RegistrationCrudService {
       throw new TicketNotFoundException();
     }
 
-    const result = await client.ticket.update({
-      where: { eventRegistrationId: registrationId },
-      data: { status },
-    });
-    return result;
+    try {
+      return await client.ticket.update({
+        where: { eventRegistrationId: registrationId },
+        data: { status },
+      });
+    } catch (error) {
+      this.logger.error('Failed to update ticket status', error);
+      throw new SaveTicketException();
+    }
   }
 
   async decrementSeatsTaken(
     eventId: string,
     tx?: Prisma.TransactionClient,
   ): Promise<{ id: string; seatsTaken: number }> {
-    const client = this.getClient(tx);
-    const result = await client.$queryRaw<{ id: string; seatsTaken: number }[]>`
-      UPDATE "Event"
-      SET "seatsTaken" = GREATEST("seatsTaken" - 1, 0)
-      WHERE id = ${eventId}
-      RETURNING id, "seatsTaken"
-    `;
-    return result[0];
+    try {
+      const client = this.getClient(tx);
+      const result = await client.$queryRaw<
+        { id: string; seatsTaken: number }[]
+      >`
+        UPDATE "Event"
+        SET "seatsTaken" = GREATEST("seatsTaken" - 1, 0)
+        WHERE id = ${eventId}
+        RETURNING id, "seatsTaken"
+      `;
+      return result[0];
+    } catch (error) {
+      this.logger.error('Failed to decrement seatsTaken', error);
+      throw new SaveRegistrationException();
+    }
   }
 
   async extractIdentitySnapshot(
