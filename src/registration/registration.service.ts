@@ -127,6 +127,7 @@ export class RegistrationService {
     } catch (error) {
       if (error instanceof EventFullException) throw error;
       if (error instanceof EventNotFoundException) throw error;
+      if (error instanceof SaveRegistrationException) throw error;
       this.logger.error('Failed to create registration', error);
       throw new SaveRegistrationException();
     }
@@ -156,7 +157,6 @@ export class RegistrationService {
         eventId,
         participantProfileId,
       );
-    if (!registration) throw new RegistrationNotFoundException();
 
     // checks: registration status, event status, event startAt
     this.registrationValidationService.validateCancellable(registration, event);
@@ -184,6 +184,7 @@ export class RegistrationService {
       updatedTicket = result.ticket;
     } catch (error) {
       if (error instanceof TicketNotFoundException) throw error;
+      if (error instanceof SaveRegistrationException) throw error;
       this.logger.error('Failed to cancel registration', error);
       throw new SaveRegistrationException();
     }
