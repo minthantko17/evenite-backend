@@ -42,6 +42,7 @@ import { SaveRegistrationException } from '../exceptions/save-registration.excep
 import { SaveFormResponseException } from '../../form/exceptions/save-form-response.exception';
 import { SaveTicketException } from '../exceptions/save-ticket.exception';
 import { DeleteRegistrationException } from '../exceptions/delete-registration.exception';
+import { SaveEventException } from '../../event/exceptions/save-event.exception';
 
 const PARTICIPANT_SNAPSHOT_KEYS = [
   'firstName',
@@ -443,7 +444,7 @@ export class RegistrationCrudService {
       return result[0];
     } catch (error) {
       this.logger.error('Failed to decrement seatsTaken', error);
-      throw new SaveRegistrationException();
+      throw new SaveEventException();
     }
   }
 
