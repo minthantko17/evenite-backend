@@ -42,6 +42,7 @@ import { SaveRegistrationException } from '../exceptions/save-registration.excep
 import { SaveFormResponseException } from '../../form/exceptions/save-form-response.exception';
 import { SaveTicketException } from '../exceptions/save-ticket.exception';
 import { DeleteRegistrationException } from '../exceptions/delete-registration.exception';
+import { SaveEventException } from '../../event/exceptions/save-event.exception';
 
 const PARTICIPANT_SNAPSHOT_KEYS = [
   'firstName',
@@ -234,13 +235,17 @@ export class RegistrationCrudService {
   // fetches event with organizer for post-transaction response building
   async getEventWithOrganizer(
     eventId: string,
-  ): Promise<EventWithOrganizer | null> {
-    return this.prisma.event.findUnique({
+  ): Promise<EventWithOrganizer> {
+    const event = await this.prisma.event.findUnique({
       where: { id: eventId },
       include: {
         organizer: { select: { name: true, imageUrl: true } },
       },
-    }) as Promise<EventWithOrganizer | null>;
+    });
+    if(!event) {
+      throw new EventNotFoundException();
+    }
+    return event;
   }
 
   // NOTE: claimSeat is for race-safe seat claiming. Without tx call, race condition is possible.
@@ -443,7 +448,7 @@ export class RegistrationCrudService {
       return result[0];
     } catch (error) {
       this.logger.error('Failed to decrement seatsTaken', error);
-      throw new SaveRegistrationException();
+      throw new SaveEventException();
     }
   }
 
