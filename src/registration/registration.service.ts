@@ -140,9 +140,6 @@ export class RegistrationService {
 
     const eventDetail =
       await this.registrationCrudService.getEventWithOrganizer(eventId);
-    if (!eventDetail) {
-      throw new EventNotFoundException();
-    }
 
     return this.registrationCrudService.mapToReturnTicketDetailDto(
       registration,
@@ -198,7 +195,6 @@ export class RegistrationService {
 
     const eventDetail =
       await this.registrationCrudService.getEventWithOrganizer(eventId);
-    if (!eventDetail) throw new EventNotFoundException();
 
     return this.registrationCrudService.mapToReturnTicketDetailDto(
       updatedRegistration,

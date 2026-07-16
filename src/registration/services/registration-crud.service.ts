@@ -235,13 +235,17 @@ export class RegistrationCrudService {
   // fetches event with organizer for post-transaction response building
   async getEventWithOrganizer(
     eventId: string,
-  ): Promise<EventWithOrganizer | null> {
-    return this.prisma.event.findUnique({
+  ): Promise<EventWithOrganizer> {
+    const event = await this.prisma.event.findUnique({
       where: { id: eventId },
       include: {
         organizer: { select: { name: true, imageUrl: true } },
       },
-    }) as Promise<EventWithOrganizer | null>;
+    });
+    if(!event) {
+      throw new EventNotFoundException();
+    }
+    return event;
   }
 
   // NOTE: claimSeat is for race-safe seat claiming. Without tx call, race condition is possible.
