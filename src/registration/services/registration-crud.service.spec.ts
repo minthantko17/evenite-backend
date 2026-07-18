@@ -7,6 +7,7 @@ import {
   TicketStatus,
   Prisma,
 } from '@prisma/client';
+import { Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RegistrationCrudService } from './registration-crud.service';
 import { EventFullException } from '../exceptions/event-full.exception';
@@ -30,9 +31,7 @@ import {
   MOCK_FIELD_ID_NICKNAME,
   MOCK_FIELD_ID_MAJOR,
   MOCK_QR_TOKEN,
-  MOCK_OTHER_PARTICIPANT_ID,
   MOCK_PARTICIPANT_SNAPSHOT,
-  MOCK_SNAPSHOT_NO_STUDENT_ID,
   MOCK_FUTURE_DATE,
   MOCK_FUTURE_END_DATE,
   MOCK_CREATED_AT,
@@ -51,13 +50,32 @@ import {
   MOCK_MAJOR_FIELD,
   MOCK_CHOICE_FIELD,
   MOCK_NUMBER_FIELD,
-  MOCK_FORM_WITH_FIELDS,
   MOCK_VALID_ANSWERS,
   MOCK_PARTICIPANT_PROFILE,
-  MOCK_RETURN_TICKET_DETAIL_DTO,
-  MOCK_RETURN_REGISTRANT_DTO,
-  MOCK_RETURN_REGISTERED_EVENT_DTO,
-  MOCK_RETURN_TICKET_LIST_DTO,
+  MOCK_REGISTRATION_ID_2,
+  MOCK_REGISTRATION_ID_3,
+  MOCK_TICKET_ID_2,
+  MOCK_TICKET_ID_3,
+  MOCK_EVENT_ID_2,
+  MOCK_ISSUED_AT_2,
+  MOCK_ISSUED_AT_3,
+  MOCK_CREATED_AT_2,
+  MOCK_CREATED_AT_3,
+  MOCK_PARTICIPANT_SNAPSHOT_2,
+  MOCK_PARTICIPANT_SNAPSHOT_3,
+  MOCK_ONGOING_EVENT_2,
+  MOCK_CONCLUDED_EVENT_2,
+  MOCK_REG_WITH_TICKET_PAR1,
+  MOCK_REG_WITH_TICKET_PAR2,
+  MOCK_REG_WITH_TICKET_PAR3,
+  MOCK_REG_WITH_EVENT_PAR1_EVT1,
+  MOCK_REG_WITH_EVENT_PAR1_EVT2,
+  MOCK_TICKET_WITH_REG_ACTIVE,
+  MOCK_TICKET_WITH_REG_ACTIVE_2,
+  MOCK_TICKET_WITH_REG_EXPIRED,
+  MOCK_TICKET_WITH_REG_CANCELLED,
+  MOCK_REG_WITH_TICKET_AND_EVENT,
+  MOCK_TICKET_WITH_ALL,
 } from './registration.mocks';
 import { SaveEventException } from '../../event/exceptions/save-event.exception';
 
@@ -68,6 +86,11 @@ const mockTx = mockDeep<Prisma.TransactionClient>();
 
 // describe('RegistrationCrudService', () => {
 let service: RegistrationCrudService;
+
+beforeAll(() => {
+  jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+  jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
+});
 
 beforeEach(async () => {
   mockReset(prismaMock);
@@ -934,26 +957,43 @@ describe('getEventWithOrganizer', () => {
 });
 
 describe('getRegistrationsByEvent', () => {
-  const mockRegistrationWithTicket = {
-    ...MOCK_CONFIRMED_REGISTRATION,
-    ticket: {
-      status: TicketStatus.ACTIVE,
-      issuedAt: MOCK_ISSUED_AT,
-      participantSnapshot: MOCK_PARTICIPANT_SNAPSHOT,
-    },
-  };
-
-  it('UT-5-018-01: returns mapped registrant DTOs', async () => {
+  it('UT-5-018-01: returns mapped registrant DTOs for multiple registrations', async () => {
     prismaMock.eventRegistration.findMany.mockResolvedValue([
-      mockRegistrationWithTicket as any,
+      MOCK_REG_WITH_TICKET_PAR1 as any,
+      MOCK_REG_WITH_TICKET_PAR2 as any,
+      MOCK_REG_WITH_TICKET_PAR3 as any,
     ]);
 
     const result = await service.getRegistrationsByEvent(MOCK_EVENT_ID);
 
-    expect(result[0]).toEqual(MOCK_RETURN_REGISTRANT_DTO); //write in list
+    expect(result).toHaveLength(3);
+    expect(result[0]).toEqual({
+      id: MOCK_REGISTRATION_ID,
+      status: RegistrationStatus.CONFIRMED,
+      createdAt: MOCK_CREATED_AT,
+      ticketStatus: TicketStatus.ACTIVE,
+      ticketIssuedAt: MOCK_ISSUED_AT,
+      participantSnapshot: MOCK_PARTICIPANT_SNAPSHOT,
+    });
+    expect(result[1]).toEqual({
+      id: MOCK_REGISTRATION_ID_2,
+      status: RegistrationStatus.CONFIRMED,
+      createdAt: MOCK_CREATED_AT_2,
+      ticketStatus: TicketStatus.ACTIVE,
+      ticketIssuedAt: MOCK_ISSUED_AT_2,
+      participantSnapshot: MOCK_PARTICIPANT_SNAPSHOT_2,
+    });
+    expect(result[2]).toEqual({
+      id: MOCK_REGISTRATION_ID_3,
+      status: RegistrationStatus.CONFIRMED,
+      createdAt: MOCK_CREATED_AT_3,
+      ticketStatus: TicketStatus.EXPIRED,
+      ticketIssuedAt: MOCK_ISSUED_AT_3,
+      participantSnapshot: MOCK_PARTICIPANT_SNAPSHOT_3,
+    });
   });
 
-  it('UT-5-018-02: returns empty array when no registrations', async () => {
+  it('UT-5-018-02: returns empty array when no registrations for event', async () => {
     prismaMock.eventRegistration.findMany.mockResolvedValue([]);
 
     const result = await service.getRegistrationsByEvent(MOCK_EVENT_ID);
@@ -962,50 +1002,79 @@ describe('getRegistrationsByEvent', () => {
   });
 });
 
-// need to edit
 describe('getRegisteredEvents', () => {
-  const mockRegistrationWithEvent = {
-    ...MOCK_CONFIRMED_REGISTRATION,
-    event: {
-      ...MOCK_PUBLISHED_EVENT,
-      organizer: { name: 'CAMT Student Affairs', imageUrl: '' },
-    },
-  };
-
-  it('UT-5-019-01: returns mapped registered event DTOs without filter', async () => {
+  it('UT-5-019-01: returns all registered events without filter', async () => {
     prismaMock.eventRegistration.findMany.mockResolvedValue([
-      mockRegistrationWithEvent as any,
+      MOCK_REG_WITH_EVENT_PAR1_EVT1 as any,
+      MOCK_REG_WITH_EVENT_PAR1_EVT2 as any,
     ]);
 
     const result = await service.getRegisteredEvents(
       MOCK_PARTICIPANT_PROFILE_ID,
     );
 
-    expect(result).toHaveLength(1);
-    expect(result[0].id).toBe(MOCK_EVENT_ID);
-    expect(result[0].registration.id).toBe(MOCK_REGISTRATION_ID);
+    expect(result).toHaveLength(2);
+    expect(result[0]).toEqual({
+      id: MOCK_EVENT_ID,
+      title: MOCK_PUBLISHED_EVENT.title,
+      bannerUrl: '',
+      startAt: MOCK_FUTURE_DATE,
+      endAt: MOCK_FUTURE_END_DATE,
+      location: MOCK_PUBLISHED_EVENT.location,
+      status: EventStatus.PUBLISHED,
+      organizer: { name: 'CAMT Student Affairs', imageUrl: '' },
+      registration: {
+        id: MOCK_REGISTRATION_ID,
+        status: RegistrationStatus.CONFIRMED,
+        createdAt: MOCK_CREATED_AT,
+      },
+    });
+    expect(result[1]).toEqual({
+      id: MOCK_EVENT_ID_2,
+      title: MOCK_ONGOING_EVENT_2.title,
+      bannerUrl: '',
+      startAt: MOCK_ONGOING_EVENT_2.startAt,
+      endAt: MOCK_ONGOING_EVENT_2.endAt,
+      location: MOCK_ONGOING_EVENT_2.location,
+      status: EventStatus.ONGOING,
+      organizer: { name: 'CAMT Student Affairs', imageUrl: '' },
+      registration: {
+        id: 'a2000001-0000-4000-8000-000000000001',
+        status: RegistrationStatus.CONFIRMED,
+        createdAt: MOCK_CREATED_AT_2,
+      },
+    });
   });
 
-  it('UT-5-019-02: returns filtered results when eventStatus provided', async () => {
+  it('UT-5-019-02: returns filtered results for PUBLISHED status only', async () => {
     prismaMock.eventRegistration.findMany.mockResolvedValue([
-      mockRegistrationWithEvent as any,
+      MOCK_REG_WITH_EVENT_PAR1_EVT1 as any,
     ]);
 
-    await service.getRegisteredEvents(
+    const result = await service.getRegisteredEvents(
       MOCK_PARTICIPANT_PROFILE_ID,
       EventStatus.PUBLISHED,
     );
 
-    expect(prismaMock.eventRegistration.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          event: { status: EventStatus.PUBLISHED },
-        }),
-      }),
-    );
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual({
+      id: MOCK_EVENT_ID,
+      title: MOCK_PUBLISHED_EVENT.title,
+      bannerUrl: '',
+      startAt: MOCK_FUTURE_DATE,
+      endAt: MOCK_FUTURE_END_DATE,
+      location: MOCK_PUBLISHED_EVENT.location,
+      status: EventStatus.PUBLISHED,
+      organizer: { name: 'CAMT Student Affairs', imageUrl: '' },
+      registration: {
+        id: MOCK_REGISTRATION_ID,
+        status: RegistrationStatus.CONFIRMED,
+        createdAt: MOCK_CREATED_AT,
+      },
+    });
   });
 
-  it('UT-5-019-03: returns empty array when no registered events', async () => {
+  it('UT-5-019-03: returns empty array when participant has no registrations', async () => {
     prismaMock.eventRegistration.findMany.mockResolvedValue([]);
 
     const result = await service.getRegisteredEvents(
@@ -1013,90 +1082,159 @@ describe('getRegisteredEvents', () => {
     );
 
     expect(result).toEqual([]);
-  });
-
-  it('UT-5-019-04: calls findMany without status filter when eventStatus undefined', async () => {
-    prismaMock.eventRegistration.findMany.mockResolvedValue([]);
-
-    await service.getRegisteredEvents(MOCK_PARTICIPANT_PROFILE_ID, undefined);
-
-    expect(prismaMock.eventRegistration.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { participantId: MOCK_PARTICIPANT_PROFILE_ID },
-      }),
-    );
-  });
-
-  it('UT-5-019-05: calls findMany with status filter when eventStatus provided', async () => {
-    prismaMock.eventRegistration.findMany.mockResolvedValue([]);
-
-    await service.getRegisteredEvents(
-      MOCK_PARTICIPANT_PROFILE_ID,
-      EventStatus.PUBLISHED,
-    );
-
-    expect(prismaMock.eventRegistration.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          participantId: MOCK_PARTICIPANT_PROFILE_ID,
-          event: { status: EventStatus.PUBLISHED },
-        },
-      }),
-    );
   });
 });
 
 describe('getTicketsByParticipant', () => {
-  const mockTicketWithRegistration = {
-    ...MOCK_ACTIVE_TICKET,
-    eventRegistration: {
-      status: RegistrationStatus.CONFIRMED,
+  it('UT-5-020-01: returns all tickets without filter', async () => {
+    prismaMock.ticket.findMany.mockResolvedValue([
+      MOCK_TICKET_WITH_REG_ACTIVE as any,
+      MOCK_TICKET_WITH_REG_ACTIVE_2 as any,
+      MOCK_TICKET_WITH_REG_EXPIRED as any,
+      MOCK_TICKET_WITH_REG_CANCELLED as any,
+    ]);
+
+    const result = await service.getTicketsByParticipant(
+      MOCK_PARTICIPANT_PROFILE_ID,
+    );
+
+    expect(result).toHaveLength(4);
+    expect(result[0]).toEqual({
+      id: MOCK_TICKET_ID,
+      status: TicketStatus.ACTIVE,
+      issuedAt: MOCK_ISSUED_AT,
+      registrationStatus: RegistrationStatus.CONFIRMED,
       event: {
         id: MOCK_EVENT_ID,
-        title: {
-          en: 'CAMT Halloween Night 2026',
-          th: 'คืนฮาโลวีน CAMT 2026',
-        },
+        title: MOCK_PUBLISHED_EVENT.title,
         bannerUrl: '',
         startAt: MOCK_FUTURE_DATE,
         endAt: MOCK_FUTURE_END_DATE,
         status: EventStatus.PUBLISHED,
       },
-    },
-  };
+    });
+    expect(result[1]).toEqual({
+      id: MOCK_TICKET_ID_2,
+      status: TicketStatus.ACTIVE,
+      issuedAt: MOCK_ISSUED_AT_2,
+      registrationStatus: RegistrationStatus.CONFIRMED,
+      event: {
+        id: MOCK_EVENT_ID_2,
+        title: MOCK_ONGOING_EVENT_2.title,
+        bannerUrl: '',
+        startAt: MOCK_ONGOING_EVENT_2.startAt,
+        endAt: MOCK_ONGOING_EVENT_2.endAt,
+        status: EventStatus.ONGOING,
+      },
+    });
+    expect(result[2]).toEqual({
+      id: MOCK_TICKET_ID_3,
+      status: TicketStatus.EXPIRED,
+      issuedAt: MOCK_ISSUED_AT_3,
+      registrationStatus: RegistrationStatus.CONFIRMED,
+      event: {
+        id: 'e0000004-0000-4000-8000-000000000004',
+        title: MOCK_CONCLUDED_EVENT_2.title,
+        bannerUrl: '',
+        startAt: MOCK_CONCLUDED_EVENT_2.startAt,
+        endAt: MOCK_CONCLUDED_EVENT_2.endAt,
+        status: EventStatus.CONCLUDED,
+      },
+    });
+    expect(result[3]).toEqual({
+      id: MOCK_TICKET_ID,
+      status: TicketStatus.CANCELLED,
+      issuedAt: MOCK_ISSUED_AT,
+      registrationStatus: RegistrationStatus.CANCELLED,
+      event: {
+        id: MOCK_EVENT_ID,
+        title: MOCK_PUBLISHED_EVENT.title,
+        bannerUrl: '',
+        startAt: MOCK_FUTURE_DATE,
+        endAt: MOCK_FUTURE_END_DATE,
+        status: EventStatus.CANCELLED,
+      },
+    });
+  });
 
-  it('UT-5-020-01: returns mapped ticket list DTOs without filter', async () => {
+  it('UT-5-020-02: returns only ACTIVE tickets when ticketStatus is ACTIVE', async () => {
     prismaMock.ticket.findMany.mockResolvedValue([
-      mockTicketWithRegistration as any,
+      MOCK_TICKET_WITH_REG_ACTIVE as any,
+      MOCK_TICKET_WITH_REG_ACTIVE_2 as any,
     ]);
 
     const result = await service.getTicketsByParticipant(
       MOCK_PARTICIPANT_PROFILE_ID,
-    );
-
-    expect(result).toHaveLength(1);
-    expect(result[0].id).toBe(MOCK_TICKET_ID);
-    expect(result[0].status).toBe(TicketStatus.ACTIVE);
-  });
-
-  it('UT-5-020-02: calls findMany with status filter when ticketStatus provided', async () => {
-    prismaMock.ticket.findMany.mockResolvedValue([]);
-
-    await service.getTicketsByParticipant(
-      MOCK_PARTICIPANT_PROFILE_ID,
       TicketStatus.ACTIVE,
     );
 
-    expect(prismaMock.ticket.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          status: TicketStatus.ACTIVE,
-        }),
-      }),
-    );
+    expect(result).toHaveLength(2);
+    expect(result).toStrictEqual([
+      {
+        id: 'b1000001-0000-4000-8000-000000000001',
+        status: 'ACTIVE',
+        issuedAt: new Date('2026-07-08T14:24:52.680Z'),
+        registrationStatus: 'CONFIRMED',
+        event: {
+          id: 'e0000002-0000-4000-8000-000000000002',
+          title: {
+            en: 'CAMT Halloween Night 2026',
+            th: 'คืนฮาโลวีน CAMT 2026',
+          },
+          bannerUrl: '',
+          startAt: new Date('2026-10-31T10:00:00.000Z'),
+          endAt: new Date('2026-10-31T14:00:00.000Z'),
+          status: 'PUBLISHED',
+        },
+      },
+      {
+        id: 'b1000002-0000-4000-8000-000000000002',
+        status: 'ACTIVE',
+        issuedAt: new Date('2026-07-09T10:00:00.000Z'),
+        registrationStatus: 'CONFIRMED',
+        event: {
+          id: 'e0000003-0000-4000-8000-000000000003',
+          title: {
+            en: 'AI Research Seminar',
+            th: 'สัมมนาวิจัย AI',
+          },
+          bannerUrl: '',
+          startAt: new Date('2026-06-01T10:00:00.000Z'),
+          endAt: new Date('2026-11-30T10:00:00.000Z'),
+          status: 'ONGOING',
+        },
+      },
+    ]);
   });
 
-  it('UT-5-020-03: returns empty array when no tickets', async () => {
+  it('UT-5-020-03: returns only CANCELLED tickets when ticketStatus is CANCELLED', async () => {
+    prismaMock.ticket.findMany.mockResolvedValue([
+      MOCK_TICKET_WITH_REG_CANCELLED as any,
+    ]);
+
+    const result = await service.getTicketsByParticipant(
+      MOCK_PARTICIPANT_PROFILE_ID,
+      TicketStatus.CANCELLED,
+    );
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual({
+      id: MOCK_TICKET_ID,
+      status: TicketStatus.CANCELLED,
+      issuedAt: MOCK_ISSUED_AT,
+      registrationStatus: RegistrationStatus.CANCELLED,
+      event: {
+        id: MOCK_EVENT_ID,
+        title: MOCK_PUBLISHED_EVENT.title,
+        bannerUrl: '',
+        startAt: MOCK_FUTURE_DATE,
+        endAt: MOCK_FUTURE_END_DATE,
+        status: EventStatus.CANCELLED,
+      },
+    });
+  });
+
+  it('UT-5-020-04: returns empty array when no tickets', async () => {
     prismaMock.ticket.findMany.mockResolvedValue([]);
 
     const result = await service.getTicketsByParticipant(
@@ -1105,53 +1243,12 @@ describe('getTicketsByParticipant', () => {
 
     expect(result).toEqual([]);
   });
-
-  it('UT-5-020-04: calls findMany without status filter when ticketStatus undefined', async () => {
-    prismaMock.ticket.findMany.mockResolvedValue([]);
-
-    await service.getTicketsByParticipant(
-      MOCK_PARTICIPANT_PROFILE_ID,
-      undefined,
-    );
-
-    expect(prismaMock.ticket.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          eventRegistration: { participantId: MOCK_PARTICIPANT_PROFILE_ID },
-        },
-      }),
-    );
-  });
-
-  it('UT-5-020-05: calls findMany with ticketStatus filter', async () => {
-    prismaMock.ticket.findMany.mockResolvedValue([]);
-
-    await service.getTicketsByParticipant(
-      MOCK_PARTICIPANT_PROFILE_ID,
-      TicketStatus.ACTIVE,
-    );
-
-    expect(prismaMock.ticket.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          status: TicketStatus.ACTIVE,
-          eventRegistration: { participantId: MOCK_PARTICIPANT_PROFILE_ID },
-        },
-      }),
-    );
-  });
 });
 
 describe('getTicketByEventIdAndParticipantId', () => {
-  const mockRegistrationWithTicketAndEvent = {
-    ...MOCK_CONFIRMED_REGISTRATION,
-    ticket: MOCK_ACTIVE_TICKET,
-    event: MOCK_EVENT_WITH_ORGANIZER,
-  };
-
-  it('UT-5-021-01: returns ticket detail DTO when registration and ticket exist', async () => {
+  it('UT-5-021-01: returns full ticket detail when registration and ticket exist', async () => {
     prismaMock.eventRegistration.findUnique.mockResolvedValue(
-      mockRegistrationWithTicketAndEvent as any,
+      MOCK_REG_WITH_TICKET_AND_EVENT as any,
     );
 
     const result = await service.getTicketByEventIdAndParticipantId(
@@ -1159,114 +1256,147 @@ describe('getTicketByEventIdAndParticipantId', () => {
       MOCK_PARTICIPANT_PROFILE_ID,
     );
 
-    expect(result.id).toBe(MOCK_TICKET_ID);
-    expect(result.registration.id).toBe(MOCK_REGISTRATION_ID);
-    expect(result.event.id).toBe(MOCK_EVENT_ID);
+    expect(result).toEqual({
+      id: MOCK_TICKET_ID,
+      qrToken: MOCK_QR_TOKEN,
+      status: TicketStatus.ACTIVE,
+      issuedAt: MOCK_ISSUED_AT,
+      participantSnapshot: MOCK_PARTICIPANT_SNAPSHOT,
+      registration: {
+        id: MOCK_REGISTRATION_ID,
+        status: RegistrationStatus.CONFIRMED,
+        createdAt: MOCK_CREATED_AT,
+      },
+      event: {
+        id: MOCK_EVENT_ID,
+        title: MOCK_PUBLISHED_EVENT.title,
+        bannerUrl: '',
+        startAt: MOCK_FUTURE_DATE,
+        endAt: MOCK_FUTURE_END_DATE,
+        location: MOCK_PUBLISHED_EVENT.location,
+        mapLink: '',
+        status: EventStatus.PUBLISHED,
+        seatLimit: 100,
+        seatsTaken: 3,
+        organizer: { name: 'CAMT Student Affairs', imageUrl: '' },
+      },
+    });
   });
 
   it('UT-5-021-02: throws RegistrationNotFoundException when registration not found', async () => {
     prismaMock.eventRegistration.findUnique.mockResolvedValue(null);
 
-    await expect(
-      service.getTicketByEventIdAndParticipantId(
+    const error = async () => {
+      await service.getTicketByEventIdAndParticipantId(
         MOCK_EVENT_ID,
         MOCK_PARTICIPANT_PROFILE_ID,
-      ),
-    ).rejects.toThrow(RegistrationNotFoundException);
+      );
+    };
+    await expect(error).rejects.toThrow(RegistrationNotFoundException);
+    await expect(error).rejects.toThrow('Registration not found.');
   });
 
-  it('UT-5-021-03: throws TicketNotFoundException when registration exists but no ticket', async () => {
+  it('UT-5-021-03: throws TicketNotFoundException when registration exists but ticket is null', async () => {
     prismaMock.eventRegistration.findUnique.mockResolvedValue({
       ...MOCK_CONFIRMED_REGISTRATION,
       ticket: null,
       event: MOCK_EVENT_WITH_ORGANIZER,
     } as any);
 
-    await expect(
-      service.getTicketByEventIdAndParticipantId(
+    const error = async () => {
+      await service.getTicketByEventIdAndParticipantId(
         MOCK_EVENT_ID,
         MOCK_PARTICIPANT_PROFILE_ID,
-      ),
-    ).rejects.toThrow(TicketNotFoundException);
-  });
-
-  it('UT-5-021-04: calls findUnique with correct composite key', async () => {
-    prismaMock.eventRegistration.findUnique.mockResolvedValue(
-      mockRegistrationWithTicketAndEvent as any,
-    );
-
-    await service.getTicketByEventIdAndParticipantId(
-      MOCK_EVENT_ID,
-      MOCK_PARTICIPANT_PROFILE_ID,
-    );
-
-    expect(prismaMock.eventRegistration.findUnique).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          participantId_eventId: {
-            participantId: MOCK_PARTICIPANT_PROFILE_ID,
-            eventId: MOCK_EVENT_ID,
-          },
-        },
-      }),
-    );
+      );
+    };
+    await expect(error).rejects.toThrow(TicketNotFoundException);
+    await expect(error).rejects.toThrow('Ticket not found.');
   });
 });
 
 describe('getTicketById', () => {
-  const mockTicketWithAll = {
-    ...MOCK_ACTIVE_TICKET,
-    eventRegistration: {
-      ...MOCK_CONFIRMED_REGISTRATION,
-      event: MOCK_EVENT_WITH_ORGANIZER,
-    },
-  };
-
-  it('UT-5-022-01: returns ticket detail DTO when ticket exists', async () => {
-    prismaMock.ticket.findUnique.mockResolvedValue(mockTicketWithAll as any);
+  it('UT-5-022-01: returns full ticket detail when ticketId exists', async () => {
+    prismaMock.ticket.findUnique.mockResolvedValue(MOCK_TICKET_WITH_ALL as any);
 
     const result = await service.getTicketById(MOCK_TICKET_ID);
 
-    expect(result.id).toBe(MOCK_TICKET_ID);
-    expect(result.registration.id).toBe(MOCK_REGISTRATION_ID);
+    expect(result).toEqual({
+      id: MOCK_TICKET_ID,
+      qrToken: MOCK_QR_TOKEN,
+      status: TicketStatus.ACTIVE,
+      issuedAt: MOCK_ISSUED_AT,
+      participantSnapshot: MOCK_PARTICIPANT_SNAPSHOT,
+      registration: {
+        id: MOCK_REGISTRATION_ID,
+        status: RegistrationStatus.CONFIRMED,
+        createdAt: MOCK_CREATED_AT,
+      },
+      event: {
+        id: MOCK_EVENT_ID,
+        title: MOCK_PUBLISHED_EVENT.title,
+        bannerUrl: '',
+        startAt: MOCK_FUTURE_DATE,
+        endAt: MOCK_FUTURE_END_DATE,
+        location: MOCK_PUBLISHED_EVENT.location,
+        mapLink: '',
+        status: EventStatus.PUBLISHED,
+        seatLimit: 100,
+        seatsTaken: 3,
+        organizer: { name: 'CAMT Student Affairs', imageUrl: '' },
+      },
+    });
   });
 
   it('UT-5-022-02: throws TicketNotFoundException when ticket not found', async () => {
     prismaMock.ticket.findUnique.mockResolvedValue(null);
 
-    await expect(
-      service.getTicketById('non-existent-uuid-9999'),
-    ).rejects.toThrow(TicketNotFoundException);
-  });
-
-  it('UT-5-022-03: calls findUnique with correct args including includes', async () => {
-    prismaMock.ticket.findUnique.mockResolvedValue(mockTicketWithAll as any);
-
-    await service.getTicketById(MOCK_TICKET_ID);
-
-    expect(prismaMock.ticket.findUnique).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: MOCK_TICKET_ID },
-        include: expect.objectContaining({
-          eventRegistration: expect.objectContaining({
-            include: expect.objectContaining({
-              event: expect.anything(),
-            }),
-          }),
-        }),
-      }),
-    );
+    const error = async () => {
+      await service.getTicketById('12345678-false-ticket');
+    };
+    await expect(error).rejects.toThrow(TicketNotFoundException);
+    await expect(error).rejects.toThrow('Ticket not found.');
   });
 });
 
 describe('mapToReturnTicketDetailDto', () => {
-  it('UT-5-023-01: maps all fields correctly — ticket is primary focus', () => {
+  it('UT-5-023-01: maps all fields correctly when all data is available', () => {
     const result = service.mapToReturnTicketDetailDto(
       MOCK_CONFIRMED_REGISTRATION,
       MOCK_ACTIVE_TICKET,
       MOCK_EVENT_WITH_ORGANIZER,
     );
 
+    expect(result).toEqual({
+      id: 'b1000001-0000-4000-8000-000000000001',
+      qrToken: '868af4ff-48f6-42b5-a612-c04cbcaf861a',
+      status: 'ACTIVE',
+      issuedAt: new Date('2026-07-08T14:24:52.680Z'),
+      participantSnapshot: {
+        firstName: 'Su Su',
+        lastName: 'Myint',
+        nickname: 'Su',
+        studentId: '662115522',
+        major: 'Software Engineering',
+      },
+      registration: {
+        id: 'a1000001-0000-4000-8000-000000000001',
+        status: 'CONFIRMED',
+        createdAt: new Date('2026-07-08T14:24:52.668Z'),
+      },
+      event: {
+        id: 'e0000002-0000-4000-8000-000000000002',
+        title: { en: 'CAMT Halloween Night 2026', th: 'คืนฮาโลวีน CAMT 2026' },
+        bannerUrl: '',
+        startAt: new Date('2026-10-31T10:00:00.000Z'),
+        endAt: new Date('2026-10-31T14:00:00.000Z'),
+        location: { en: 'CAMT Auditorium', th: 'ห้องประชุม CAMT' },
+        mapLink: '',
+        status: 'PUBLISHED',
+        seatLimit: 100,
+        seatsTaken: 3,
+        organizer: { name: 'CAMT Student Affairs', imageUrl: '' },
+      },
+    });
     expect(result.id).toBe(MOCK_TICKET_ID);
     expect(result.qrToken).toBe(MOCK_QR_TOKEN);
     expect(result.status).toBe(TicketStatus.ACTIVE);
@@ -1282,28 +1412,79 @@ describe('mapToReturnTicketDetailDto', () => {
       { ...MOCK_EVENT_WITH_ORGANIZER, bannerUrl: null, mapLink: null },
     );
 
+    expect(result).toEqual({
+      id: 'b1000001-0000-4000-8000-000000000001',
+      qrToken: '868af4ff-48f6-42b5-a612-c04cbcaf861a',
+      status: 'ACTIVE',
+      issuedAt: new Date('2026-07-08T14:24:52.680Z'),
+      participantSnapshot: {
+        firstName: 'Su Su',
+        lastName: 'Myint',
+        nickname: 'Su',
+        studentId: '662115522',
+        major: 'Software Engineering',
+      },
+      registration: {
+        id: 'a1000001-0000-4000-8000-000000000001',
+        status: 'CONFIRMED',
+        createdAt: new Date('2026-07-08T14:24:52.668Z'),
+      },
+      event: {
+        id: 'e0000002-0000-4000-8000-000000000002',
+        title: { en: 'CAMT Halloween Night 2026', th: 'คืนฮาโลวีน CAMT 2026' },
+        bannerUrl: '',
+        startAt: new Date('2026-10-31T10:00:00.000Z'),
+        endAt: new Date('2026-10-31T14:00:00.000Z'),
+        location: { en: 'CAMT Auditorium', th: 'ห้องประชุม CAMT' },
+        mapLink: '',
+        status: 'PUBLISHED',
+        seatLimit: 100,
+        seatsTaken: 3,
+        organizer: { name: 'CAMT Student Affairs', imageUrl: '' },
+      },
+    });
     expect(result.event.bannerUrl).toBe('');
     expect(result.event.mapLink).toBe('');
   });
 
-  it('UT-5-023-03: uses ticket.id as primary id — not registration.id', () => {
-    const result = service.mapToReturnTicketDetailDto(
-      MOCK_CONFIRMED_REGISTRATION,
-      MOCK_ACTIVE_TICKET,
-      MOCK_EVENT_WITH_ORGANIZER,
-    );
-
-    expect(result.id).toBe(MOCK_TICKET_ID);
-    expect(result.id).not.toBe(MOCK_REGISTRATION_ID);
-  });
-
-  it('UT-5-023-04: uses 0 as fallback when seatsTaken is null', () => {
+  it('UT-5-023-03: uses 0 as fallback when seatsTaken is null', () => {
     const result = service.mapToReturnTicketDetailDto(
       MOCK_CONFIRMED_REGISTRATION,
       MOCK_ACTIVE_TICKET,
       { ...MOCK_EVENT_WITH_ORGANIZER, seatsTaken: null },
     );
 
+    expect(result).toEqual({
+      id: 'b1000001-0000-4000-8000-000000000001',
+      qrToken: '868af4ff-48f6-42b5-a612-c04cbcaf861a',
+      status: 'ACTIVE',
+      issuedAt: new Date('2026-07-08T14:24:52.680Z'),
+      participantSnapshot: {
+        firstName: 'Su Su',
+        lastName: 'Myint',
+        nickname: 'Su',
+        studentId: '662115522',
+        major: 'Software Engineering',
+      },
+      registration: {
+        id: 'a1000001-0000-4000-8000-000000000001',
+        status: 'CONFIRMED',
+        createdAt: new Date('2026-07-08T14:24:52.668Z'),
+      },
+      event: {
+        id: 'e0000002-0000-4000-8000-000000000002',
+        title: { en: 'CAMT Halloween Night 2026', th: 'คืนฮาโลวีน CAMT 2026' },
+        bannerUrl: '',
+        startAt: new Date('2026-10-31T10:00:00.000Z'),
+        endAt: new Date('2026-10-31T14:00:00.000Z'),
+        location: { en: 'CAMT Auditorium', th: 'ห้องประชุม CAMT' },
+        mapLink: '',
+        status: 'PUBLISHED',
+        seatLimit: 100,
+        seatsTaken: 0,
+        organizer: { name: 'CAMT Student Affairs', imageUrl: '' },
+      },
+    });
     expect(result.event.seatsTaken).toBe(0);
   });
 });

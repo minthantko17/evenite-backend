@@ -330,3 +330,239 @@ export const MOCK_RETURN_TICKET_LIST_DTO = {
     status: EventStatus.PUBLISHED,
   },
 };
+
+//  ADDITIONALs
+
+export const MOCK_REGISTRATION_ID_2 = 'a1000002-0000-4000-8000-000000000002';
+export const MOCK_REGISTRATION_ID_3 = 'a1000003-0000-4000-8000-000000000003';
+export const MOCK_TICKET_ID_2 = 'b1000002-0000-4000-8000-000000000002';
+export const MOCK_TICKET_ID_3 = 'b1000003-0000-4000-8000-000000000003';
+export const MOCK_EVENT_ID_2 = 'e0000003-0000-4000-8000-000000000003';
+export const MOCK_PARTICIPANT_PROFILE_ID_2 = 'd0000002-0000-4000-8000-000000000002';
+export const MOCK_PARTICIPANT_PROFILE_ID_3 = 'd0000003-0000-4000-8000-000000000003';
+export const MOCK_QR_TOKEN_2 = '999af4ff-48f6-42b5-a612-c04cbcaf861b';
+export const MOCK_QR_TOKEN_3 = '111af4ff-48f6-42b5-a612-c04cbcaf861c';
+
+export const MOCK_ISSUED_AT_2 = new Date('2026-07-09T10:00:00.000Z');
+export const MOCK_ISSUED_AT_3 = new Date('2026-07-10T12:00:00.000Z');
+export const MOCK_CREATED_AT_2 = new Date('2026-07-09T09:00:00.000Z');
+export const MOCK_CREATED_AT_3 = new Date('2026-07-10T11:00:00.000Z');
+
+export const MOCK_PARTICIPANT_SNAPSHOT_2 = {
+  firstName: 'Chaiwat',
+  lastName: 'Srisuk',
+  nickname: 'Chai',
+  studentId: '662115533',
+  major: 'Computer Engineering',
+};
+
+export const MOCK_PARTICIPANT_SNAPSHOT_3 = {
+  firstName: 'Min Thant',
+  lastName: 'Ko',
+  nickname: 'Min',
+  studentId: '662115510',
+  major: 'Software Engineering',
+};
+
+export const MOCK_ONGOING_EVENT_2 = {
+  ...MOCK_PUBLISHED_EVENT,
+  id: MOCK_EVENT_ID_2,
+  title: { en: 'AI Research Seminar', th: 'สัมมนาวิจัย AI' },
+  status: EventStatus.ONGOING,
+  startAt: new Date('2026-06-01T10:00:00.000Z'),
+  endAt: new Date('2026-11-30T10:00:00.000Z'),
+};
+
+export const MOCK_CONCLUDED_EVENT_2 = {
+  ...MOCK_PUBLISHED_EVENT,
+  id: 'e0000004-0000-4000-8000-000000000004',
+  title: { en: 'Orientation Week', th: 'สัปดาห์ปฐมนิเทศ' },
+  status: EventStatus.CONCLUDED,
+  startAt: new Date('2026-05-01T10:00:00.000Z'),
+  endAt: new Date('2026-05-07T10:00:00.000Z'),
+};
+
+export const MOCK_CONFIRMED_REGISTRATION_2 = {
+  id: MOCK_REGISTRATION_ID_2,
+  status: RegistrationStatus.CONFIRMED,
+  participantId: MOCK_PARTICIPANT_PROFILE_ID_2,
+  eventId: MOCK_EVENT_ID,
+  createdAt: MOCK_CREATED_AT_2,
+};
+
+export const MOCK_CONFIRMED_REGISTRATION_3 = {
+  id: MOCK_REGISTRATION_ID_3,
+  status: RegistrationStatus.CONFIRMED,
+  participantId: MOCK_PARTICIPANT_PROFILE_ID_3,
+  eventId: MOCK_EVENT_ID,
+  createdAt: MOCK_CREATED_AT_3,
+};
+
+// registration for par1 on event 2
+export const MOCK_CONFIRMED_REGISTRATION_PAR1_EVT2 = {
+  id: 'a2000001-0000-4000-8000-000000000001',
+  status: RegistrationStatus.CONFIRMED,
+  participantId: MOCK_PARTICIPANT_PROFILE_ID,
+  eventId: MOCK_EVENT_ID_2,
+  createdAt: MOCK_CREATED_AT_2,
+};
+
+// cancelled registration for par1 on event 2
+export const MOCK_CANCELLED_REGISTRATION_PAR1_EVT2 = {
+  ...MOCK_CONFIRMED_REGISTRATION_PAR1_EVT2,
+  status: RegistrationStatus.CANCELLED,
+};
+
+export const MOCK_ACTIVE_TICKET_2 = {
+  id: MOCK_TICKET_ID_2,
+  eventRegistrationId: MOCK_REGISTRATION_ID_2,
+  qrToken: MOCK_QR_TOKEN_2,
+  status: TicketStatus.ACTIVE,
+  participantSnapshot: MOCK_PARTICIPANT_SNAPSHOT_2,
+  issuedAt: MOCK_ISSUED_AT_2,
+};
+
+export const MOCK_EXPIRED_TICKET = {
+  id: MOCK_TICKET_ID_3,
+  eventRegistrationId: MOCK_REGISTRATION_ID_3,
+  qrToken: MOCK_QR_TOKEN_3,
+  status: TicketStatus.EXPIRED,
+  participantSnapshot: MOCK_PARTICIPANT_SNAPSHOT_3,
+  issuedAt: MOCK_ISSUED_AT_3,
+};
+
+// RAW PRISMA QUERY RESULTS (simulate include shapes)
+
+// shape returned by getRegistrationsByEvent prisma query
+export const MOCK_REG_WITH_TICKET_PAR1 = {
+  ...MOCK_CONFIRMED_REGISTRATION,
+  ticket: {
+    status: TicketStatus.ACTIVE,
+    issuedAt: MOCK_ISSUED_AT,
+    participantSnapshot: MOCK_PARTICIPANT_SNAPSHOT,
+  },
+};
+
+export const MOCK_REG_WITH_TICKET_PAR2 = {
+  ...MOCK_CONFIRMED_REGISTRATION_2,
+  ticket: {
+    status: TicketStatus.ACTIVE,
+    issuedAt: MOCK_ISSUED_AT_2,
+    participantSnapshot: MOCK_PARTICIPANT_SNAPSHOT_2,
+  },
+};
+
+export const MOCK_REG_WITH_TICKET_PAR3 = {
+  ...MOCK_CONFIRMED_REGISTRATION_3,
+  ticket: {
+    status: TicketStatus.EXPIRED,
+    issuedAt: MOCK_ISSUED_AT_3,
+    participantSnapshot: MOCK_PARTICIPANT_SNAPSHOT_3,
+  },
+};
+
+export const MOCK_REG_WITH_NO_TICKET = {
+  ...MOCK_CONFIRMED_REGISTRATION_2,
+  ticket: null,
+};
+
+// shape returned by getRegisteredEvents prisma query
+export const MOCK_REG_WITH_EVENT_PAR1_EVT1 = {
+  ...MOCK_CONFIRMED_REGISTRATION,
+  event: {
+    ...MOCK_PUBLISHED_EVENT,
+    organizer: { name: 'CAMT Student Affairs', imageUrl: '' },
+  },
+};
+
+export const MOCK_REG_WITH_EVENT_PAR1_EVT2 = {
+  ...MOCK_CONFIRMED_REGISTRATION_PAR1_EVT2,
+  event: {
+    ...MOCK_ONGOING_EVENT_2,
+    organizer: { name: 'CAMT Student Affairs', imageUrl: '' },
+  },
+};
+
+export const MOCK_CANCELLED_REG_WITH_EVENT = {
+  ...MOCK_CANCELLED_REGISTRATION,
+  event: {
+    ...MOCK_CANCELLED_EVENT,
+    organizer: { name: 'CAMT Student Affairs', imageUrl: '' },
+  },
+};
+
+// shape returned by getTicketsByParticipant prisma query
+export const MOCK_TICKET_WITH_REG_ACTIVE = {
+  ...MOCK_ACTIVE_TICKET,
+  eventRegistration: {
+    status: RegistrationStatus.CONFIRMED,
+    event: {
+      id: MOCK_EVENT_ID,
+      title: MOCK_PUBLISHED_EVENT.title,
+      bannerUrl: '',
+      startAt: MOCK_FUTURE_DATE,
+      endAt: MOCK_FUTURE_END_DATE,
+      status: EventStatus.PUBLISHED,
+    },
+  },
+};
+
+export const MOCK_TICKET_WITH_REG_ACTIVE_2 = {
+  ...MOCK_ACTIVE_TICKET_2,
+  eventRegistration: {
+    status: RegistrationStatus.CONFIRMED,
+    event: {
+      id: MOCK_EVENT_ID_2,
+      title: MOCK_ONGOING_EVENT_2.title,
+      bannerUrl: '',
+      startAt: MOCK_ONGOING_EVENT_2.startAt,
+      endAt: MOCK_ONGOING_EVENT_2.endAt,
+      status: EventStatus.ONGOING,
+    },
+  },
+};
+
+export const MOCK_TICKET_WITH_REG_EXPIRED = {
+  ...MOCK_EXPIRED_TICKET,
+  eventRegistration: {
+    status: RegistrationStatus.CONFIRMED,
+    event: {
+      id: 'e0000004-0000-4000-8000-000000000004',
+      title: MOCK_CONCLUDED_EVENT_2.title,
+      bannerUrl: '',
+      startAt: MOCK_CONCLUDED_EVENT_2.startAt,
+      endAt: MOCK_CONCLUDED_EVENT_2.endAt,
+      status: EventStatus.CONCLUDED,
+    },
+  },
+};
+
+export const MOCK_TICKET_WITH_REG_CANCELLED = {
+  ...MOCK_CANCELLED_TICKET,
+  eventRegistration: {
+    status: RegistrationStatus.CANCELLED,
+    event: {
+      id: MOCK_EVENT_ID,
+      title: MOCK_PUBLISHED_EVENT.title,
+      bannerUrl: '',
+      startAt: MOCK_FUTURE_DATE,
+      endAt: MOCK_FUTURE_END_DATE,
+      status: EventStatus.CANCELLED,
+    },
+  },
+};
+
+// shape for getTicketByEventIdAndParticipantId and getTicketById
+export const MOCK_REG_WITH_TICKET_AND_EVENT = {
+  ...MOCK_CONFIRMED_REGISTRATION,
+  ticket: MOCK_ACTIVE_TICKET,
+  event: MOCK_EVENT_WITH_ORGANIZER,
+};
+
+export const MOCK_TICKET_WITH_ALL = {
+  ...MOCK_ACTIVE_TICKET,
+  eventRegistration: {
+    ...MOCK_CONFIRMED_REGISTRATION,
+    event: MOCK_EVENT_WITH_ORGANIZER,
+  },
+};
