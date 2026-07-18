@@ -15,6 +15,9 @@ export const MOCK_TICKET_ID = 'b1000001-0000-4000-8000-000000000001';
 export const MOCK_FORM_ID = 'f0000001-0000-4000-8000-000000000001';
 export const MOCK_FIELD_ID_FIRSTNAME = 'f1000001-0000-4000-8000-000000000001';
 export const MOCK_FIELD_ID_STUDENTID = 'f1000002-0000-4000-8000-000000000002';
+export const MOCK_FIELD_ID_LASTNAME = 'f1000003-0000-4000-8000-000000000003';
+export const MOCK_FIELD_ID_NICKNAME = 'f1000004-0000-4000-8000-000000000004';
+export const MOCK_FIELD_ID_MAJOR = 'f1000005-0000-4000-8000-000000000005';
 export const MOCK_QR_TOKEN = '868af4ff-48f6-42b5-a612-c04cbcaf861a';
 export const MOCK_OTHER_PARTICIPANT_ID = 'd9999999-0000-4000-8000-000000000099';
 
@@ -30,8 +33,8 @@ export const MOCK_SNAPSHOT_NO_STUDENT_ID = {
   firstName: 'Su Su',
   lastName: 'Myint',
   nickname: 'Su',
-  studentId: null,
-  major: null,
+  studentId: '',
+  major: '',
 };
 
 export const MOCK_FUTURE_DATE = new Date('2026-10-31T10:00:00.000Z');
@@ -157,7 +160,7 @@ export const MOCK_FIRSTNAME_FIELD = {
   id: MOCK_FIELD_ID_FIRSTNAME,
   formId: MOCK_FORM_ID,
   type: FieldType.TEXT,
-  label: 'Full Name',
+  label: 'First Name',
   isRequired: true,
   order: 0,
   options: [],
@@ -174,6 +177,39 @@ export const MOCK_STUDENTID_FIELD = {
   options: [],
   autoFillKey: 'studentId',
 };
+
+export const MOCK_LASTNAME_FIELD = {
+  id: MOCK_FIELD_ID_LASTNAME,
+  formId: MOCK_FORM_ID,
+  type: FieldType.TEXT,
+  label: 'Last Name',
+  isRequired: false,
+  order: 2,
+  options: [],
+  autoFillKey: 'lastName',
+};
+
+export const MOCK_NICKNAME_FIELD = {
+  id: MOCK_FIELD_ID_NICKNAME,
+  formId: MOCK_FORM_ID,
+  type: FieldType.TEXT,
+  label: 'Nickname',
+  isRequired: false,
+  order: 3,
+  options: [],
+  autoFillKey: 'nickname',
+};
+
+export const MOCK_MAJOR_FIELD = {
+  id: MOCK_FIELD_ID_MAJOR,
+  formId: MOCK_FORM_ID,
+  type: FieldType.TEXT,
+  label: 'Major',
+  isRequired: false,
+  order: 4,
+  options: [],
+  autoFillKey: 'major',
+}
 
 export const MOCK_CHOICE_FIELD = {
   id: 'f1000003-0000-4000-8000-000000000003',
