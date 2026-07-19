@@ -100,6 +100,8 @@ model ParticipantProfile {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   eventRegistrations EventRegistration[]
+  sentMessages       Message[]
+  roomReads          RoomRead[]
 }
 
 model OrganizerProfile {
@@ -117,6 +119,8 @@ model OrganizerProfile {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   events Event[]
+  sentMessages      Message[]
+  roomReads         RoomRead[]
 }
 
 model EmailVerification {
@@ -162,6 +166,7 @@ model Event {
   university University       @relation(fields: [universityId], references: [id])
   forms      Form[]
   eventRegistrations EventRegistration[]
+  discussionRoom      DiscussionRoom?
 }
 
 model EventRegistration {
@@ -251,4 +256,45 @@ model FormFieldResponse {
   formField    FormField    @relation(fields: [formFieldId, formId], references: [id, formId], onDelete: Cascade)
 
   @@unique([formResponseId, formFieldId])
+}
+
+model DiscussionRoom {
+  id        String   @id @default(uuid())
+  eventId   String   @unique
+  createdAt DateTime @default(now())
+
+  event     Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  messages  Message[]
+  roomReads RoomRead[]
+}
+
+model Message {
+  id             String   @id @default(uuid())
+  roomId         String
+  content        String
+  isAnnouncement Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  senderParticipantId String?
+  senderOrganizerId   String?
+
+  room              DiscussionRoom      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  senderParticipant ParticipantProfile? @relation(fields: [senderParticipantId], references: [id])
+  senderOrganizer   OrganizerProfile?   @relation(fields: [senderOrganizerId], references: [id])
+}
+
+model RoomRead {
+  id         String   @id @default(uuid())
+  roomId     String
+  lastReadAt DateTime @default(now())
+
+  readerParticipantId String?
+  readerOrganizerId   String?
+
+  room              DiscussionRoom      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  readerParticipant ParticipantProfile? @relation(fields: [readerParticipantId], references: [id])
+  readerOrganizer   OrganizerProfile?   @relation(fields: [readerOrganizerId], references: [id])
+
+  @@unique([roomId, readerParticipantId])
+  @@unique([roomId, readerOrganizerId])
 }
