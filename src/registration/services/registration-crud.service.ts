@@ -72,15 +72,14 @@ export class RegistrationCrudService {
   async findRegistrationByParticipantAndEvent(
     eventId: string,
     participantProfileId: string,
-  ): Promise<{ id: string; status: RegistrationStatus }> {
+  ): Promise<EventRegistration> {
     const registration = await this.prisma.eventRegistration.findUnique({
       where: {
         participantId_eventId: {
           participantId: participantProfileId,
           eventId,
         },
-      },
-      select: { id: true, status: true },
+      }
     });
     if (!registration) {
       throw new RegistrationNotFoundException();
@@ -267,7 +266,9 @@ export class RegistrationCrudService {
         where: { id: eventId },
         select: { id: true },
       });
-      if (!event) throw new EventNotFoundException();
+      if (!event) {
+        throw new EventNotFoundException();
+      }
       throw new EventFullException();
     }
 
@@ -278,7 +279,7 @@ export class RegistrationCrudService {
     eventId: string,
     participantProfileId: string,
     tx?: Prisma.TransactionClient,
-  ): Promise<{ id: string } | null> {
+  ): Promise<EventRegistration | null> {
     const registration = await this.getClient(tx).eventRegistration.findUnique({
       where: {
         participantId_eventId: {
@@ -286,13 +287,12 @@ export class RegistrationCrudService {
           eventId,
         },
       },
-      select: { id: true, status: true },
     });
 
     if (registration?.status !== RegistrationStatus.CANCELLED) {
       return null;
     }
-    return { id: registration.id };
+    return registration;
   }
 
   async deleteExistingCancelledRegistration(
@@ -489,11 +489,13 @@ export class RegistrationCrudService {
           : null;
     }
 
-    // fallback for empty names. only fetch profile if a name field is missing
+    // fallback for empty names. 
     const nameKeys: ParticipantSnapshotKey[] = [
       'firstName',
       'lastName',
       'nickname',
+      'studentId',
+      'major',
     ];
     const needsProfileFallback = nameKeys.some(
       (key) => snapshotFromForm[key] === null,
@@ -503,13 +505,21 @@ export class RegistrationCrudService {
       firstName: string;
       lastName: string | null;
       nickname: string | null;
+      studentId: string | null;
+      major: string | null;
     } | null = null;
 
     if (needsProfileFallback) {
       participantNameFromProfile =
         await this.prisma.participantProfile.findUnique({
           where: { id: participantProfileId },
-          select: { firstName: true, lastName: true, nickname: true },
+          select: {
+            firstName: true,
+            lastName: true,
+            nickname: true,
+            studentId: true,
+            major: true,
+          },
         });
     }
 
@@ -517,17 +527,22 @@ export class RegistrationCrudService {
       firstName:
         snapshotFromForm.firstName ??
         participantNameFromProfile?.firstName ??
-        null,
+        '',
       lastName:
         snapshotFromForm.lastName ??
         participantNameFromProfile?.lastName ??
-        null,
+        '',
       nickname:
         snapshotFromForm.nickname ??
         participantNameFromProfile?.nickname ??
-        null,
-      studentId: snapshotFromForm.studentId,
-      major: snapshotFromForm.major,
+        '',
+      studentId:
+        snapshotFromForm.studentId ??
+        participantNameFromProfile?.studentId ??
+        '',
+      major: snapshotFromForm.major ?? 
+        participantNameFromProfile?.major ??
+        '',
     };
   }
 
@@ -590,11 +605,11 @@ export class RegistrationCrudService {
   private mapToReturnRegistrantDto(reg: any): ReturnRegistrantDto {
     const participantSnapshot = (reg.ticket
       ?.participantSnapshot as ParticipantSnapshotDto) ?? {
-      firstName: null,
-      lastName: null,
-      nickname: null,
-      studentId: null,
-      major: null,
+      firstName: '',
+      lastName: '',
+      nickname: '',
+      studentId: '',
+      major: '',
     };
 
     return {

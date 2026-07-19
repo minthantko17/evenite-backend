@@ -76,7 +76,7 @@ export class RegistrationValidationService {
       );
     }
 
-    // if startAt is null → allow cancel (safe fallback)
+    // if startAt is null, allow cancel
     if (event.startAt && event.startAt <= new Date()) {
       throw new RegistrationNotCancellableException(
         'Cannot cancel after event start time has passed.',

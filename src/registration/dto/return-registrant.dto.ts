@@ -1,11 +1,11 @@
 import { RegistrationStatus, TicketStatus } from '@prisma/client';
 
 export class ParticipantSnapshotDto {
-  firstName!: string | null;
-  lastName!: string | null;
-  nickname!: string | null;
-  studentId!: string | null;
-  major!: string | null;
+  firstName!: string;
+  lastName!: string;
+  nickname!: string;
+  studentId!: string;
+  major!: string;
 }
 
 export class ReturnRegistrantDto {
