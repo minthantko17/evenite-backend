@@ -101,7 +101,7 @@ model ParticipantProfile {
 
   eventRegistrations EventRegistration[]
   sentMessages       Message[]
-  roomReads          RoomRead[]
+  roomReadStatuses   RoomReadStatus[]
 }
 
 model OrganizerProfile {
@@ -120,7 +120,7 @@ model OrganizerProfile {
 
   events Event[]
   sentMessages      Message[]
-  roomReads         RoomRead[]
+  roomReadStatuses  RoomReadStatus[]
 }
 
 model EmailVerification {
@@ -265,7 +265,7 @@ model DiscussionRoom {
 
   event     Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
   messages  Message[]
-  roomReads RoomRead[]
+  roomReadStatuses  RoomReadStatus[]
 }
 
 model Message {
@@ -283,7 +283,7 @@ model Message {
   senderOrganizer   OrganizerProfile?   @relation(fields: [senderOrganizerId], references: [id])
 }
 
-model RoomRead {
+model RoomReadStatus {
   id         String   @id @default(uuid())
   roomId     String
   lastReadAt DateTime @default(now())
