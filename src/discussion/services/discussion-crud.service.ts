@@ -283,4 +283,16 @@ export class DiscussionCrudService {
       createdAt: message.createdAt,
     };
   }
+
+  async findClosestMessageIdToGivenTime(
+    roomId: string,
+    timestamp: Date,
+  ): Promise<string | null> {
+    const message = await this.prisma.message.findFirst({
+      where: { roomId, createdAt: { lte: timestamp } },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    });
+    return message?.id ?? null;
+  }
 }
