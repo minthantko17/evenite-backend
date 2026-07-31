@@ -5,23 +5,32 @@ import {
   FieldType,
   Role,
   RegistrationStatus,
+  TicketStatus,
 } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
+
+// (generated with Claude)
 
 const prisma = new PrismaClient();
 
-// ─── FIXED IDs ───────────────────────────────────────────────────────────────
+// ─── FIXED IDs ────────────────────────────────────────────────────────────────
+
 const ID = {
   // University
   CMU: 'a0000001-0000-4000-8000-000000000001',
 
-  // Users
-  USER_NO_PROFILE: 'b0000001-0000-4000-8000-000000000001',
-  USER_ONLY_ORG1:  'b0000002-0000-4000-8000-000000000002',
-  USER_ONLY_ORG2:  'b0000003-0000-4000-8000-000000000003',
-  USER_ONLY_PAR1:  'b0000004-0000-4000-8000-000000000004',
-  USER_ONLY_PAR2:  'b0000005-0000-4000-8000-000000000005',
-  USER_BOTH:       'b0000006-0000-4000-8000-000000000006',
+  // Users — organizers
+  USER_ORG1: 'b0000001-0000-4000-8000-000000000001',
+  USER_ORG2: 'b0000002-0000-4000-8000-000000000002',
+  USER_ORG3: 'b0000003-0000-4000-8000-000000000003',
+
+  // Users — participants
+  USER_PAR1: 'b0000004-0000-4000-8000-000000000004',
+  USER_PAR2: 'b0000005-0000-4000-8000-000000000005',
+  USER_PAR3: 'b0000006-0000-4000-8000-000000000006',
+  USER_PAR4: 'b0000007-0000-4000-8000-000000000007',
+  USER_PAR5: 'b0000008-0000-4000-8000-000000000008',
 
   // Organizer Profiles
   ORG1: 'c0000001-0000-4000-8000-000000000001',
@@ -32,76 +41,397 @@ const ID = {
   PAR1: 'd0000001-0000-4000-8000-000000000001',
   PAR2: 'd0000002-0000-4000-8000-000000000002',
   PAR3: 'd0000003-0000-4000-8000-000000000003',
+  PAR4: 'd0000004-0000-4000-8000-000000000004',
+  PAR5: 'd0000005-0000-4000-8000-000000000005',
 
-  // Events - org1
-  EVT_DRAFT1:      'e0000001-0000-4000-8000-000000000001',
-  EVT_HALLOWEEN:   'e0000002-0000-4000-8000-000000000002',
-  EVT_AI_RESEARCH: 'e0000003-0000-4000-8000-000000000003',
-  EVT_ORIENTATION: 'e0000004-0000-4000-8000-000000000004',
-  // Events - org2
-  EVT_DRAFT2:      'e0000005-0000-4000-8000-000000000005',
-  EVT_SUKHOTHAI:   'e0000006-0000-4000-8000-000000000006',
-  EVT_BOOTCAMP:    'e0000007-0000-4000-8000-000000000007',
-  EVT_SPORTS:      'e0000008-0000-4000-8000-000000000008',
-  // Events - org3
-  EVT_DRAFT3:      'e0000009-0000-4000-8000-000000000009',
-  EVT_DRAFT_TEST:  'e0000010-0000-4000-8000-000000000010',
-  EVT_NEW_YEAR:    'e0000011-0000-4000-8000-000000000011',
-  EVT_NO_FORM:     'e0000012-0000-4000-8000-000000000012',
-  EVT_EXCHANGE:    'e0000013-0000-4000-8000-000000000013',
-  EVT_HACKATHON:   'e0000014-0000-4000-8000-000000000014',
+  // Events
+  EVT_HALLOWEEN:   'e0000001-0000-4000-8000-000000000001', // PUBLISHED, limit 100, 3 regs
+  EVT_NEW_YEAR:    'e0000002-0000-4000-8000-000000000002', // PUBLISHED, limit 5, FULL (5 regs)
+  EVT_SUKHOTHAI:   'e0000003-0000-4000-8000-000000000003', // PUBLISHED, limit 10, 1 conf + 1 cancel
+  EVT_EXCHANGE:    'e0000004-0000-4000-8000-000000000004', // ONGOING, limit 3, FULL (3 regs)
+  EVT_BOOTCAMP:    'e0000005-0000-4000-8000-000000000005', // ONGOING, limit 25, 2 regs
+  EVT_HACKATHON:   'e0000006-0000-4000-8000-000000000006', // CONCLUDED, limit 60, 2 regs (tickets EXPIRED)
+  EVT_SPORTS:      'e0000007-0000-4000-8000-000000000007', // CONCLUDED, no limit, 2 regs (tickets EXPIRED)
+  EVT_ORIENTATION: 'e0000008-0000-4000-8000-000000000008', // CONCLUDED, limit 200, no regs
+  EVT_AI_SEMINAR:  'e0000009-0000-4000-8000-000000000009', // ONGOING, limit 50, no form (useful for FormNotFoundException test)
+  EVT_NO_FORM:     'e0000010-0000-4000-8000-000000000010', // PUBLISHED, no limit, no form
+  EVT_DRAFT1:      'e0000011-0000-4000-8000-000000000011', // DRAFT, limit 30
+  EVT_DRAFT2:      'e0000012-0000-4000-8000-000000000012', // DRAFT, limit 150
+  EVT_DRAFT3:      'e0000013-0000-4000-8000-000000000013', // DRAFT, no limit
+  EVT_CONCERT:     'e0000014-0000-4000-8000-000000000014', // PUBLISHED, limit 300, no regs yet
 
   // Forms
-  FORM_HALLOWEEN_REG: 'f0000001-0000-4000-8000-000000000001',
-  FORM_NEW_YEAR_REG:  'f0000002-0000-4000-8000-000000000002',
-  FORM_NEW_YEAR_FB:   'f0000003-0000-4000-8000-000000000003',
+  FORM_HALLOWEEN_REG:  'f0000001-0000-4000-8000-000000000001',
+  FORM_NEW_YEAR_REG:   'f0000002-0000-4000-8000-000000000002',
+  FORM_NEW_YEAR_FB:    'f0000003-0000-4000-8000-000000000003',
+  FORM_SUKHOTHAI_REG:  'f0000004-0000-4000-8000-000000000004',
+  FORM_EXCHANGE_REG:   'f0000005-0000-4000-8000-000000000005',
+  FORM_BOOTCAMP_REG:   'f0000006-0000-4000-8000-000000000006',
+  FORM_HACKATHON_REG:  'f0000007-0000-4000-8000-000000000007',
+  FORM_HACKATHON_FB:   'f0000008-0000-4000-8000-000000000008',
+  FORM_SPORTS_REG:     'f0000009-0000-4000-8000-000000000009',
+  FORM_CONCERT_REG:    'f0000010-0000-4000-8000-000000000010',
 
-  // Form Fields - Halloween Reg
-  FLD_H_NAME:  'f1000001-0000-4000-8000-000000000001',
-  FLD_H_STUID: 'f1000002-0000-4000-8000-000000000002',
-  FLD_H_YEAR:  'f1000003-0000-4000-8000-000000000003',
-  FLD_H_DIET:  'f1000004-0000-4000-8000-000000000004',
-  // Form Fields - New Year Reg
-  FLD_NY_NAME:   'f2000001-0000-4000-8000-000000000001',
-  FLD_NY_NICK:   'f2000002-0000-4000-8000-000000000002',
-  FLD_NY_TSHIRT: 'f2000003-0000-4000-8000-000000000003',
-  FLD_NY_HEAR:   'f2000004-0000-4000-8000-000000000004',
-  // Form Fields - New Year Feedback
-  FLD_FB_OVERALL: 'f3000001-0000-4000-8000-000000000001',
-  FLD_FB_ORG:     'f3000002-0000-4000-8000-000000000002',
-  FLD_FB_COMMENT: 'f3000003-0000-4000-8000-000000000003',
+  // Form Fields — Halloween Reg
+  FLD_H_FIRSTNAME: 'ff000001-0000-4000-8000-000000000001',
+  FLD_H_LASTNAME:  'ff000002-0000-4000-8000-000000000002',
+  FLD_H_STUDENTID: 'ff000003-0000-4000-8000-000000000003',
+  FLD_H_YEAR:      'ff000004-0000-4000-8000-000000000004',
+  FLD_H_DIET:      'ff000005-0000-4000-8000-000000000005',
 
-  // Event Registrations
-  REG_HALLOWEEN_PAR1: 'a1000001-0000-4000-8000-000000000001',
-  REG_HALLOWEEN_PAR2: 'a1000002-0000-4000-8000-000000000002',
-  REG_HALLOWEEN_PAR3: 'a1000003-0000-4000-8000-000000000003',
-  REG_AI_PAR1:        'a1000004-0000-4000-8000-000000000004',
-  REG_AI_PAR3:        'a1000005-0000-4000-8000-000000000005',
-  REG_ORIENT_PAR2:    'a1000006-0000-4000-8000-000000000006',
-  REG_ORIENT_PAR3:    'a1000007-0000-4000-8000-000000000007',
-  REG_BOOT_PAR1:      'a1000008-0000-4000-8000-000000000008',
-  REG_BOOT_PAR2:      'a1000009-0000-4000-8000-000000000009',
-  REG_SPORTS_PAR1:    'a2000001-0000-4000-8000-000000000001',
-  REG_SPORTS_PAR3:    'a2000002-0000-4000-8000-000000000002',
-  REG_NY_PAR1:        'a2000003-0000-4000-8000-000000000003',
-  REG_NY_PAR2:        'a2000004-0000-4000-8000-000000000004',
-  REG_EXCHANGE_PAR2:  'a2000005-0000-4000-8000-000000000005',
-  REG_EXCHANGE_PAR3:  'a2000006-0000-4000-8000-000000000006',
-  REG_HACK_PAR1:      'a2000007-0000-4000-8000-000000000007',
-  REG_HACK_PAR2:      'a2000008-0000-4000-8000-000000000008',
+  // Form Fields — New Year Reg
+  FLD_NY_FIRSTNAME: 'ff000010-0000-4000-8000-000000000010',
+  FLD_NY_NICKNAME:  'ff000011-0000-4000-8000-000000000011',
+  FLD_NY_STUDENTID: 'ff000012-0000-4000-8000-000000000012',
+  FLD_NY_MAJOR:     'ff000013-0000-4000-8000-000000000013',
+  FLD_NY_TSHIRT:    'ff000014-0000-4000-8000-000000000014',
 
-  // Form Responses
-  FRS_HALLOWEEN_PAR1: 'a3000001-0000-4000-8000-000000000001',
-  FRS_HALLOWEEN_PAR2: 'a3000002-0000-4000-8000-000000000002',
-  FRS_HALLOWEEN_PAR3: 'a3000003-0000-4000-8000-000000000003',
-  FRS_NY_PAR1:        'a3000004-0000-4000-8000-000000000004',
-  FRS_NY_PAR2:        'a3000005-0000-4000-8000-000000000005',
+  // Form Fields — New Year Feedback
+  FLD_NYFB_OVERALL: 'ff000020-0000-4000-8000-000000000020',
+  FLD_NYFB_ORG:     'ff000021-0000-4000-8000-000000000021',
+  FLD_NYFB_COMMENT: 'ff000022-0000-4000-8000-000000000022',
+
+  // Form Fields — Sukhothai Reg
+  FLD_SK_FIRSTNAME: 'ff000030-0000-4000-8000-000000000030',
+  FLD_SK_STUDENTID: 'ff000031-0000-4000-8000-000000000031',
+  FLD_SK_DIETARY:   'ff000032-0000-4000-8000-000000000032',
+
+  // Form Fields — Exchange Reg
+  FLD_EX_FIRSTNAME: 'ff000040-0000-4000-8000-000000000040',
+  FLD_EX_STUDENTID: 'ff000041-0000-4000-8000-000000000041',
+  FLD_EX_MAJOR:     'ff000042-0000-4000-8000-000000000042',
+  FLD_EX_GPA:       'ff000043-0000-4000-8000-000000000043',
+
+  // Form Fields — Bootcamp Reg
+  FLD_BC_FIRSTNAME:   'ff000050-0000-4000-8000-000000000050',
+  FLD_BC_STUDENTID:   'ff000051-0000-4000-8000-000000000051',
+  FLD_BC_EXPERIENCE:  'ff000052-0000-4000-8000-000000000052',
+
+  // Form Fields — Hackathon Reg
+  FLD_HK_FIRSTNAME: 'ff000060-0000-4000-8000-000000000060',
+  FLD_HK_LASTNAME:  'ff000061-0000-4000-8000-000000000061',
+  FLD_HK_STUDENTID: 'ff000062-0000-4000-8000-000000000062',
+  FLD_HK_TEAMNAME:  'ff000063-0000-4000-8000-000000000063',
+
+  // Form Fields — Hackathon Feedback
+  FLD_HKFB_OVERALL: 'ff000070-0000-4000-8000-000000000070',
+  FLD_HKFB_COMMENT: 'ff000071-0000-4000-8000-000000000071',
+
+  // Form Fields — Sports Reg (minimal — just name)
+  FLD_SP_FIRSTNAME: 'ff000080-0000-4000-8000-000000000080',
+  FLD_SP_SPORT:     'ff000081-0000-4000-8000-000000000081',
+
+  // Form Fields — Concert Reg
+  FLD_CN_FIRSTNAME: 'ff000090-0000-4000-8000-000000000090',
+  FLD_CN_STUDENTID: 'ff000091-0000-4000-8000-000000000091',
+  FLD_CN_SECTION:   'ff000092-0000-4000-8000-000000000092',
 };
+
+// ─── PARTICIPANT PROFILE DATA ─────────────────────────────────────────────────
+
+const PARTICIPANT_DATA = {
+  PAR1: {
+    id: ID.PAR1,
+    firstName: 'Su Su',
+    lastName: 'Myint',
+    nickname: 'Su',
+    studentId: '662115522',
+    major: 'Software Engineering',
+    email: 'participant1@cmu.ac.th',
+    phone: '0823456781',
+    lineId: 'susu_line',
+  },
+  PAR2: {
+    id: ID.PAR2,
+    firstName: 'Chaiwat',
+    lastName: 'Srisuk',
+    nickname: 'Chai',
+    studentId: '662115533',
+    major: 'Computer Engineering',
+    email: 'participant2@cmu.ac.th',
+    phone: '0823456782',
+    lineId: 'chai_line',
+  },
+  PAR3: {
+    id: ID.PAR3,
+    firstName: 'Min Thant',
+    lastName: 'Ko',
+    nickname: 'Min',
+    studentId: '662115510',
+    major: 'Software Engineering',
+    email: 'participant3@cmu.ac.th',
+    phone: '0823456783',
+    lineId: 'min_line',
+  },
+  PAR4: {
+    id: ID.PAR4,
+    firstName: 'Nattapon',
+    lastName: 'Wongkham',
+    nickname: 'Palm',
+    studentId: '662115544',
+    major: 'Information Technology',
+    email: 'participant4@cmu.ac.th',
+    phone: '0823456784',
+    lineId: 'palm_line',
+  },
+  PAR5: {
+    id: ID.PAR5,
+    firstName: 'Pimchanok',
+    lastName: 'Rattana',
+    nickname: 'Pim',
+    studentId: '662115555',
+    major: 'Computer Science',
+    email: 'participant5@cmu.ac.th',
+    phone: '0823456785',
+    lineId: 'pim_line',
+  },
+};
+
+// ─── HELPER: resolve answer value for a field ─────────────────────────────────
+
+function resolveAnswer(
+  fieldId: string,
+  participant: (typeof PARTICIPANT_DATA)[keyof typeof PARTICIPANT_DATA],
+  formFields: { id: string; autoFillKey: string | null; type: FieldType; options: string[] }[],
+  extraAnswers: Record<string, string | number | string[]> = {},
+): string | number | string[] | null {
+  const field = formFields.find((f) => f.id === fieldId);
+  if (!field) return null;
+
+  // use extra answers override first
+  if (extraAnswers[fieldId] !== undefined) return extraAnswers[fieldId];
+
+  // auto-fill from profile
+  if (field.autoFillKey) {
+    const map: Record<string, string | null> = {
+      firstName: participant.firstName,
+      lastName: participant.lastName,
+      nickname: participant.nickname,
+      studentId: participant.studentId,
+      major: participant.major,
+      contactEmail: participant.email,
+      contactPhone: participant.phone,
+      contactLineId: participant.lineId,
+    };
+    return map[field.autoFillKey] ?? '';
+  }
+
+  // default values by field type
+  switch (field.type) {
+    case FieldType.CHOICE:
+      return field.options.length > 0 ? [field.options[0]] : [];
+    case FieldType.CHECKBOX:
+      return field.options.length > 0 ? [field.options[0]] : [];
+    case FieldType.NUMBER:
+    case FieldType.RATING:
+      return 3;
+    case FieldType.TEXT:
+    case FieldType.TEXTAREA:
+      return 'N/A';
+    case FieldType.DATE:
+      return '2026-10-01';
+    default:
+      return null;
+  }
+}
+
+// ─── HELPER: map answer to Prisma columns ─────────────────────────────────────
+
+function mapToPrismaColumns(
+  value: string | number | string[] | null,
+  fieldType: FieldType,
+) {
+  if (value === null || value === undefined) {
+    return { valueText: null, valueNumber: null, valueDate: null, valueArray: [] };
+  }
+  switch (fieldType) {
+    case FieldType.TEXT:
+    case FieldType.TEXTAREA:
+      return { valueText: value as string, valueNumber: null, valueDate: null, valueArray: [] };
+    case FieldType.NUMBER:
+    case FieldType.RATING:
+      return { valueText: null, valueNumber: value as number, valueDate: null, valueArray: [] };
+    case FieldType.DATE:
+      return { valueText: null, valueNumber: null, valueDate: new Date(value as string), valueArray: [] };
+    case FieldType.CHOICE:
+    case FieldType.CHECKBOX:
+      return { valueText: null, valueNumber: null, valueDate: null, valueArray: value as string[] };
+    default:
+      return { valueText: null, valueNumber: null, valueDate: null, valueArray: [] };
+  }
+}
+
+// ─── HELPER: build participant snapshot (mirrors extractIdentitySnapshot logic) ──
+
+function buildSnapshot(
+  formFields: { id: string; autoFillKey: string | null }[],
+  answers: Record<string, string | number | string[] | null>,
+  participant: (typeof PARTICIPANT_DATA)[keyof typeof PARTICIPANT_DATA],
+): Record<string, string> {
+  const snapshotKeys = ['firstName', 'lastName', 'nickname', 'studentId', 'major'];
+  const result: Record<string, string> = {};
+
+  for (const key of snapshotKeys) {
+    const field = formFields.find((f) => f.autoFillKey === key);
+    const value = field ? answers[field.id] : null;
+    const fromForm = typeof value === 'string' && value.trim() !== '' ? value : null;
+    const fromProfile = participant[key as keyof typeof participant] ?? '';
+    result[key] = fromForm ?? (fromProfile as string) ?? '';
+  }
+
+  return result;
+}
+
+// ─── HELPER: create full registration (reg + form response + field responses + ticket) ──
+
+async function createFullRegistration({
+  registrationId,
+  ticketId,
+  formResponseId,
+  participantId,
+  eventId,
+  formId,
+  formFields,
+  participant,
+  registrationStatus,
+  ticketStatus,
+  extraAnswers = {},
+  createdAt,
+}: {
+  registrationId: string;
+  ticketId: string;
+  formResponseId: string;
+  participantId: string;
+  eventId: string;
+  formId: string;
+  formFields: { id: string; autoFillKey: string | null; type: FieldType; options: string[] }[];
+  participant: (typeof PARTICIPANT_DATA)[keyof typeof PARTICIPANT_DATA];
+  registrationStatus: RegistrationStatus;
+  ticketStatus: TicketStatus;
+  extraAnswers?: Record<string, string | number | string[]>;
+  createdAt?: Date;
+}) {
+  // build answers map
+  const answersMap: Record<string, string | number | string[] | null> = {};
+  for (const field of formFields) {
+    answersMap[field.id] = resolveAnswer(field.id, participant, formFields, extraAnswers);
+  }
+
+  // 1. create EventRegistration
+  const registration = await prisma.eventRegistration.upsert({
+    where: { participantId_eventId: { participantId, eventId } },
+    update: { status: registrationStatus },
+    create: {
+      id: registrationId,
+      participantId,
+      eventId,
+      status: registrationStatus,
+      ...(createdAt && { createdAt }),
+    },
+  });
+
+  // 2. create FormResponse
+  const formResponse = await prisma.formResponse.upsert({
+    where: { id: formResponseId },
+    update: {},
+    create: {
+      id: formResponseId,
+      formId,
+      eventRegistrationId: registration.id,
+    },
+  });
+
+  // 3. create FormFieldResponses
+  for (const field of formFields) {
+    const value = answersMap[field.id];
+    const columns = mapToPrismaColumns(value, field.type);
+    await prisma.formFieldResponse.upsert({
+      where: {
+        formResponseId_formFieldId: {
+          formResponseId: formResponse.id,
+          formFieldId: field.id,
+        },
+      },
+      update: {},
+      create: {
+        formResponseId: formResponse.id,
+        formFieldId: field.id,
+        formId,
+        ...columns,
+      },
+    });
+  }
+
+  // 4. build snapshot and create Ticket
+  const snapshot = buildSnapshot(formFields, answersMap, participant);
+  await prisma.ticket.upsert({
+    where: { id: ticketId },
+    update: { status: ticketStatus },
+    create: {
+      id: ticketId,
+      eventRegistrationId: registration.id,
+      qrToken: crypto.randomUUID(),
+      status: ticketStatus,
+      participantSnapshot: snapshot,
+    },
+  });
+
+  return registration;
+}
+
+// ─── HELPER: create feedback response ─────────────────────────────────────────
+
+async function createFeedbackResponse({
+  formResponseId,
+  registrationId,
+  formId,
+  formFields,
+  answers,
+}: {
+  formResponseId: string;
+  registrationId: string;
+  formId: string;
+  formFields: { id: string; autoFillKey: string | null; type: FieldType; options: string[] }[];
+  answers: Record<string, string | number | string[] | null>;
+}) {
+  const formResponse = await prisma.formResponse.upsert({
+    where: { id: formResponseId },
+    update: {},
+    create: {
+      id: formResponseId,
+      formId,
+      eventRegistrationId: registrationId,
+    },
+  });
+
+  for (const field of formFields) {
+    const value = answers[field.id] ?? null;
+    const columns = mapToPrismaColumns(value, field.type);
+    await prisma.formFieldResponse.upsert({
+      where: {
+        formResponseId_formFieldId: {
+          formResponseId: formResponse.id,
+          formFieldId: field.id,
+        },
+      },
+      update: {},
+      create: {
+        formResponseId: formResponse.id,
+        formFieldId: field.id,
+        formId,
+        ...columns,
+      },
+    });
+  }
+}
+
+// ─── MAIN ─────────────────────────────────────────────────────────────────────
 
 async function main() {
   const passwordHash = await bcrypt.hash('12345678', 10);
 
-  // ─── UNIVERSITY ──────────────────────────────────────────────────────────────
+  // ── University ──────────────────────────────────────────────────────────────
+
   const cmu = await prisma.university.upsert({
     where: { domain: 'cmu.ac.th' },
     update: {},
@@ -112,339 +442,351 @@ async function main() {
       isActive: true,
     },
   });
-  console.log('✓ University seeded');
+  console.log('✓ University');
 
-  // ─── USERS ───────────────────────────────────────────────────────────────────
-  await prisma.user.upsert({
-    where: { email: 'noprofile1@cmu.ac.th' },
-    update: {},
-    create: {
-      id: ID.USER_NO_PROFILE,
-      universityId: cmu.id,
-      email: 'noprofile1@cmu.ac.th',
-      passwordHash,
-      currentRole: null,
-      isVerified: true,
-    },
-  });
+  // ── Users ───────────────────────────────────────────────────────────────────
 
-  const userOnlyOrg1 = await prisma.user.upsert({
-    where: { email: 'onlyorganizer1@cmu.ac.th' },
-    update: {},
-    create: {
-      id: ID.USER_ONLY_ORG1,
-      universityId: cmu.id,
-      email: 'onlyorganizer1@cmu.ac.th',
-      passwordHash,
-      currentRole: Role.ORGANIZER,
-      isVerified: true,
-    },
-  });
+  await Promise.all([
+    prisma.user.upsert({
+      where: { email: 'organizer1@cmu.ac.th' },
+      update: {},
+      create: { id: ID.USER_ORG1, universityId: cmu.id, email: 'organizer1@cmu.ac.th', passwordHash, currentRole: Role.ORGANIZER, isVerified: true },
+    }),
+    prisma.user.upsert({
+      where: { email: 'organizer2@cmu.ac.th' },
+      update: {},
+      create: { id: ID.USER_ORG2, universityId: cmu.id, email: 'organizer2@cmu.ac.th', passwordHash, currentRole: Role.ORGANIZER, isVerified: true },
+    }),
+    prisma.user.upsert({
+      where: { email: 'organizer3@cmu.ac.th' },
+      update: {},
+      create: { id: ID.USER_ORG3, universityId: cmu.id, email: 'organizer3@cmu.ac.th', passwordHash, currentRole: Role.ORGANIZER, isVerified: true },
+    }),
+    prisma.user.upsert({
+      where: { email: 'participant1@cmu.ac.th' },
+      update: {},
+      create: { id: ID.USER_PAR1, universityId: cmu.id, email: 'participant1@cmu.ac.th', passwordHash, currentRole: Role.PARTICIPANT, isVerified: true },
+    }),
+    prisma.user.upsert({
+      where: { email: 'participant2@cmu.ac.th' },
+      update: {},
+      create: { id: ID.USER_PAR2, universityId: cmu.id, email: 'participant2@cmu.ac.th', passwordHash, currentRole: Role.PARTICIPANT, isVerified: true },
+    }),
+    prisma.user.upsert({
+      where: { email: 'participant3@cmu.ac.th' },
+      update: {},
+      create: { id: ID.USER_PAR3, universityId: cmu.id, email: 'participant3@cmu.ac.th', passwordHash, currentRole: Role.PARTICIPANT, isVerified: true },
+    }),
+    prisma.user.upsert({
+      where: { email: 'participant4@cmu.ac.th' },
+      update: {},
+      create: { id: ID.USER_PAR4, universityId: cmu.id, email: 'participant4@cmu.ac.th', passwordHash, currentRole: Role.PARTICIPANT, isVerified: true },
+    }),
+    prisma.user.upsert({
+      where: { email: 'participant5@cmu.ac.th' },
+      update: {},
+      create: { id: ID.USER_PAR5, universityId: cmu.id, email: 'participant5@cmu.ac.th', passwordHash, currentRole: Role.PARTICIPANT, isVerified: true },
+    }),
+  ]);
+  console.log('✓ Users (3 organizers, 5 participants)');
 
-  const userOnlyOrg2 = await prisma.user.upsert({
-    where: { email: 'onlyorganizer2@cmu.ac.th' },
-    update: {},
-    create: {
-      id: ID.USER_ONLY_ORG2,
-      universityId: cmu.id,
-      email: 'onlyorganizer2@cmu.ac.th',
-      passwordHash,
-      currentRole: Role.ORGANIZER,
-      isVerified: true,
-    },
-  });
+  // ── Organizer Profiles ──────────────────────────────────────────────────────
 
-  const userOnlyPar1 = await prisma.user.upsert({
-    where: { email: 'onlyparticipant1@cmu.ac.th' },
-    update: {},
-    create: {
-      id: ID.USER_ONLY_PAR1,
-      universityId: cmu.id,
-      email: 'onlyparticipant1@cmu.ac.th',
-      passwordHash,
-      currentRole: Role.PARTICIPANT,
-      isVerified: true,
-    },
-  });
-
-  const userOnlyPar2 = await prisma.user.upsert({
-    where: { email: 'onlyparticipant2@cmu.ac.th' },
-    update: {},
-    create: {
-      id: ID.USER_ONLY_PAR2,
-      universityId: cmu.id,
-      email: 'onlyparticipant2@cmu.ac.th',
-      passwordHash,
-      currentRole: Role.PARTICIPANT,
-      isVerified: true,
-    },
-  });
-
-  const userBoth = await prisma.user.upsert({
-    where: { email: 'bothprofile1@cmu.ac.th' },
-    update: {},
-    create: {
-      id: ID.USER_BOTH,
-      universityId: cmu.id,
-      email: 'bothprofile1@cmu.ac.th',
-      passwordHash,
-      currentRole: Role.ORGANIZER,
-      isVerified: true,
-    },
-  });
-  console.log('✓ Users seeded');
-
-  // ─── ORGANIZER PROFILES ──────────────────────────────────────────────────────
-  const org1 = await prisma.organizerProfile.upsert({
-    where: { userId: userOnlyOrg1.id },
-    update: {},
-    create: {
-      id: ID.ORG1,
-      userId: userOnlyOrg1.id,
-      name: 'CAMT Student Affairs',
-      bio: 'Organizing academic and social events for CAMT students.',
-      contactEmail: 'onlyorganizer1@cmu.ac.th',
-      contactPhone: '0812345671',
-      contactLineId: 'camt_affairs',
-      imageUrl: null,
-      externalUrl: 'https://camt.cmu.ac.th',
-    },
-  });
-
-  const org2 = await prisma.organizerProfile.upsert({
-    where: { userId: userOnlyOrg2.id },
-    update: {},
-    create: {
-      id: ID.ORG2,
-      userId: userOnlyOrg2.id,
-      name: 'CMU Music and Arts Club',
-      bio: 'Bringing music and arts to the CMU community.',
-      contactEmail: 'onlyorganizer2@cmu.ac.th',
-      contactPhone: '0812345672',
-      contactLineId: 'cmu_music',
-      imageUrl: null,
-      externalUrl: '',
-    },
-  });
-
-  const org3 = await prisma.organizerProfile.upsert({
-    where: { userId: userBoth.id },
-    update: {},
-    create: {
-      id: ID.ORG3,
-      userId: userBoth.id,
-      name: 'SE Department Club',
-      bio: 'Software Engineering department club organizing tech and social events.',
-      contactEmail: 'bothprofile1@cmu.ac.th',
-      contactPhone: '0812345676',
-      contactLineId: 'se_club',
-      imageUrl: null,
-      externalUrl: 'https://se.camt.cmu.ac.th',
-    },
-  });
-  console.log('✓ Organizer profiles seeded');
-
-  // ─── PARTICIPANT PROFILES ────────────────────────────────────────────────────
-  const par1 = await prisma.participantProfile.upsert({
-    where: { userId: userOnlyPar1.id },
-    update: {},
-    create: {
-      id: ID.PAR1,
-      userId: userOnlyPar1.id,
-      firstName: 'Su Su',
-      lastName: 'Myint',
-      nickname: 'Su',
-      studentId: '662115522',
-      major: 'Software Engineering',
-      contactEmail: 'onlyparticipant1@cmu.ac.th',
-      contactPhone: '0823456781',
-      contactLineId: 'susu_line',
-      imageUrl: null,
-      preferences: {
-        personal: ['MUSIC', 'TECHNOLOGY'],
-        event: ['SEMINAR', 'WORKSHOP', 'CULTURAL'],
-        language: ['en', 'th'],
+  const [org1, org2, org3] = await Promise.all([
+    prisma.organizerProfile.upsert({
+      where: { userId: ID.USER_ORG1 },
+      update: {},
+      create: {
+        id: ID.ORG1,
+        userId: ID.USER_ORG1,
+        name: 'CAMT Student Affairs',
+        bio: 'Organizing academic and social events for CAMT students.',
+        contactEmail: 'organizer1@cmu.ac.th',
+        contactPhone: '0812345671',
+        contactLineId: 'camt_affairs',
+        imageUrl: null,
+        externalUrl: 'https://camt.cmu.ac.th',
       },
-    },
-  });
-
-  const par2 = await prisma.participantProfile.upsert({
-    where: { userId: userOnlyPar2.id },
-    update: {},
-    create: {
-      id: ID.PAR2,
-      userId: userOnlyPar2.id,
-      firstName: 'Chaiwat',
-      lastName: 'Srisuk',
-      nickname: 'Chai',
-      studentId: '662115533',
-      major: 'Computer Engineering',
-      contactEmail: 'onlyparticipant2@cmu.ac.th',
-      contactPhone: '0823456782',
-      contactLineId: 'chai_line',
-      imageUrl: null,
-      preferences: {
-        personal: ['SPORTS', 'GAMING'],
-        event: ['HACKATHON', 'COMPETITION', 'WORKSHOP'],
-        language: ['en', 'th'],
+    }),
+    prisma.organizerProfile.upsert({
+      where: { userId: ID.USER_ORG2 },
+      update: {},
+      create: {
+        id: ID.ORG2,
+        userId: ID.USER_ORG2,
+        name: 'CMU Music and Arts Club',
+        bio: 'Bringing music and arts to the CMU community.',
+        contactEmail: 'organizer2@cmu.ac.th',
+        contactPhone: '0812345672',
+        contactLineId: 'cmu_music',
+        imageUrl: null,
+        externalUrl: '',
       },
-    },
-  });
-
-  const par3 = await prisma.participantProfile.upsert({
-    where: { userId: userBoth.id },
-    update: {},
-    create: {
-      id: ID.PAR3,
-      userId: userBoth.id,
-      firstName: 'Min Thant',
-      lastName: 'Ko',
-      nickname: 'Min',
-      studentId: '662115510',
-      major: 'Software Engineering',
-      contactEmail: 'bothprofile1@cmu.ac.th',
-      contactPhone: '0823456783',
-      contactLineId: 'min_line',
-      imageUrl: null,
-      preferences: {
-        personal: ['TECHNOLOGY', 'MUSIC'],
-        event: ['SEMINAR', 'HACKATHON', 'NETWORKING'],
-        language: ['en'],
+    }),
+    prisma.organizerProfile.upsert({
+      where: { userId: ID.USER_ORG3 },
+      update: {},
+      create: {
+        id: ID.ORG3,
+        userId: ID.USER_ORG3,
+        name: 'SE Department Club',
+        bio: 'Software Engineering department club organizing tech and social events.',
+        contactEmail: 'organizer3@cmu.ac.th',
+        contactPhone: '0812345673',
+        contactLineId: 'se_club',
+        imageUrl: null,
+        externalUrl: 'https://se.camt.cmu.ac.th',
       },
-    },
-  });
-  console.log('✓ Participant profiles seeded');
+    }),
+  ]);
+  console.log('✓ Organizer profiles');
 
-  // ─── EVENTS ──────────────────────────────────────────────────────────────────
+  // ── Participant Profiles ─────────────────────────────────────────────────────
 
-  // --- org1 events ---
+  const PAR_USER_MAP: Record<keyof typeof PARTICIPANT_DATA, string> = {
+    PAR1: ID.USER_PAR1,
+    PAR2: ID.USER_PAR2,
+    PAR3: ID.USER_PAR3,
+    PAR4: ID.USER_PAR4,
+    PAR5: ID.USER_PAR5,
+  };
+
+  await Promise.all(
+    (Object.keys(PARTICIPANT_DATA) as (keyof typeof PARTICIPANT_DATA)[]).map((key) =>
+      prisma.participantProfile.upsert({
+        where: { userId: PAR_USER_MAP[key] },
+        update: {},
+        create: {
+          id: PARTICIPANT_DATA[key].id,
+          userId: PAR_USER_MAP[key],
+          firstName: PARTICIPANT_DATA[key].firstName,
+          lastName: PARTICIPANT_DATA[key].lastName,
+          nickname: PARTICIPANT_DATA[key].nickname,
+          studentId: PARTICIPANT_DATA[key].studentId,
+          major: PARTICIPANT_DATA[key].major,
+          contactEmail: PARTICIPANT_DATA[key].email,
+          contactPhone: PARTICIPANT_DATA[key].phone,
+          contactLineId: PARTICIPANT_DATA[key].lineId,
+          imageUrl: null,
+          preferences: {
+            personal: ['TECHNOLOGY'],
+            event: ['SEMINAR', 'WORKSHOP'],
+            language: ['en', 'th'],
+          },
+        },
+      }),
+    ),
+  );
+  console.log('✓ Participant profiles');
+
+  // ── Events ───────────────────────────────────────────────────────────────────
+  // NOTE: seatsTaken set to match CONFIRMED registrations seeded below
+
+  const eventBase = {
+    universityId: cmu.id,
+    isOnline: false,
+    hasCatering: false,
+    isCateringFree: false,
+    cateringDescription: { en: '', th: '' },
+    agenda: [],
+    contactPhone: '053-942-462',
+    contactLineId: '',
+    externalUrl: '',
+    remarks: { en: '', th: '' },
+  };
+
   await prisma.event.upsert({
-    where: { id: ID.EVT_DRAFT1 },
-    update: {},
-    create: {
-      id: ID.EVT_DRAFT1,
-      organizerId: org1.id,
-      universityId: cmu.id,
-      title: { en: 'SE Workshop Draft', th: 'เวิร์กชอป SE ฉบับร่าง' },
-      description: {
-        en: 'Draft workshop for SE students.',
-        th: 'เวิร์กชอปฉบับร่างสำหรับนักศึกษา SE',
-      },
-      category: ['WORKSHOP'],
-      location: { en: 'CAMT Building Room 101', th: 'ห้อง 101 อาคาร CAMT' },
-      mapLink: '',
-      isOnline: false,
-      startAt: new Date('2026-11-15T09:00:00.000Z'),
-      endAt: new Date('2026-11-15T12:00:00.000Z'),
-      seatLimit: 30,
-      status: EventStatus.DRAFT,
-      hasCatering: false,
-      isCateringFree: false,
-      cateringDescription: { en: '', th: '' },
-      agenda: [],
-      contactName: 'CAMT Student Affairs',
-      contactEmail: 'onlyorganizer1@cmu.ac.th',
-      contactPhone: '0812345671',
-      contactLineId: 'camt_affairs',
-      externalUrl: '',
-      remarks: { en: '', th: '' },
-      bannerUrl: 'https://placehold.co/600x400?text=SE+Workshop+Draft',
-    },
-  });
-
-  const evtHalloween = await prisma.event.upsert({
     where: { id: ID.EVT_HALLOWEEN },
-    update: {},
+    update: { seatsTaken: 3 },
     create: {
+      ...eventBase,
       id: ID.EVT_HALLOWEEN,
       organizerId: org1.id,
-      universityId: cmu.id,
       title: { en: 'CAMT Halloween Night 2026', th: 'คืนฮาโลวีน CAMT 2026' },
-      description: {
-        en: 'Join us for a spooky Halloween night filled with costume contests, games, and surprises at CAMT!',
-        th: 'มาร่วมสนุกกับคืนฮาโลวีนสุดหลอนพร้อมประกวดชุดแฟนซี เกม และเซอร์ไพรส์มากมายที่ CAMT!',
-      },
+      description: { en: 'Join us for a spooky Halloween night!', th: 'มาร่วมสนุกกับคืนฮาโลวีนสุดหลอน!' },
       category: ['PARTY', 'CULTURAL'],
       location: { en: 'CAMT Auditorium', th: 'ห้องประชุมใหญ่ CAMT' },
       mapLink: 'https://maps.google.com/?q=CAMT+CMU',
-      isOnline: false,
-      startAt: new Date('2026-10-31T10:00:00.000Z'),
-      endAt: new Date('2026-10-31T14:00:00.000Z'),
+      startAt: new Date('2026-10-31T17:00:00.000Z'),
+      endAt: new Date('2026-10-31T21:00:00.000Z'),
       seatLimit: 100,
+      seatsTaken: 3, // par1, par2, par3
       status: EventStatus.PUBLISHED,
       hasCatering: true,
       isCateringFree: true,
-      cateringDescription: {
-        en: 'Light snacks and drinks will be provided.',
-        th: 'มีของว่างและเครื่องดื่มให้บริการ',
-      },
+      cateringDescription: { en: 'Light snacks and drinks.', th: 'มีของว่างและเครื่องดื่ม' },
       agenda: [
-        {
-          time: '17:00',
-          activity: {
-            en: 'Registration and Welcome',
-            th: 'ลงทะเบียนและต้อนรับ',
-          },
-        },
-        {
-          time: '18:00',
-          activity: { en: 'Costume Contest', th: 'ประกวดชุดแฟนซี' },
-        },
-        {
-          time: '19:30',
-          activity: { en: 'Games and Activities', th: 'เกมและกิจกรรม' },
-        },
-        {
-          time: '20:30',
-          activity: { en: 'Lucky Draw and Closing', th: 'จับรางวัลและปิดงาน' },
-        },
+        { time: '17:00', activity: { en: 'Registration', th: 'ลงทะเบียน' } },
+        { time: '18:00', activity: { en: 'Costume Contest', th: 'ประกวดชุด' } },
+        { time: '20:00', activity: { en: 'Lucky Draw', th: 'จับรางวัล' } },
       ],
       contactName: 'CAMT Student Affairs',
-      contactEmail: 'onlyorganizer1@cmu.ac.th',
-      contactPhone: '0812345671',
-      contactLineId: 'camt_affairs',
-      externalUrl: '',
-      remarks: {
-        en: 'Please wear a costume for the contest!',
-        th: 'กรุณาแต่งกายแฟนซีเพื่อร่วมประกวด!',
-      },
-      bannerUrl: 'https://placehold.co/600x400?text=CAMT+Halloween+2026',
+      contactEmail: 'organizer1@cmu.ac.th',
+      bannerUrl: 'https://placehold.co/600x400?text=Halloween+Night',
       publishedAt: new Date('2026-09-01T00:00:00.000Z'),
     },
   });
 
   await prisma.event.upsert({
-    where: { id: ID.EVT_AI_RESEARCH },
-    update: {},
+    where: { id: ID.EVT_NEW_YEAR },
+    update: { seatsTaken: 5 },
     create: {
-      id: ID.EVT_AI_RESEARCH,
+      ...eventBase,
+      id: ID.EVT_NEW_YEAR,
       organizerId: org1.id,
-      universityId: cmu.id,
-      title: { en: 'AI Research Seminar Series', th: 'ชุดสัมมนาการวิจัย AI' },
-      description: {
-        en: 'An ongoing seminar series covering the latest trends and research in artificial intelligence.',
-        th: 'ชุดสัมมนาต่อเนื่องที่ครอบคลุมแนวโน้มล่าสุดและการวิจัยด้านปัญญาประดิษฐ์',
-      },
-      category: ['SEMINAR', 'LECTURE'],
-      location: { en: 'CAMT Building Room 202', th: 'ห้อง 202 อาคาร CAMT' },
-      mapLink: '',
-      isOnline: false,
-      startAt: new Date('2026-06-01T02:00:00.000Z'),
-      endAt: new Date('2026-11-30T08:00:00.000Z'),
-      seatLimit: 50,
-      status: EventStatus.ONGOING,
-      hasCatering: false,
+      title: { en: 'New Year Countdown Party 2027', th: 'ปาร์ตี้เคาท์ดาวน์ปีใหม่ 2027' },
+      description: { en: 'Ring in the New Year with us!', th: 'ฉลองปีใหม่ไปด้วยกัน!' },
+      category: ['PARTY', 'FESTIVAL'],
+      location: { en: 'CAMT Rooftop Garden', th: 'สวนดาดฟ้า CAMT' },
+      mapLink: 'https://maps.google.com/?q=CAMT+CMU',
+      startAt: new Date('2026-12-31T22:00:00.000Z'),
+      endAt: new Date('2027-01-01T01:00:00.000Z'),
+      seatLimit: 5, // FULL — all 5 participants registered
+      seatsTaken: 5,
+      status: EventStatus.PUBLISHED,
+      hasCatering: true,
       isCateringFree: false,
-      cateringDescription: { en: '', th: '' },
-      agenda: [],
+      cateringDescription: { en: 'Food and drinks available.', th: 'มีอาหารและเครื่องดื่มจำหน่าย' },
+      agenda: [
+        { time: '22:00', activity: { en: 'Gates Open', th: 'เปิดประตู' } },
+        { time: '23:45', activity: { en: 'Countdown', th: 'เคาท์ดาวน์' } },
+      ],
       contactName: 'CAMT Student Affairs',
-      contactEmail: 'onlyorganizer1@cmu.ac.th',
-      contactPhone: '0812345671',
-      contactLineId: 'camt_affairs',
-      externalUrl: '',
-      remarks: { en: 'Sessions held every two weeks.', th: 'จัดทุกสองสัปดาห์' },
-      bannerUrl: 'https://placehold.co/600x400?text=AI+Research+Seminar',
-      publishedAt: new Date('2026-05-15T00:00:00.000Z'),
+      contactEmail: 'organizer1@cmu.ac.th',
+      bannerUrl: 'https://placehold.co/600x400?text=New+Year+2027',
+      publishedAt: new Date('2026-10-01T00:00:00.000Z'),
+      remarks: { en: 'Limited seats — first come first served.', th: 'ที่นั่งจำกัด' },
+    },
+  });
+
+  await prisma.event.upsert({
+    where: { id: ID.EVT_SUKHOTHAI },
+    update: { seatsTaken: 1 },
+    create: {
+      ...eventBase,
+      id: ID.EVT_SUKHOTHAI,
+      organizerId: org2.id,
+      title: { en: 'Sukhothai Excursion Trip', th: 'ทริปทัศนศึกษาสุโขทัย' },
+      description: { en: 'Two-day trip to Sukhothai Historical Park.', th: 'ทริป 2 วัน 1 คืนที่อุทยานประวัติศาสตร์สุโขทัย' },
+      category: ['TRIP', 'CULTURAL'],
+      location: { en: 'Sukhothai Historical Park', th: 'อุทยานประวัติศาสตร์สุโขทัย' },
+      mapLink: 'https://maps.google.com/?q=Sukhothai+Historical+Park',
+      startAt: new Date('2026-11-15T06:00:00.000Z'),
+      endAt: new Date('2026-11-16T20:00:00.000Z'),
+      seatLimit: 10,
+      seatsTaken: 1, // par1 CONFIRMED, par2 CANCELLED (doesn't count)
+      status: EventStatus.PUBLISHED,
+      hasCatering: true,
+      isCateringFree: false,
+      cateringDescription: { en: 'Meals included.', th: 'รวมอาหาร' },
+      contactName: 'CMU Music and Arts Club',
+      contactEmail: 'organizer2@cmu.ac.th',
+      bannerUrl: 'https://placehold.co/600x400?text=Sukhothai+Trip',
+      publishedAt: new Date('2026-09-10T00:00:00.000Z'),
+    },
+  });
+
+  await prisma.event.upsert({
+    where: { id: ID.EVT_EXCHANGE },
+    update: { seatsTaken: 3 },
+    create: {
+      ...eventBase,
+      id: ID.EVT_EXCHANGE,
+      organizerId: org2.id,
+      title: { en: 'Semester Exchange Program 2026', th: 'โครงการแลกเปลี่ยนนักศึกษา 2026' },
+      description: { en: 'Exchange program with partner universities.', th: 'โครงการแลกเปลี่ยนกับมหาวิทยาลัยพันธมิตร' },
+      category: ['SEMINAR', 'NETWORKING'],
+      location: { en: 'Online and CAMT Building', th: 'ออนไลน์และอาคาร CAMT' },
+      mapLink: '',
+      isOnline: true,
+      startAt: new Date('2026-09-01T09:00:00.000Z'),
+      endAt: new Date('2026-12-31T17:00:00.000Z'),
+      seatLimit: 3, // FULL — par1, par2, par3
+      seatsTaken: 3,
+      status: EventStatus.ONGOING,
+      contactName: 'CMU Music and Arts Club',
+      contactEmail: 'organizer2@cmu.ac.th',
+      bannerUrl: 'https://placehold.co/600x400?text=Exchange+Program',
+      publishedAt: new Date('2026-08-01T00:00:00.000Z'),
+      remarks: { en: 'GPA 3.0 or above required.', th: 'ต้องมี GPA 3.0 ขึ้นไป' },
+    },
+  });
+
+  await prisma.event.upsert({
+    where: { id: ID.EVT_BOOTCAMP },
+    update: { seatsTaken: 2 },
+    create: {
+      ...eventBase,
+      id: ID.EVT_BOOTCAMP,
+      organizerId: org2.id,
+      title: { en: 'Coding Bootcamp Summer 2026', th: 'Coding Bootcamp ซัมเมอร์ 2026' },
+      description: { en: 'Intensive coding bootcamp covering web development.', th: 'Coding Bootcamp เข้มข้นครอบคลุมการพัฒนาเว็บ' },
+      category: ['WORKSHOP', 'SEMINAR'],
+      location: { en: 'CAMT Computer Lab 1', th: 'ห้องแล็บคอมพิวเตอร์ 1 CAMT' },
+      mapLink: '',
+      startAt: new Date('2026-08-01T09:00:00.000Z'),
+      endAt: new Date('2026-11-30T17:00:00.000Z'),
+      seatLimit: 25,
+      seatsTaken: 2, // par1, par3
+      status: EventStatus.ONGOING,
+      contactName: 'CMU Music and Arts Club',
+      contactEmail: 'organizer2@cmu.ac.th',
+      bannerUrl: 'https://placehold.co/600x400?text=Coding+Bootcamp',
+      publishedAt: new Date('2026-07-01T00:00:00.000Z'),
+    },
+  });
+
+  await prisma.event.upsert({
+    where: { id: ID.EVT_HACKATHON },
+    update: { seatsTaken: 2 },
+    create: {
+      ...eventBase,
+      id: ID.EVT_HACKATHON,
+      organizerId: org3.id,
+      title: { en: 'SE Hackathon 2026', th: 'SE Hackathon 2026' },
+      description: { en: '48-hour hackathon for SE students.', th: 'แข่งขัน Hackathon 48 ชั่วโมงสำหรับนักศึกษา SE' },
+      category: ['HACKATHON', 'COMPETITION'],
+      location: { en: 'CAMT Innovation Lab', th: 'ห้อง Innovation Lab CAMT' },
+      mapLink: '',
+      startAt: new Date('2026-05-20T09:00:00.000Z'),
+      endAt: new Date('2026-05-22T17:00:00.000Z'),
+      seatLimit: 60,
+      seatsTaken: 2, // par1, par2 — tickets EXPIRED (concluded)
+      status: EventStatus.CONCLUDED,
+      hasCatering: true,
+      isCateringFree: true,
+      cateringDescription: { en: 'Meals and snacks throughout the event.', th: 'มีอาหารตลอดงาน' },
+      contactName: 'SE Department Club',
+      contactEmail: 'organizer3@cmu.ac.th',
+      bannerUrl: 'https://placehold.co/600x400?text=SE+Hackathon',
+      publishedAt: new Date('2026-04-20T00:00:00.000Z'),
+    },
+  });
+
+  await prisma.event.upsert({
+    where: { id: ID.EVT_SPORTS },
+    update: { seatsTaken: 2 },
+    create: {
+      ...eventBase,
+      id: ID.EVT_SPORTS,
+      organizerId: org3.id,
+      title: { en: 'CMU Sports Day 2026', th: 'กีฬาสี CMU 2026' },
+      description: { en: 'Annual sports day with various competitions.', th: 'งานกีฬาสีประจำปี' },
+      category: ['SPORT'],
+      location: { en: 'CMU Sports Complex', th: 'ศูนย์กีฬา มช.' },
+      mapLink: '',
+      startAt: new Date('2026-04-10T08:00:00.000Z'),
+      endAt: new Date('2026-04-10T18:00:00.000Z'),
+      seatLimit: null, // unlimited
+      seatsTaken: 2,   // par2, par4 — tickets EXPIRED (concluded)
+      status: EventStatus.CONCLUDED,
+      hasCatering: true,
+      isCateringFree: true,
+      cateringDescription: { en: 'Food stalls available.', th: 'มีร้านอาหาร' },
+      contactName: 'SE Department Club',
+      contactEmail: 'organizer3@cmu.ac.th',
+      bannerUrl: 'https://placehold.co/600x400?text=CMU+Sports+Day',
+      publishedAt: new Date('2026-03-15T00:00:00.000Z'),
     },
   });
 
@@ -452,354 +794,50 @@ async function main() {
     where: { id: ID.EVT_ORIENTATION },
     update: {},
     create: {
+      ...eventBase,
       id: ID.EVT_ORIENTATION,
       organizerId: org1.id,
-      universityId: cmu.id,
       title: { en: 'Orientation Week 2026', th: 'สัปดาห์ปฐมนิเทศ 2026' },
-      description: {
-        en: 'Welcome week for new students to get acquainted with campus life and facilities.',
-        th: 'สัปดาห์ต้อนรับนักศึกษาใหม่เพื่อทำความรู้จักกับชีวิตในมหาวิทยาลัย',
-      },
+      description: { en: 'Welcome week for new students.', th: 'สัปดาห์ต้อนรับนักศึกษาใหม่' },
       category: ['ORIENTATION'],
       location: { en: 'CAMT Main Hall', th: 'ห้องโถงหลัก CAMT' },
       mapLink: '',
-      isOnline: false,
-      startAt: new Date('2026-05-01T02:00:00.000Z'),
-      endAt: new Date('2026-06-07T10:00:00.000Z'),
+      startAt: new Date('2026-05-01T09:00:00.000Z'),
+      endAt: new Date('2026-05-07T17:00:00.000Z'),
       seatLimit: 200,
+      seatsTaken: 0, // no registrations seeded
       status: EventStatus.CONCLUDED,
       hasCatering: true,
       isCateringFree: true,
-      cateringDescription: {
-        en: 'Lunch provided on all days.',
-        th: 'มีอาหารกลางวันให้ทุกวัน',
-      },
-      agenda: [],
+      cateringDescription: { en: 'Lunch provided daily.', th: 'มีอาหารกลางวันทุกวัน' },
       contactName: 'CAMT Student Affairs',
-      contactEmail: 'onlyorganizer1@cmu.ac.th',
-      contactPhone: '0812345671',
-      contactLineId: 'camt_affairs',
-      externalUrl: '',
-      remarks: { en: '', th: '' },
-      bannerUrl: 'https://placehold.co/600x400?text=Orientation+Week+2026',
+      contactEmail: 'organizer1@cmu.ac.th',
+      bannerUrl: 'https://placehold.co/600x400?text=Orientation+Week',
       publishedAt: new Date('2026-04-01T00:00:00.000Z'),
     },
   });
 
-  // --- org2 events ---
   await prisma.event.upsert({
-    where: { id: ID.EVT_DRAFT2 },
+    where: { id: ID.EVT_AI_SEMINAR },
     update: {},
     create: {
-      id: ID.EVT_DRAFT2,
-      organizerId: org2.id,
-      universityId: cmu.id,
-      title: {
-        en: 'Music Club Annual Concert Draft',
-        th: 'ฉบับร่างคอนเสิร์ตประจำปีชมรมดนตรี',
-      },
-      description: {
-        en: 'Draft for the annual music club concert.',
-        th: 'ฉบับร่างสำหรับคอนเสิร์ตประจำปีชมรมดนตรี',
-      },
-      category: ['CULTURAL', 'FESTIVAL'],
-      location: { en: 'CMU Auditorium', th: 'หอประชุม มช.' },
+      ...eventBase,
+      id: ID.EVT_AI_SEMINAR,
+      organizerId: org1.id,
+      title: { en: 'AI Research Seminar Series', th: 'ชุดสัมมนาการวิจัย AI' },
+      description: { en: 'Ongoing seminar series on AI research.', th: 'ชุดสัมมนาต่อเนื่องด้าน AI' },
+      category: ['SEMINAR', 'LECTURE'],
+      location: { en: 'CAMT Building Room 202', th: 'ห้อง 202 อาคาร CAMT' },
       mapLink: '',
-      isOnline: false,
-      startAt: new Date('2026-12-15T11:00:00.000Z'),
-      endAt: new Date('2026-12-15T15:00:00.000Z'),
-      seatLimit: 300,
-      status: EventStatus.DRAFT,
-      hasCatering: false,
-      isCateringFree: false,
-      cateringDescription: { en: '', th: '' },
-      agenda: [],
-      contactName: 'CMU Music and Arts Club',
-      contactEmail: 'onlyorganizer2@cmu.ac.th',
-      contactPhone: '0812345672',
-      contactLineId: 'cmu_music',
-      externalUrl: '',
-      remarks: { en: '', th: '' },
-      bannerUrl: 'https://placehold.co/600x400?text=Music+Concert+Draft',
-    },
-  });
-
-  await prisma.event.upsert({
-    where: { id: ID.EVT_SUKHOTHAI },
-    update: {},
-    create: {
-      id: ID.EVT_SUKHOTHAI,
-      organizerId: org2.id,
-      universityId: cmu.id,
-      title: {
-        en: 'Sukhothai Excursion Trip',
-        th: 'ทริปทัศนศึกษาจังหวัดสุโขทัย',
-      },
-      description: {
-        en: 'A two-day excursion to Sukhothai to explore UNESCO World Heritage sites and enjoy the Loi Krathong festival.',
-        th: 'ทริป 2 วัน 1 คืนที่สุโขทัย สำรวจโบราณสถาน UNESCO และเพลิดเพลินกับเทศกาลลอยกระทง',
-      },
-      category: ['TRIP', 'CULTURAL'],
-      location: {
-        en: 'Sukhothai Historical Park',
-        th: 'อุทยานประวัติศาสตร์สุโขทัย',
-      },
-      mapLink: 'https://maps.google.com/?q=Sukhothai+Historical+Park',
-      isOnline: false,
-      startAt: new Date('2026-10-25T01:00:00.000Z'),
-      endAt: new Date('2026-10-26T10:00:00.000Z'),
-      seatLimit: 40,
-      status: EventStatus.PUBLISHED,
-      hasCatering: true,
-      isCateringFree: false,
-      cateringDescription: {
-        en: 'Meals included in the trip package.',
-        th: 'รวมอาหารในแพ็กเกจทริป',
-      },
-      agenda: [
-        {
-          time: '06:00',
-          activity: { en: 'Departure from CMU', th: 'ออกเดินทางจาก มช.' },
-        },
-        {
-          time: '12:00',
-          activity: {
-            en: 'Lunch at Sukhothai',
-            th: 'รับประทานอาหารกลางวันที่สุโขทัย',
-          },
-        },
-        {
-          time: '14:00',
-          activity: {
-            en: 'Visit Historical Park',
-            th: 'เยี่ยมชมอุทยานประวัติศาสตร์',
-          },
-        },
-        {
-          time: '19:00',
-          activity: { en: 'Loi Krathong Festival', th: 'เทศกาลลอยกระทง' },
-        },
-      ],
-      contactName: 'CMU Music and Arts Club',
-      contactEmail: 'onlyorganizer2@cmu.ac.th',
-      contactPhone: '0812345672',
-      contactLineId: 'cmu_music',
-      externalUrl: '',
-      remarks: {
-        en: 'Registration closes October 15th. Payment required upon registration.',
-        th: 'ปิดรับสมัครวันที่ 15 ตุลาคม ชำระเงินเมื่อลงทะเบียน',
-      },
-      bannerUrl: 'https://placehold.co/600x400?text=Sukhothai+Trip',
-      publishedAt: new Date('2026-09-10T00:00:00.000Z'),
-    },
-  });
-
-  await prisma.event.upsert({
-    where: { id: ID.EVT_BOOTCAMP },
-    update: {},
-    create: {
-      id: ID.EVT_BOOTCAMP,
-      organizerId: org2.id,
-      universityId: cmu.id,
-      title: {
-        en: 'Coding Bootcamp Summer 2026',
-        th: 'Coding Bootcamp ซัมเมอร์ 2026',
-      },
-      description: {
-        en: 'An intensive coding bootcamp covering web development fundamentals throughout summer.',
-        th: 'Coding Bootcamp เข้มข้นครอบคลุมพื้นฐานการพัฒนาเว็บตลอดช่วงซัมเมอร์',
-      },
-      category: ['WORKSHOP', 'SEMINAR'],
-      location: { en: 'CAMT Computer Lab 1', th: 'ห้องแล็บคอมพิวเตอร์ 1 CAMT' },
-      mapLink: '',
-      isOnline: false,
-      startAt: new Date('2026-06-02T02:00:00.000Z'),
-      endAt: new Date('2026-11-15T08:00:00.000Z'),
-      seatLimit: 25,
+      startAt: new Date('2026-06-01T09:00:00.000Z'),
+      endAt: new Date('2026-11-30T17:00:00.000Z'),
+      seatLimit: 50,
+      seatsTaken: 0, // NO registration form — useful for FormNotFoundException test
       status: EventStatus.ONGOING,
-      hasCatering: false,
-      isCateringFree: false,
-      cateringDescription: { en: '', th: '' },
-      agenda: [],
-      contactName: 'CMU Music and Arts Club',
-      contactEmail: 'onlyorganizer2@cmu.ac.th',
-      contactPhone: '0812345672',
-      contactLineId: 'cmu_music',
-      externalUrl: '',
-      remarks: { en: 'Sessions held every Saturday.', th: 'จัดทุกวันเสาร์' },
-      bannerUrl: 'https://placehold.co/600x400?text=Coding+Bootcamp',
-      publishedAt: new Date('2026-05-20T00:00:00.000Z'),
-    },
-  });
-
-  await prisma.event.upsert({
-    where: { id: ID.EVT_SPORTS },
-    update: {},
-    create: {
-      id: ID.EVT_SPORTS,
-      organizerId: org2.id,
-      universityId: cmu.id,
-      title: { en: 'CMU Sports Day 2026', th: 'กีฬาสี CMU 2026' },
-      description: {
-        en: 'Annual sports day event featuring various competitions and team activities.',
-        th: 'งานกีฬาสีประจำปีที่มีการแข่งขันหลากหลายและกิจกรรมทีม',
-      },
-      category: ['SPORT'],
-      location: { en: 'CMU Sports Complex', th: 'ศูนย์กีฬา มช.' },
-      mapLink: '',
-      isOnline: false,
-      startAt: new Date('2026-05-15T01:00:00.000Z'),
-      endAt: new Date('2026-06-05T10:00:00.000Z'),
-      seatLimit: 500,
-      status: EventStatus.CONCLUDED,
-      hasCatering: true,
-      isCateringFree: true,
-      cateringDescription: {
-        en: 'Food stalls available throughout the day.',
-        th: 'มีร้านอาหารตลอดวัน',
-      },
-      agenda: [],
-      contactName: 'CMU Music and Arts Club',
-      contactEmail: 'onlyorganizer2@cmu.ac.th',
-      contactPhone: '0812345672',
-      contactLineId: 'cmu_music',
-      externalUrl: '',
-      remarks: { en: '', th: '' },
-      bannerUrl: 'https://placehold.co/600x400?text=CMU+Sports+Day',
-      publishedAt: new Date('2026-04-15T00:00:00.000Z'),
-    },
-  });
-
-  // --- org3 events ---
-  await prisma.event.upsert({
-    where: { id: ID.EVT_DRAFT3 },
-    update: {},
-    create: {
-      id: ID.EVT_DRAFT3,
-      organizerId: org3.id,
-      universityId: cmu.id,
-      title: { en: 'Cultural Festival Draft', th: 'ฉบับร่างเทศกาลวัฒนธรรม' },
-      description: {
-        en: 'Draft for the upcoming cultural festival.',
-        th: 'ฉบับร่างสำหรับเทศกาลวัฒนธรรมที่กำลังจะมาถึง',
-      },
-      category: ['CULTURAL', 'FESTIVAL'],
-      location: { en: 'CMU Cultural Center', th: 'ศูนย์วัฒนธรรม มช.' },
-      mapLink: '',
-      isOnline: false,
-      startAt: new Date('2026-11-20T04:00:00.000Z'),
-      endAt: new Date('2026-11-22T11:00:00.000Z'),
-      seatLimit: 150,
-      status: EventStatus.DRAFT,
-      hasCatering: false,
-      isCateringFree: false,
-      cateringDescription: { en: '', th: '' },
-      agenda: [],
-      contactName: 'SE Department Club',
-      contactEmail: 'bothprofile1@cmu.ac.th',
-      contactPhone: '0812345676',
-      contactLineId: 'se_club',
-      externalUrl: '',
-      remarks: { en: '', th: '' },
-      bannerUrl: 'https://placehold.co/600x400?text=Cultural+Festival+Draft',
-    },
-  });
-
-  await prisma.event.upsert({
-    where: { id: ID.EVT_DRAFT_TEST },
-    update: {},
-    create: {
-      id: ID.EVT_DRAFT_TEST,
-      organizerId: org3.id,
-      universityId: cmu.id,
-      title: { en: 'Test Event to Update', th: 'กิจกรรมทดสอบสำหรับอัปเดต' },
-      description: {
-        en: 'This is a test draft event for update testing purposes.',
-        th: 'กิจกรรมฉบับร่างทดสอบสำหรับทดสอบการอัปเดต',
-      },
-      category: ['OTHER'],
-      location: { en: 'Test Room', th: 'ห้องทดสอบ' },
-      mapLink: '',
-      isOnline: false,
-      startAt: null,
-      endAt: null,
-      seatLimit: null,
-      status: EventStatus.DRAFT,
-      hasCatering: false,
-      isCateringFree: false,
-      cateringDescription: { en: '', th: '' },
-      agenda: [],
-      contactName: '',
-      contactEmail: '',
-      contactPhone: '',
-      contactLineId: '',
-      externalUrl: '',
-      remarks: { en: '', th: '' },
-      bannerUrl: 'https://placehold.co/600x400?text=No+Image',
-    },
-  });
-
-  const evtNewYear = await prisma.event.upsert({
-    where: { id: ID.EVT_NEW_YEAR },
-    update: {},
-    create: {
-      id: ID.EVT_NEW_YEAR,
-      organizerId: org3.id,
-      universityId: cmu.id,
-      title: {
-        en: 'New Year Countdown Party 2027',
-        th: 'ปาร์ตี้เคาท์ดาวน์ปีใหม่ 2027',
-      },
-      description: {
-        en: 'Celebrate the New Year with fellow students at CAMT! Enjoy music, food, and a spectacular countdown.',
-        th: 'ฉลองปีใหม่กับเพื่อนนักศึกษาที่ CAMT! เพลิดเพลินกับดนตรี อาหาร และการเคาท์ดาวน์สุดอลังการ',
-      },
-      category: ['PARTY', 'FESTIVAL'],
-      location: { en: 'CAMT Rooftop Garden', th: 'สวนดาดฟ้า CAMT' },
-      mapLink: 'https://maps.google.com/?q=CAMT+CMU',
-      isOnline: false,
-      startAt: new Date('2026-12-31T15:00:00.000Z'),
-      endAt: new Date('2027-01-01T00:00:00.000Z'),
-      seatLimit: 80,
-      status: EventStatus.PUBLISHED,
-      hasCatering: true,
-      isCateringFree: false,
-      cateringDescription: {
-        en: 'Food and drinks available for purchase.',
-        th: 'มีอาหารและเครื่องดื่มจำหน่าย',
-      },
-      agenda: [
-        {
-          time: '22:00',
-          activity: { en: 'Gates Open and Welcome', th: 'เปิดประตูต้อนรับ' },
-        },
-        {
-          time: '22:30',
-          activity: { en: 'Live Music Performance', th: 'การแสดงดนตรีสด' },
-        },
-        {
-          time: '23:45',
-          activity: { en: 'Countdown to New Year', th: 'เคาท์ดาวน์ปีใหม่' },
-        },
-        {
-          time: '00:00',
-          activity: {
-            en: 'Fireworks and Celebration',
-            th: 'พลุและการเฉลิมฉลอง',
-          },
-        },
-      ],
-      contactName: 'SE Department Club',
-      contactEmail: 'bothprofile1@cmu.ac.th',
-      contactPhone: '0812345676',
-      contactLineId: 'se_club',
-      externalUrl: '',
-      remarks: {
-        en: 'Ticket required for entry. Limited seats available.',
-        th: 'ต้องมีบัตรเข้างาน ที่นั่งมีจำนวนจำกัด',
-      },
-      bannerUrl: 'https://placehold.co/600x400?text=New+Year+Party+2027',
-      publishedAt: new Date('2026-10-01T00:00:00.000Z'),
+      contactName: 'CAMT Student Affairs',
+      contactEmail: 'organizer1@cmu.ac.th',
+      bannerUrl: 'https://placehold.co/600x400?text=AI+Research+Seminar',
+      publishedAt: new Date('2026-05-15T00:00:00.000Z'),
     },
   });
 
@@ -807,1025 +845,615 @@ async function main() {
     where: { id: ID.EVT_NO_FORM },
     update: {},
     create: {
+      ...eventBase,
       id: ID.EVT_NO_FORM,
       organizerId: org3.id,
-      universityId: cmu.id,
-      title: {
-        en: 'Test Published Event No Form',
-        th: 'กิจกรรมที่เผยแพร่ทดสอบ ไม่มีฟอร์ม',
-      },
-      description: {
-        en: 'A published test event without any registration form for testing purposes.',
-        th: 'กิจกรรมทดสอบที่เผยแพร่โดยไม่มีฟอร์มลงทะเบียนสำหรับทดสอบ',
-      },
+      title: { en: 'Test Published Event — No Form', th: 'กิจกรรมทดสอบ — ไม่มีฟอร์ม' },
+      description: { en: 'Published event with no registration form for testing.', th: 'กิจกรรมที่เผยแพร่โดยไม่มีฟอร์ม' },
       category: ['OTHER'],
       location: { en: 'CAMT Building Room 301', th: 'ห้อง 301 อาคาร CAMT' },
       mapLink: '',
-      isOnline: false,
-      startAt: new Date('2026-10-20T03:00:00.000Z'),
-      endAt: new Date('2026-10-20T06:00:00.000Z'),
+      startAt: new Date('2026-10-20T09:00:00.000Z'),
+      endAt: new Date('2026-10-20T12:00:00.000Z'),
       seatLimit: null,
+      seatsTaken: 0,
       status: EventStatus.PUBLISHED,
-      hasCatering: false,
-      isCateringFree: false,
-      cateringDescription: { en: '', th: '' },
-      agenda: [],
       contactName: 'SE Department Club',
-      contactEmail: 'bothprofile1@cmu.ac.th',
-      contactPhone: '0812345676',
-      contactLineId: 'se_club',
-      externalUrl: '',
-      remarks: { en: 'No registration required.', th: 'ไม่ต้องลงทะเบียน' },
-      bannerUrl: 'https://placehold.co/600x400?text=Test+Published+No+Form',
+      contactEmail: 'organizer3@cmu.ac.th',
+      bannerUrl: 'https://placehold.co/600x400?text=No+Form+Event',
       publishedAt: new Date('2026-09-20T00:00:00.000Z'),
     },
   });
 
   await prisma.event.upsert({
-    where: { id: ID.EVT_EXCHANGE },
+    where: { id: ID.EVT_DRAFT1 },
     update: {},
     create: {
-      id: ID.EVT_EXCHANGE,
-      organizerId: org3.id,
-      universityId: cmu.id,
-      title: {
-        en: 'Semester Exchange Program 2026',
-        th: 'โครงการแลกเปลี่ยนนักศึกษา 2026',
-      },
-      description: {
-        en: 'An exchange program connecting CMU students with partner universities abroad.',
-        th: 'โครงการแลกเปลี่ยนที่เชื่อมโยงนักศึกษา มช. กับมหาวิทยาลัยพันธมิตรต่างประเทศ',
-      },
-      category: ['SEMINAR', 'NETWORKING'],
-      location: { en: 'Online and CAMT Building', th: 'ออนไลน์และอาคาร CAMT' },
+      ...eventBase,
+      id: ID.EVT_DRAFT1,
+      organizerId: org1.id,
+      title: { en: 'SE Workshop Draft', th: 'เวิร์กชอป SE ฉบับร่าง' },
+      description: { en: 'Draft workshop for SE students.', th: 'เวิร์กชอปฉบับร่าง' },
+      category: ['WORKSHOP'],
+      location: { en: 'CAMT Building Room 101', th: 'ห้อง 101 อาคาร CAMT' },
       mapLink: '',
-      isOnline: true,
-      startAt: new Date('2026-06-03T02:00:00.000Z'),
-      endAt: new Date('2026-11-20T08:00:00.000Z'),
-      seatLimit: 20,
-      status: EventStatus.ONGOING,
-      hasCatering: false,
-      isCateringFree: false,
-      cateringDescription: { en: '', th: '' },
-      agenda: [],
-      contactName: 'SE Department Club',
-      contactEmail: 'bothprofile1@cmu.ac.th',
-      contactPhone: '0812345676',
-      contactLineId: 'se_club',
-      externalUrl: 'https://exchange.cmu.ac.th',
-      remarks: {
-        en: 'Must have GPA 3.0 or above to apply.',
-        th: 'ต้องมี GPA 3.0 ขึ้นไปจึงสมัครได้',
-      },
-      bannerUrl: 'https://placehold.co/600x400?text=Semester+Exchange+2026',
-      publishedAt: new Date('2026-05-01T00:00:00.000Z'),
+      startAt: new Date('2026-11-15T09:00:00.000Z'),
+      endAt: new Date('2026-11-15T12:00:00.000Z'),
+      seatLimit: 30,
+      seatsTaken: 0,
+      status: EventStatus.DRAFT,
+      contactName: 'CAMT Student Affairs',
+      contactEmail: 'organizer1@cmu.ac.th',
+      bannerUrl: 'https://placehold.co/600x400?text=SE+Workshop+Draft',
     },
   });
 
   await prisma.event.upsert({
-    where: { id: ID.EVT_HACKATHON },
+    where: { id: ID.EVT_DRAFT2 },
     update: {},
     create: {
-      id: ID.EVT_HACKATHON,
-      organizerId: org3.id,
-      universityId: cmu.id,
-      title: { en: 'SE Hackathon 2026', th: 'SE Hackathon 2026' },
-      description: {
-        en: '48-hour hackathon challenge for SE students to build innovative solutions.',
-        th: 'แข่งขัน Hackathon 48 ชั่วโมงสำหรับนักศึกษา SE เพื่อสร้างโซลูชั่นใหม่',
-      },
-      category: ['HACKATHON', 'COMPETITION'],
-      location: { en: 'CAMT Innovation Lab', th: 'ห้อง Innovation Lab CAMT' },
+      ...eventBase,
+      id: ID.EVT_DRAFT2,
+      organizerId: org2.id,
+      title: { en: 'Music Concert Draft', th: 'คอนเสิร์ตดนตรีฉบับร่าง' },
+      description: { en: 'Draft for annual music concert.', th: 'ฉบับร่างคอนเสิร์ตประจำปี' },
+      category: ['CULTURAL', 'FESTIVAL'],
+      location: { en: 'CMU Auditorium', th: 'หอประชุม มช.' },
       mapLink: '',
-      isOnline: false,
-      startAt: new Date('2026-05-20T01:00:00.000Z'),
-      endAt: new Date('2026-06-06T09:00:00.000Z'),
-      seatLimit: 60,
-      status: EventStatus.CONCLUDED,
-      hasCatering: true,
-      isCateringFree: true,
-      cateringDescription: {
-        en: 'Meals and snacks provided throughout the event.',
-        th: 'มีอาหารและของว่างตลอดงาน',
-      },
-      agenda: [
-        {
-          time: '09:00',
-          activity: {
-            en: 'Opening and Team Formation',
-            th: 'เปิดงานและจัดทีม',
-          },
-        },
-        {
-          time: '10:00',
-          activity: { en: 'Hacking Begins', th: 'เริ่มแข่งขัน' },
-        },
-        {
-          time: '14:00',
-          activity: {
-            en: 'Presentations and Awards',
-            th: 'นำเสนอผลงานและมอบรางวัล',
-          },
-        },
-      ],
+      startAt: new Date('2026-12-20T18:00:00.000Z'),
+      endAt: new Date('2026-12-20T21:00:00.000Z'),
+      seatLimit: 150,
+      seatsTaken: 0,
+      status: EventStatus.DRAFT,
+      contactName: 'CMU Music and Arts Club',
+      contactEmail: 'organizer2@cmu.ac.th',
+      bannerUrl: 'https://placehold.co/600x400?text=Music+Concert+Draft',
+    },
+  });
+
+  await prisma.event.upsert({
+    where: { id: ID.EVT_DRAFT3 },
+    update: {},
+    create: {
+      ...eventBase,
+      id: ID.EVT_DRAFT3,
+      organizerId: org3.id,
+      title: { en: 'Cultural Festival Draft', th: 'เทศกาลวัฒนธรรมฉบับร่าง' },
+      description: { en: 'Draft for upcoming cultural festival.', th: 'ฉบับร่างเทศกาลวัฒนธรรม' },
+      category: ['CULTURAL', 'FESTIVAL'],
+      location: { en: 'CMU Cultural Center', th: 'ศูนย์วัฒนธรรม มช.' },
+      mapLink: '',
+      startAt: null,
+      endAt: null,
+      seatLimit: null,
+      seatsTaken: 0,
+      status: EventStatus.DRAFT,
       contactName: 'SE Department Club',
-      contactEmail: 'bothprofile1@cmu.ac.th',
-      contactPhone: '0812345676',
-      contactLineId: 'se_club',
-      externalUrl: '',
-      remarks: { en: 'Teams of 3 to 5 members.', th: 'ทีม 3 ถึง 5 คน' },
-      bannerUrl: 'https://placehold.co/600x400?text=SE+Hackathon+2026',
-      publishedAt: new Date('2026-04-20T00:00:00.000Z'),
+      contactEmail: 'organizer3@cmu.ac.th',
+      bannerUrl: 'https://placehold.co/600x400?text=Cultural+Festival+Draft',
     },
   });
-  console.log('✓ Events seeded');
 
-  // ─── FORMS ───────────────────────────────────────────────────────────────────
-
-  const formHalloweenReg = await prisma.form.upsert({
-    where: {
-      eventId_type: { eventId: evtHalloween.id, type: FormType.REGISTRATION },
-    },
+  await prisma.event.upsert({
+    where: { id: ID.EVT_CONCERT },
     update: {},
     create: {
-      id: ID.FORM_HALLOWEEN_REG,
-      eventId: evtHalloween.id,
-      type: FormType.REGISTRATION,
-      title: 'Halloween Night Registration',
-      description: 'Please fill in your details to register for the event.',
+      ...eventBase,
+      id: ID.EVT_CONCERT,
+      organizerId: org2.id,
+      title: { en: 'CMU Annual Concert 2026', th: 'คอนเสิร์ตประจำปี CMU 2026' },
+      description: { en: 'Annual concert featuring student performances.', th: 'คอนเสิร์ตประจำปีที่มีการแสดงของนักศึกษา' },
+      category: ['CULTURAL', 'FESTIVAL'],
+      location: { en: 'CMU Main Auditorium', th: 'หอประชุมใหญ่ มช.' },
+      mapLink: 'https://maps.google.com/?q=CMU+Auditorium',
+      startAt: new Date('2026-11-28T18:00:00.000Z'),
+      endAt: new Date('2026-11-28T21:00:00.000Z'),
+      seatLimit: 300,
+      seatsTaken: 0, // no registrations yet — open for registration
+      status: EventStatus.PUBLISHED,
+      contactName: 'CMU Music and Arts Club',
+      contactEmail: 'organizer2@cmu.ac.th',
+      bannerUrl: 'https://placehold.co/600x400?text=CMU+Annual+Concert',
+      publishedAt: new Date('2026-10-01T00:00:00.000Z'),
     },
   });
 
-  await prisma.formField.upsert({
-    where: { id: ID.FLD_H_NAME },
+  console.log('✓ Events (14 total — various statuses and seat limits)');
+
+  // ── Forms and Fields ─────────────────────────────────────────────────────────
+
+  // Halloween — Registration form
+  await prisma.form.upsert({
+    where: { eventId_type: { eventId: ID.EVT_HALLOWEEN, type: FormType.REGISTRATION } },
     update: {},
-    create: {
-      id: ID.FLD_H_NAME,
-      formId: formHalloweenReg.id,
-      type: FieldType.TEXT,
-      label: 'Full Name',
-      isRequired: true,
-      order: 0,
-      options: [],
-      autoFillKey: 'firstName',
-    },
+    create: { id: ID.FORM_HALLOWEEN_REG, eventId: ID.EVT_HALLOWEEN, type: FormType.REGISTRATION, title: 'Halloween Night Registration', description: 'Fill in your details to join.' },
   });
+  const halloweenFields = [
+    { id: ID.FLD_H_FIRSTNAME, formId: ID.FORM_HALLOWEEN_REG, type: FieldType.TEXT,   label: 'First Name',  isRequired: true,  order: 0, options: [], autoFillKey: 'firstName' },
+    { id: ID.FLD_H_LASTNAME,  formId: ID.FORM_HALLOWEEN_REG, type: FieldType.TEXT,   label: 'Last Name',   isRequired: true,  order: 1, options: [], autoFillKey: 'lastName' },
+    { id: ID.FLD_H_STUDENTID, formId: ID.FORM_HALLOWEEN_REG, type: FieldType.TEXT,   label: 'Student ID',  isRequired: true,  order: 2, options: [], autoFillKey: 'studentId' },
+    { id: ID.FLD_H_YEAR,      formId: ID.FORM_HALLOWEEN_REG, type: FieldType.CHOICE, label: 'Year of Study', isRequired: true, order: 3, options: ['Year 1', 'Year 2', 'Year 3', 'Year 4'], autoFillKey: null },
+    { id: ID.FLD_H_DIET,      formId: ID.FORM_HALLOWEEN_REG, type: FieldType.CHOICE, label: 'Dietary Preference', isRequired: false, order: 4, options: ['None', 'Vegetarian', 'Vegan', 'Halal'], autoFillKey: null },
+  ];
+  for (const f of halloweenFields) {
+    await prisma.formField.upsert({ where: { id: f.id }, update: {}, create: f });
+  }
 
-  await prisma.formField.upsert({
-    where: { id: ID.FLD_H_STUID },
+  // New Year — Registration form
+  await prisma.form.upsert({
+    where: { eventId_type: { eventId: ID.EVT_NEW_YEAR, type: FormType.REGISTRATION } },
     update: {},
-    create: {
-      id: ID.FLD_H_STUID,
-      formId: formHalloweenReg.id,
-      type: FieldType.TEXT,
-      label: 'Student ID',
-      isRequired: true,
-      order: 1,
-      options: [],
-      autoFillKey: 'studentId',
-    },
+    create: { id: ID.FORM_NEW_YEAR_REG, eventId: ID.EVT_NEW_YEAR, type: FormType.REGISTRATION, title: 'New Year Party Registration', description: 'Secure your spot!' },
   });
+  const newYearRegFields = [
+    { id: ID.FLD_NY_FIRSTNAME, formId: ID.FORM_NEW_YEAR_REG, type: FieldType.TEXT,   label: 'First Name', isRequired: true,  order: 0, options: [], autoFillKey: 'firstName' },
+    { id: ID.FLD_NY_NICKNAME,  formId: ID.FORM_NEW_YEAR_REG, type: FieldType.TEXT,   label: 'Nickname',   isRequired: false, order: 1, options: [], autoFillKey: 'nickname' },
+    { id: ID.FLD_NY_STUDENTID, formId: ID.FORM_NEW_YEAR_REG, type: FieldType.TEXT,   label: 'Student ID', isRequired: true,  order: 2, options: [], autoFillKey: 'studentId' },
+    { id: ID.FLD_NY_MAJOR,     formId: ID.FORM_NEW_YEAR_REG, type: FieldType.TEXT,   label: 'Major',      isRequired: false, order: 3, options: [], autoFillKey: 'major' },
+    { id: ID.FLD_NY_TSHIRT,    formId: ID.FORM_NEW_YEAR_REG, type: FieldType.CHOICE, label: 'T-Shirt Size', isRequired: true, order: 4, options: ['S', 'M', 'L', 'XL', 'XXL'], autoFillKey: null },
+  ];
+  for (const f of newYearRegFields) {
+    await prisma.formField.upsert({ where: { id: f.id }, update: {}, create: f });
+  }
 
-  await prisma.formField.upsert({
-    where: { id: ID.FLD_H_YEAR },
+  // New Year — Feedback form
+  await prisma.form.upsert({
+    where: { eventId_type: { eventId: ID.EVT_NEW_YEAR, type: FormType.FEEDBACK } },
     update: {},
-    create: {
-      id: ID.FLD_H_YEAR,
-      formId: formHalloweenReg.id,
-      type: FieldType.CHOICE,
-      label: 'Year of Study',
-      isRequired: true,
-      order: 2,
-      options: ['Year 1', 'Year 2', 'Year 3', 'Year 4'],
-      autoFillKey: null,
-    },
+    create: { id: ID.FORM_NEW_YEAR_FB, eventId: ID.EVT_NEW_YEAR, type: FormType.FEEDBACK, title: 'New Year Party Feedback', description: 'We would love your feedback!' },
   });
+  const newYearFbFields = [
+    { id: ID.FLD_NYFB_OVERALL, formId: ID.FORM_NEW_YEAR_FB, type: FieldType.RATING,   label: 'Overall Experience', isRequired: true,  order: 0, options: [], autoFillKey: null },
+    { id: ID.FLD_NYFB_ORG,     formId: ID.FORM_NEW_YEAR_FB, type: FieldType.RATING,   label: 'Event Organization', isRequired: true,  order: 1, options: [], autoFillKey: null },
+    { id: ID.FLD_NYFB_COMMENT, formId: ID.FORM_NEW_YEAR_FB, type: FieldType.TEXTAREA, label: 'Comments',           isRequired: false, order: 2, options: [], autoFillKey: null },
+  ];
+  for (const f of newYearFbFields) {
+    await prisma.formField.upsert({ where: { id: f.id }, update: {}, create: f });
+  }
 
-  await prisma.formField.upsert({
-    where: { id: ID.FLD_H_DIET },
+  // Sukhothai — Registration form
+  await prisma.form.upsert({
+    where: { eventId_type: { eventId: ID.EVT_SUKHOTHAI, type: FormType.REGISTRATION } },
     update: {},
-    create: {
-      id: ID.FLD_H_DIET,
-      formId: formHalloweenReg.id,
-      type: FieldType.CHOICE,
-      label: 'Dietary Preference',
-      isRequired: false,
-      order: 3,
-      options: ['None', 'Vegetarian', 'Vegan', 'Halal'],
-      autoFillKey: null,
-    },
+    create: { id: ID.FORM_SUKHOTHAI_REG, eventId: ID.EVT_SUKHOTHAI, type: FormType.REGISTRATION, title: 'Sukhothai Trip Registration', description: 'Register for the trip.' },
   });
+  const sukhothaiFields = [
+    { id: ID.FLD_SK_FIRSTNAME, formId: ID.FORM_SUKHOTHAI_REG, type: FieldType.TEXT,   label: 'First Name',        isRequired: true,  order: 0, options: [], autoFillKey: 'firstName' },
+    { id: ID.FLD_SK_STUDENTID, formId: ID.FORM_SUKHOTHAI_REG, type: FieldType.TEXT,   label: 'Student ID',        isRequired: true,  order: 1, options: [], autoFillKey: 'studentId' },
+    { id: ID.FLD_SK_DIETARY,   formId: ID.FORM_SUKHOTHAI_REG, type: FieldType.CHOICE, label: 'Dietary Preference', isRequired: false, order: 2, options: ['None', 'Vegetarian', 'Halal'], autoFillKey: null },
+  ];
+  for (const f of sukhothaiFields) {
+    await prisma.formField.upsert({ where: { id: f.id }, update: {}, create: f });
+  }
 
-  const formNewYearReg = await prisma.form.upsert({
-    where: {
-      eventId_type: { eventId: evtNewYear.id, type: FormType.REGISTRATION },
-    },
+  // Exchange — Registration form
+  await prisma.form.upsert({
+    where: { eventId_type: { eventId: ID.EVT_EXCHANGE, type: FormType.REGISTRATION } },
     update: {},
-    create: {
-      id: ID.FORM_NEW_YEAR_REG,
-      eventId: evtNewYear.id,
-      type: FormType.REGISTRATION,
-      title: 'New Year Party Registration',
-      description: 'Secure your spot for the countdown party!',
-    },
+    create: { id: ID.FORM_EXCHANGE_REG, eventId: ID.EVT_EXCHANGE, type: FormType.REGISTRATION, title: 'Exchange Program Registration', description: 'Apply for the exchange program.' },
   });
+  const exchangeFields = [
+    { id: ID.FLD_EX_FIRSTNAME, formId: ID.FORM_EXCHANGE_REG, type: FieldType.TEXT,   label: 'First Name', isRequired: true,  order: 0, options: [], autoFillKey: 'firstName' },
+    { id: ID.FLD_EX_STUDENTID, formId: ID.FORM_EXCHANGE_REG, type: FieldType.TEXT,   label: 'Student ID', isRequired: true,  order: 1, options: [], autoFillKey: 'studentId' },
+    { id: ID.FLD_EX_MAJOR,     formId: ID.FORM_EXCHANGE_REG, type: FieldType.TEXT,   label: 'Major',      isRequired: true,  order: 2, options: [], autoFillKey: 'major' },
+    { id: ID.FLD_EX_GPA,       formId: ID.FORM_EXCHANGE_REG, type: FieldType.NUMBER, label: 'GPA',        isRequired: true,  order: 3, options: [], autoFillKey: null },
+  ];
+  for (const f of exchangeFields) {
+    await prisma.formField.upsert({ where: { id: f.id }, update: {}, create: f });
+  }
 
-  await prisma.formField.upsert({
-    where: { id: ID.FLD_NY_NAME },
+  // Bootcamp — Registration form
+  await prisma.form.upsert({
+    where: { eventId_type: { eventId: ID.EVT_BOOTCAMP, type: FormType.REGISTRATION } },
     update: {},
-    create: {
-      id: ID.FLD_NY_NAME,
-      formId: formNewYearReg.id,
-      type: FieldType.TEXT,
-      label: 'Full Name',
-      isRequired: true,
-      order: 0,
-      options: [],
-      autoFillKey: 'firstName',
-    },
+    create: { id: ID.FORM_BOOTCAMP_REG, eventId: ID.EVT_BOOTCAMP, type: FormType.REGISTRATION, title: 'Coding Bootcamp Registration', description: 'Register for the bootcamp.' },
   });
+  const bootcampFields = [
+    { id: ID.FLD_BC_FIRSTNAME,  formId: ID.FORM_BOOTCAMP_REG, type: FieldType.TEXT,   label: 'First Name',      isRequired: true,  order: 0, options: [], autoFillKey: 'firstName' },
+    { id: ID.FLD_BC_STUDENTID,  formId: ID.FORM_BOOTCAMP_REG, type: FieldType.TEXT,   label: 'Student ID',      isRequired: true,  order: 1, options: [], autoFillKey: 'studentId' },
+    { id: ID.FLD_BC_EXPERIENCE, formId: ID.FORM_BOOTCAMP_REG, type: FieldType.CHOICE, label: 'Experience Level', isRequired: true,  order: 2, options: ['Beginner', 'Intermediate', 'Advanced'], autoFillKey: null },
+  ];
+  for (const f of bootcampFields) {
+    await prisma.formField.upsert({ where: { id: f.id }, update: {}, create: f });
+  }
 
-  await prisma.formField.upsert({
-    where: { id: ID.FLD_NY_NICK },
+  // Hackathon — Registration form
+  await prisma.form.upsert({
+    where: { eventId_type: { eventId: ID.EVT_HACKATHON, type: FormType.REGISTRATION } },
     update: {},
-    create: {
-      id: ID.FLD_NY_NICK,
-      formId: formNewYearReg.id,
-      type: FieldType.TEXT,
-      label: 'Nickname',
-      isRequired: false,
-      order: 1,
-      options: [],
-      autoFillKey: 'nickname',
-    },
+    create: { id: ID.FORM_HACKATHON_REG, eventId: ID.EVT_HACKATHON, type: FormType.REGISTRATION, title: 'SE Hackathon Registration', description: 'Register your team.' },
   });
+  const hackathonRegFields = [
+    { id: ID.FLD_HK_FIRSTNAME, formId: ID.FORM_HACKATHON_REG, type: FieldType.TEXT, label: 'First Name', isRequired: true, order: 0, options: [], autoFillKey: 'firstName' },
+    { id: ID.FLD_HK_LASTNAME,  formId: ID.FORM_HACKATHON_REG, type: FieldType.TEXT, label: 'Last Name',  isRequired: true, order: 1, options: [], autoFillKey: 'lastName' },
+    { id: ID.FLD_HK_STUDENTID, formId: ID.FORM_HACKATHON_REG, type: FieldType.TEXT, label: 'Student ID', isRequired: true, order: 2, options: [], autoFillKey: 'studentId' },
+    { id: ID.FLD_HK_TEAMNAME,  formId: ID.FORM_HACKATHON_REG, type: FieldType.TEXT, label: 'Team Name',  isRequired: true, order: 3, options: [], autoFillKey: null },
+  ];
+  for (const f of hackathonRegFields) {
+    await prisma.formField.upsert({ where: { id: f.id }, update: {}, create: f });
+  }
 
-  await prisma.formField.upsert({
-    where: { id: ID.FLD_NY_TSHIRT },
+  // Hackathon — Feedback form
+  await prisma.form.upsert({
+    where: { eventId_type: { eventId: ID.EVT_HACKATHON, type: FormType.FEEDBACK } },
     update: {},
-    create: {
-      id: ID.FLD_NY_TSHIRT,
-      formId: formNewYearReg.id,
-      type: FieldType.CHOICE,
-      label: 'T-Shirt Size',
-      isRequired: true,
-      order: 2,
-      options: ['S', 'M', 'L', 'XL', 'XXL'],
-      autoFillKey: null,
-    },
+    create: { id: ID.FORM_HACKATHON_FB, eventId: ID.EVT_HACKATHON, type: FormType.FEEDBACK, title: 'SE Hackathon Feedback', description: 'Share your experience.' },
   });
+  const hackathonFbFields = [
+    { id: ID.FLD_HKFB_OVERALL, formId: ID.FORM_HACKATHON_FB, type: FieldType.RATING,   label: 'Overall Experience', isRequired: true,  order: 0, options: [], autoFillKey: null },
+    { id: ID.FLD_HKFB_COMMENT, formId: ID.FORM_HACKATHON_FB, type: FieldType.TEXTAREA, label: 'What did you enjoy?', isRequired: false, order: 1, options: [], autoFillKey: null },
+  ];
+  for (const f of hackathonFbFields) {
+    await prisma.formField.upsert({ where: { id: f.id }, update: {}, create: f });
+  }
 
-  await prisma.formField.upsert({
-    where: { id: ID.FLD_NY_HEAR },
+  // Sports Day — Registration form (minimal)
+  await prisma.form.upsert({
+    where: { eventId_type: { eventId: ID.EVT_SPORTS, type: FormType.REGISTRATION } },
     update: {},
-    create: {
-      id: ID.FLD_NY_HEAR,
-      formId: formNewYearReg.id,
-      type: FieldType.CHOICE,
-      label: 'How did you hear about this event?',
-      isRequired: false,
-      order: 3,
-      options: ['Instagram', 'Facebook', 'Friend', 'Poster', 'Line'],
-      autoFillKey: null,
-    },
+    create: { id: ID.FORM_SPORTS_REG, eventId: ID.EVT_SPORTS, type: FormType.REGISTRATION, title: 'Sports Day Registration', description: 'Register for sports day.' },
   });
+  const sportsFields = [
+    { id: ID.FLD_SP_FIRSTNAME, formId: ID.FORM_SPORTS_REG, type: FieldType.TEXT,   label: 'First Name',    isRequired: true, order: 0, options: [], autoFillKey: 'firstName' },
+    { id: ID.FLD_SP_SPORT,     formId: ID.FORM_SPORTS_REG, type: FieldType.CHOICE, label: 'Preferred Sport', isRequired: true, order: 1, options: ['Football', 'Basketball', 'Volleyball', 'Badminton'], autoFillKey: null },
+  ];
+  for (const f of sportsFields) {
+    await prisma.formField.upsert({ where: { id: f.id }, update: {}, create: f });
+  }
 
-  const formNewYearFeedback = await prisma.form.upsert({
-    where: {
-      eventId_type: { eventId: evtNewYear.id, type: FormType.FEEDBACK },
-    },
+  // Concert — Registration form
+  await prisma.form.upsert({
+    where: { eventId_type: { eventId: ID.EVT_CONCERT, type: FormType.REGISTRATION } },
     update: {},
-    create: {
-      id: ID.FORM_NEW_YEAR_FB,
-      eventId: evtNewYear.id,
-      type: FormType.FEEDBACK,
-      title: 'New Year Party Feedback',
-      description: 'We would love to hear your feedback!',
-    },
+    create: { id: ID.FORM_CONCERT_REG, eventId: ID.EVT_CONCERT, type: FormType.REGISTRATION, title: 'CMU Annual Concert Registration', description: 'Register for the concert.' },
   });
+  const concertFields = [
+    { id: ID.FLD_CN_FIRSTNAME, formId: ID.FORM_CONCERT_REG, type: FieldType.TEXT,   label: 'First Name', isRequired: true,  order: 0, options: [], autoFillKey: 'firstName' },
+    { id: ID.FLD_CN_STUDENTID, formId: ID.FORM_CONCERT_REG, type: FieldType.TEXT,   label: 'Student ID', isRequired: true,  order: 1, options: [], autoFillKey: 'studentId' },
+    { id: ID.FLD_CN_SECTION,   formId: ID.FORM_CONCERT_REG, type: FieldType.CHOICE, label: 'Seating Section', isRequired: true, order: 2, options: ['Zone A', 'Zone B', 'Zone C'], autoFillKey: null },
+  ];
+  for (const f of concertFields) {
+    await prisma.formField.upsert({ where: { id: f.id }, update: {}, create: f });
+  }
 
-  await prisma.formField.upsert({
-    where: { id: ID.FLD_FB_OVERALL },
-    update: {},
-    create: {
-      id: ID.FLD_FB_OVERALL,
-      formId: formNewYearFeedback.id,
-      type: FieldType.RATING,
-      label: 'Overall Experience',
-      isRequired: true,
-      order: 0,
-      options: [],
-      autoFillKey: null,
+  console.log('✓ Forms and fields');
+
+  // ── Registrations, Form Responses, Tickets ───────────────────────────────────
+  // Generated from config — each entry creates: EventRegistration + FormResponse + FormFieldResponses + Ticket
+
+  type RegConfig = {
+    registrationId: string;
+    ticketId: string;
+    formResponseId: string;
+    participantKey: keyof typeof PARTICIPANT_DATA;
+    eventId: string;
+    formId: string;
+    formFields: { id: string; autoFillKey: string | null; type: FieldType; options: string[] }[];
+    registrationStatus: RegistrationStatus;
+    ticketStatus: TicketStatus;
+    extraAnswers?: Record<string, string | number | string[]>;
+    createdAt?: Date;
+  };
+
+  const registrationConfigs: RegConfig[] = [
+    // ── Halloween — par1, par2, par3 CONFIRMED ──────────────────────────────
+    {
+      registrationId: 'a1000001-0000-4000-8000-000000000001',
+      ticketId:       'b1000001-0000-4000-8000-000000000001',
+      formResponseId: 'c1000001-0000-4000-8000-000000000001',
+      participantKey: 'PAR1', eventId: ID.EVT_HALLOWEEN, formId: ID.FORM_HALLOWEEN_REG,
+      formFields: halloweenFields,
+      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
+      extraAnswers: { [ID.FLD_H_YEAR]: ['Year 3'], [ID.FLD_H_DIET]: ['Vegetarian'] },
+      createdAt: new Date('2026-09-05T10:00:00.000Z'),
     },
-  });
-
-  await prisma.formField.upsert({
-    where: { id: ID.FLD_FB_ORG },
-    update: {},
-    create: {
-      id: ID.FLD_FB_ORG,
-      formId: formNewYearFeedback.id,
-      type: FieldType.RATING,
-      label: 'Event Organization',
-      isRequired: true,
-      order: 1,
-      options: [],
-      autoFillKey: null,
+    {
+      registrationId: 'a1000002-0000-4000-8000-000000000002',
+      ticketId:       'b1000002-0000-4000-8000-000000000002',
+      formResponseId: 'c1000002-0000-4000-8000-000000000002',
+      participantKey: 'PAR2', eventId: ID.EVT_HALLOWEEN, formId: ID.FORM_HALLOWEEN_REG,
+      formFields: halloweenFields,
+      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
+      extraAnswers: { [ID.FLD_H_YEAR]: ['Year 4'], [ID.FLD_H_DIET]: ['None'] },
+      createdAt: new Date('2026-09-06T11:00:00.000Z'),
     },
-  });
-
-  await prisma.formField.upsert({
-    where: { id: ID.FLD_FB_COMMENT },
-    update: {},
-    create: {
-      id: ID.FLD_FB_COMMENT,
-      formId: formNewYearFeedback.id,
-      type: FieldType.TEXTAREA,
-      label: 'Comments',
-      isRequired: false,
-      order: 2,
-      options: [],
-      autoFillKey: null,
+    {
+      registrationId: 'a1000003-0000-4000-8000-000000000003',
+      ticketId:       'b1000003-0000-4000-8000-000000000003',
+      formResponseId: 'c1000003-0000-4000-8000-000000000003',
+      participantKey: 'PAR3', eventId: ID.EVT_HALLOWEEN, formId: ID.FORM_HALLOWEEN_REG,
+      formFields: halloweenFields,
+      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
+      extraAnswers: { [ID.FLD_H_YEAR]: ['Year 3'], [ID.FLD_H_DIET]: ['None'] },
+      createdAt: new Date('2026-09-07T09:00:00.000Z'),
     },
-  });
-  console.log('✓ Forms and fields seeded');
 
-  // ─── EVENT REGISTRATIONS ─────────────────────────────────────────────────────
+    // ── New Year — ALL 5 participants CONFIRMED (event FULL, seatLimit=5) ───
+    {
+      registrationId: 'a2000001-0000-4000-8000-000000000001',
+      ticketId:       'b2000001-0000-4000-8000-000000000001',
+      formResponseId: 'c2000001-0000-4000-8000-000000000001',
+      participantKey: 'PAR1', eventId: ID.EVT_NEW_YEAR, formId: ID.FORM_NEW_YEAR_REG,
+      formFields: newYearRegFields,
+      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
+      extraAnswers: { [ID.FLD_NY_TSHIRT]: ['M'] },
+      createdAt: new Date('2026-10-05T10:00:00.000Z'),
+    },
+    {
+      registrationId: 'a2000002-0000-4000-8000-000000000002',
+      ticketId:       'b2000002-0000-4000-8000-000000000002',
+      formResponseId: 'c2000002-0000-4000-8000-000000000002',
+      participantKey: 'PAR2', eventId: ID.EVT_NEW_YEAR, formId: ID.FORM_NEW_YEAR_REG,
+      formFields: newYearRegFields,
+      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
+      extraAnswers: { [ID.FLD_NY_TSHIRT]: ['L'] },
+      createdAt: new Date('2026-10-06T10:00:00.000Z'),
+    },
+    {
+      registrationId: 'a2000003-0000-4000-8000-000000000003',
+      ticketId:       'b2000003-0000-4000-8000-000000000003',
+      formResponseId: 'c2000003-0000-4000-8000-000000000003',
+      participantKey: 'PAR3', eventId: ID.EVT_NEW_YEAR, formId: ID.FORM_NEW_YEAR_REG,
+      formFields: newYearRegFields,
+      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
+      extraAnswers: { [ID.FLD_NY_TSHIRT]: ['S'] },
+      createdAt: new Date('2026-10-07T10:00:00.000Z'),
+    },
+    {
+      registrationId: 'a2000004-0000-4000-8000-000000000004',
+      ticketId:       'b2000004-0000-4000-8000-000000000004',
+      formResponseId: 'c2000004-0000-4000-8000-000000000004',
+      participantKey: 'PAR4', eventId: ID.EVT_NEW_YEAR, formId: ID.FORM_NEW_YEAR_REG,
+      formFields: newYearRegFields,
+      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
+      extraAnswers: { [ID.FLD_NY_TSHIRT]: ['XL'] },
+      createdAt: new Date('2026-10-08T10:00:00.000Z'),
+    },
+    {
+      registrationId: 'a2000005-0000-4000-8000-000000000005',
+      ticketId:       'b2000005-0000-4000-8000-000000000005',
+      formResponseId: 'c2000005-0000-4000-8000-000000000005',
+      participantKey: 'PAR5', eventId: ID.EVT_NEW_YEAR, formId: ID.FORM_NEW_YEAR_REG,
+      formFields: newYearRegFields,
+      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
+      extraAnswers: { [ID.FLD_NY_TSHIRT]: ['XXL'] },
+      createdAt: new Date('2026-10-09T10:00:00.000Z'),
+    },
 
-  const regHalloweenPar1 = await prisma.eventRegistration.upsert({
-    where: {
-      participantId_eventId: {
-        participantId: par1.id,
-        eventId: evtHalloween.id,
+    // ── Sukhothai — par1 CONFIRMED, par2 CANCELLED ──────────────────────────
+    {
+      registrationId: 'a3000001-0000-4000-8000-000000000001',
+      ticketId:       'b3000001-0000-4000-8000-000000000001',
+      formResponseId: 'c3000001-0000-4000-8000-000000000001',
+      participantKey: 'PAR1', eventId: ID.EVT_SUKHOTHAI, formId: ID.FORM_SUKHOTHAI_REG,
+      formFields: sukhothaiFields,
+      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
+      extraAnswers: { [ID.FLD_SK_DIETARY]: ['None'] },
+      createdAt: new Date('2026-09-15T10:00:00.000Z'),
+    },
+    {
+      registrationId: 'a3000002-0000-4000-8000-000000000002',
+      ticketId:       'b3000002-0000-4000-8000-000000000002',
+      formResponseId: 'c3000002-0000-4000-8000-000000000002',
+      participantKey: 'PAR2', eventId: ID.EVT_SUKHOTHAI, formId: ID.FORM_SUKHOTHAI_REG,
+      formFields: sukhothaiFields,
+      registrationStatus: RegistrationStatus.CANCELLED, ticketStatus: TicketStatus.CANCELLED,
+      extraAnswers: { [ID.FLD_SK_DIETARY]: ['Vegetarian'] },
+      createdAt: new Date('2026-09-16T10:00:00.000Z'),
+    },
+
+    // ── Exchange — par1, par2, par3 CONFIRMED (event FULL, seatLimit=3) ─────
+    {
+      registrationId: 'a4000001-0000-4000-8000-000000000001',
+      ticketId:       'b4000001-0000-4000-8000-000000000001',
+      formResponseId: 'c4000001-0000-4000-8000-000000000001',
+      participantKey: 'PAR1', eventId: ID.EVT_EXCHANGE, formId: ID.FORM_EXCHANGE_REG,
+      formFields: exchangeFields,
+      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
+      extraAnswers: { [ID.FLD_EX_GPA]: 3.8 },
+      createdAt: new Date('2026-08-05T10:00:00.000Z'),
+    },
+    {
+      registrationId: 'a4000002-0000-4000-8000-000000000002',
+      ticketId:       'b4000002-0000-4000-8000-000000000002',
+      formResponseId: 'c4000002-0000-4000-8000-000000000002',
+      participantKey: 'PAR2', eventId: ID.EVT_EXCHANGE, formId: ID.FORM_EXCHANGE_REG,
+      formFields: exchangeFields,
+      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
+      extraAnswers: { [ID.FLD_EX_GPA]: 3.5 },
+      createdAt: new Date('2026-08-06T10:00:00.000Z'),
+    },
+    {
+      registrationId: 'a4000003-0000-4000-8000-000000000003',
+      ticketId:       'b4000003-0000-4000-8000-000000000003',
+      formResponseId: 'c4000003-0000-4000-8000-000000000003',
+      participantKey: 'PAR3', eventId: ID.EVT_EXCHANGE, formId: ID.FORM_EXCHANGE_REG,
+      formFields: exchangeFields,
+      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
+      extraAnswers: { [ID.FLD_EX_GPA]: 3.2 },
+      createdAt: new Date('2026-08-07T10:00:00.000Z'),
+    },
+
+    // ── Bootcamp — par1 CONFIRMED, par3 CONFIRMED ───────────────────────────
+    {
+      registrationId: 'a5000001-0000-4000-8000-000000000001',
+      ticketId:       'b5000001-0000-4000-8000-000000000001',
+      formResponseId: 'c5000001-0000-4000-8000-000000000001',
+      participantKey: 'PAR1', eventId: ID.EVT_BOOTCAMP, formId: ID.FORM_BOOTCAMP_REG,
+      formFields: bootcampFields,
+      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
+      extraAnswers: { [ID.FLD_BC_EXPERIENCE]: ['Intermediate'] },
+      createdAt: new Date('2026-07-10T10:00:00.000Z'),
+    },
+    {
+      registrationId: 'a5000002-0000-4000-8000-000000000002',
+      ticketId:       'b5000002-0000-4000-8000-000000000002',
+      formResponseId: 'c5000002-0000-4000-8000-000000000002',
+      participantKey: 'PAR3', eventId: ID.EVT_BOOTCAMP, formId: ID.FORM_BOOTCAMP_REG,
+      formFields: bootcampFields,
+      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
+      extraAnswers: { [ID.FLD_BC_EXPERIENCE]: ['Beginner'] },
+      createdAt: new Date('2026-07-11T10:00:00.000Z'),
+    },
+
+    // ── Hackathon — par1, par2 CONFIRMED, tickets EXPIRED (concluded event) ─
+    {
+      registrationId: 'a6000001-0000-4000-8000-000000000001',
+      ticketId:       'b6000001-0000-4000-8000-000000000001',
+      formResponseId: 'c6000001-0000-4000-8000-000000000001',
+      participantKey: 'PAR1', eventId: ID.EVT_HACKATHON, formId: ID.FORM_HACKATHON_REG,
+      formFields: hackathonRegFields,
+      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.EXPIRED,
+      extraAnswers: { [ID.FLD_HK_TEAMNAME]: 'Team Alpha' },
+      createdAt: new Date('2026-04-25T10:00:00.000Z'),
+    },
+    {
+      registrationId: 'a6000002-0000-4000-8000-000000000002',
+      ticketId:       'b6000002-0000-4000-8000-000000000002',
+      formResponseId: 'c6000002-0000-4000-8000-000000000002',
+      participantKey: 'PAR2', eventId: ID.EVT_HACKATHON, formId: ID.FORM_HACKATHON_REG,
+      formFields: hackathonRegFields,
+      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.EXPIRED,
+      extraAnswers: { [ID.FLD_HK_TEAMNAME]: 'Team Beta' },
+      createdAt: new Date('2026-04-26T10:00:00.000Z'),
+    },
+
+    // ── Sports Day — par2, par4 CONFIRMED, tickets EXPIRED (concluded, unlimited) ─
+    {
+      registrationId: 'a7000001-0000-4000-8000-000000000001',
+      ticketId:       'b7000001-0000-4000-8000-000000000001',
+      formResponseId: 'c7000001-0000-4000-8000-000000000001',
+      participantKey: 'PAR2', eventId: ID.EVT_SPORTS, formId: ID.FORM_SPORTS_REG,
+      formFields: sportsFields,
+      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.EXPIRED,
+      extraAnswers: { [ID.FLD_SP_SPORT]: ['Football'] },
+      createdAt: new Date('2026-03-20T10:00:00.000Z'),
+    },
+    {
+      registrationId: 'a7000002-0000-4000-8000-000000000002',
+      ticketId:       'b7000002-0000-4000-8000-000000000002',
+      formResponseId: 'c7000002-0000-4000-8000-000000000002',
+      participantKey: 'PAR4', eventId: ID.EVT_SPORTS, formId: ID.FORM_SPORTS_REG,
+      formFields: sportsFields,
+      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.EXPIRED,
+      extraAnswers: { [ID.FLD_SP_SPORT]: ['Basketball'] },
+      createdAt: new Date('2026-03-21T10:00:00.000Z'),
+    },
+  ];
+
+  // Execute all registrations
+  let regCount = 0;
+  for (const config of registrationConfigs) {
+    await createFullRegistration({
+      ...config,
+      participantId: PARTICIPANT_DATA[config.participantKey].id,
+      participant: PARTICIPANT_DATA[config.participantKey],
+    });
+    regCount++;
+  }
+  console.log(`✓ Registrations + Form Responses + Tickets (${regCount} registrations)`);
+
+  // ── Feedback Responses ───────────────────────────────────────────────────────
+  // Only for concluded events where participant was CONFIRMED
+
+  type FeedbackConfig = {
+    formResponseId: string;
+    registrationId: string;
+    formId: string;
+    formFields: { id: string; autoFillKey: string | null; type: FieldType; options: string[] }[];
+    answers: Record<string, string | number | string[] | null>;
+  };
+
+  const feedbackConfigs: FeedbackConfig[] = [
+    // Hackathon feedback — par1
+    {
+      formResponseId: 'fb000001-0000-4000-8000-000000000001',
+      registrationId: 'a6000001-0000-4000-8000-000000000001',
+      formId: ID.FORM_HACKATHON_FB,
+      formFields: hackathonFbFields,
+      answers: {
+        [ID.FLD_HKFB_OVERALL]: 5,
+        [ID.FLD_HKFB_COMMENT]: 'Amazing experience! Learned a lot.',
       },
     },
-    update: {},
-    create: {
-      id: ID.REG_HALLOWEEN_PAR1,
-      participantId: par1.id,
-      eventId: evtHalloween.id,
-      status: RegistrationStatus.CONFIRMED,
-    },
-  });
-
-  const regHalloweenPar2 = await prisma.eventRegistration.upsert({
-    where: {
-      participantId_eventId: {
-        participantId: par2.id,
-        eventId: evtHalloween.id,
+    // Hackathon feedback — par2
+    {
+      formResponseId: 'fb000002-0000-4000-8000-000000000002',
+      registrationId: 'a6000002-0000-4000-8000-000000000002',
+      formId: ID.FORM_HACKATHON_FB,
+      formFields: hackathonFbFields,
+      answers: {
+        [ID.FLD_HKFB_OVERALL]: 4,
+        [ID.FLD_HKFB_COMMENT]: 'Well organized. Would join again.',
       },
     },
-    update: {},
-    create: {
-      id: ID.REG_HALLOWEEN_PAR2,
-      participantId: par2.id,
-      eventId: evtHalloween.id,
-      status: RegistrationStatus.CONFIRMED,
-    },
-  });
-
-  const regHalloweenPar3 = await prisma.eventRegistration.upsert({
-    where: {
-      participantId_eventId: {
-        participantId: par3.id,
-        eventId: evtHalloween.id,
+    // New Year feedback — par1 only (par2-par5 have NOT submitted — useful for testing)
+    {
+      formResponseId: 'fb000003-0000-4000-8000-000000000003',
+      registrationId: 'a2000001-0000-4000-8000-000000000001',
+      formId: ID.FORM_NEW_YEAR_FB,
+      formFields: newYearFbFields,
+      answers: {
+        [ID.FLD_NYFB_OVERALL]: 5,
+        [ID.FLD_NYFB_ORG]: 4,
+        [ID.FLD_NYFB_COMMENT]: 'Had a great time!',
       },
     },
-    update: {},
-    create: {
-      id: ID.REG_HALLOWEEN_PAR3,
-      participantId: par3.id,
-      eventId: evtHalloween.id,
-      status: RegistrationStatus.CONFIRMED,
-    },
-  });
+  ];
 
-  await prisma.eventRegistration.upsert({
-    where: {
-      participantId_eventId: {
-        participantId: par1.id,
-        eventId: ID.EVT_AI_RESEARCH,
-      },
-    },
-    update: {},
-    create: {
-      id: ID.REG_AI_PAR1,
-      participantId: par1.id,
-      eventId: ID.EVT_AI_RESEARCH,
-      status: RegistrationStatus.CONFIRMED,
-    },
-  });
+  for (const config of feedbackConfigs) {
+    await createFeedbackResponse(config);
+  }
+  console.log(`✓ Feedback responses (${feedbackConfigs.length} responses)`);
 
-  await prisma.eventRegistration.upsert({
-    where: {
-      participantId_eventId: {
-        participantId: par3.id,
-        eventId: ID.EVT_AI_RESEARCH,
-      },
-    },
-    update: {},
-    create: {
-      id: ID.REG_AI_PAR3,
-      participantId: par3.id,
-      eventId: ID.EVT_AI_RESEARCH,
-      status: RegistrationStatus.CONFIRMED,
-    },
-  });
+  // ── Summary ──────────────────────────────────────────────────────────────────
 
-  await prisma.eventRegistration.upsert({
-    where: {
-      participantId_eventId: {
-        participantId: par2.id,
-        eventId: ID.EVT_ORIENTATION,
-      },
-    },
-    update: {},
-    create: {
-      id: ID.REG_ORIENT_PAR2,
-      participantId: par2.id,
-      eventId: ID.EVT_ORIENTATION,
-      status: RegistrationStatus.CONFIRMED,
-    },
-  });
-
-  await prisma.eventRegistration.upsert({
-    where: {
-      participantId_eventId: {
-        participantId: par3.id,
-        eventId: ID.EVT_ORIENTATION,
-      },
-    },
-    update: {},
-    create: {
-      id: ID.REG_ORIENT_PAR3,
-      participantId: par3.id,
-      eventId: ID.EVT_ORIENTATION,
-      status: RegistrationStatus.CONFIRMED,
-    },
-  });
-
-  await prisma.eventRegistration.upsert({
-    where: {
-      participantId_eventId: {
-        participantId: par1.id,
-        eventId: ID.EVT_BOOTCAMP,
-      },
-    },
-    update: {},
-    create: {
-      id: ID.REG_BOOT_PAR1,
-      participantId: par1.id,
-      eventId: ID.EVT_BOOTCAMP,
-      status: RegistrationStatus.CONFIRMED,
-    },
-  });
-
-  await prisma.eventRegistration.upsert({
-    where: {
-      participantId_eventId: {
-        participantId: par2.id,
-        eventId: ID.EVT_BOOTCAMP,
-      },
-    },
-    update: {},
-    create: {
-      id: ID.REG_BOOT_PAR2,
-      participantId: par2.id,
-      eventId: ID.EVT_BOOTCAMP,
-      status: RegistrationStatus.CONFIRMED,
-    },
-  });
-
-  await prisma.eventRegistration.upsert({
-    where: {
-      participantId_eventId: { participantId: par1.id, eventId: ID.EVT_SPORTS },
-    },
-    update: {},
-    create: {
-      id: ID.REG_SPORTS_PAR1,
-      participantId: par1.id,
-      eventId: ID.EVT_SPORTS,
-      status: RegistrationStatus.CONFIRMED,
-    },
-  });
-
-  await prisma.eventRegistration.upsert({
-    where: {
-      participantId_eventId: { participantId: par3.id, eventId: ID.EVT_SPORTS },
-    },
-    update: {},
-    create: {
-      id: ID.REG_SPORTS_PAR3,
-      participantId: par3.id,
-      eventId: ID.EVT_SPORTS,
-      status: RegistrationStatus.CONFIRMED,
-    },
-  });
-
-  const regNewYearPar1 = await prisma.eventRegistration.upsert({
-    where: {
-      participantId_eventId: { participantId: par1.id, eventId: evtNewYear.id },
-    },
-    update: {},
-    create: {
-      id: ID.REG_NY_PAR1,
-      participantId: par1.id,
-      eventId: evtNewYear.id,
-      status: RegistrationStatus.CONFIRMED,
-    },
-  });
-
-  const regNewYearPar2 = await prisma.eventRegistration.upsert({
-    where: {
-      participantId_eventId: { participantId: par2.id, eventId: evtNewYear.id },
-    },
-    update: {},
-    create: {
-      id: ID.REG_NY_PAR2,
-      participantId: par2.id,
-      eventId: evtNewYear.id,
-      status: RegistrationStatus.CONFIRMED,
-    },
-  });
-
-  await prisma.eventRegistration.upsert({
-    where: {
-      participantId_eventId: {
-        participantId: par2.id,
-        eventId: ID.EVT_EXCHANGE,
-      },
-    },
-    update: {},
-    create: {
-      id: ID.REG_EXCHANGE_PAR2,
-      participantId: par2.id,
-      eventId: ID.EVT_EXCHANGE,
-      status: RegistrationStatus.CONFIRMED,
-    },
-  });
-
-  await prisma.eventRegistration.upsert({
-    where: {
-      participantId_eventId: {
-        participantId: par3.id,
-        eventId: ID.EVT_EXCHANGE,
-      },
-    },
-    update: {},
-    create: {
-      id: ID.REG_EXCHANGE_PAR3,
-      participantId: par3.id,
-      eventId: ID.EVT_EXCHANGE,
-      status: RegistrationStatus.CONFIRMED,
-    },
-  });
-
-  await prisma.eventRegistration.upsert({
-    where: {
-      participantId_eventId: {
-        participantId: par1.id,
-        eventId: ID.EVT_HACKATHON,
-      },
-    },
-    update: {},
-    create: {
-      id: ID.REG_HACK_PAR1,
-      participantId: par1.id,
-      eventId: ID.EVT_HACKATHON,
-      status: RegistrationStatus.CONFIRMED,
-    },
-  });
-
-  await prisma.eventRegistration.upsert({
-    where: {
-      participantId_eventId: {
-        participantId: par2.id,
-        eventId: ID.EVT_HACKATHON,
-      },
-    },
-    update: {},
-    create: {
-      id: ID.REG_HACK_PAR2,
-      participantId: par2.id,
-      eventId: ID.EVT_HACKATHON,
-      status: RegistrationStatus.CONFIRMED,
-    },
-  });
-  console.log('✓ Event registrations seeded');
-
-  // ─── FORM RESPONSES ──────────────────────────────────────────────────────────
-
-  // Halloween REGISTRATION - par1
-  const frsHalloweenPar1 = await prisma.formResponse.upsert({
-    where: { id: ID.FRS_HALLOWEEN_PAR1 },
-    update: {},
-    create: {
-      id: ID.FRS_HALLOWEEN_PAR1,
-      formId: formHalloweenReg.id,
-      eventRegistrationId: regHalloweenPar1.id,
-    },
-  });
-
-  await prisma.formFieldResponse.upsert({
-    where: {
-      formResponseId_formFieldId: {
-        formResponseId: frsHalloweenPar1.id,
-        formFieldId: ID.FLD_H_NAME,
-      },
-    },
-    update: {},
-    create: {
-      formResponseId: frsHalloweenPar1.id,
-      formFieldId: ID.FLD_H_NAME,
-      formId: formHalloweenReg.id,
-      valueText: 'Su Su Myint',
-      valueArray: [],
-    },
-  });
-
-  await prisma.formFieldResponse.upsert({
-    where: {
-      formResponseId_formFieldId: {
-        formResponseId: frsHalloweenPar1.id,
-        formFieldId: ID.FLD_H_STUID,
-      },
-    },
-    update: {},
-    create: {
-      formResponseId: frsHalloweenPar1.id,
-      formFieldId: ID.FLD_H_STUID,
-      formId: formHalloweenReg.id,
-      valueText: '662115522',
-      valueArray: [],
-    },
-  });
-
-  await prisma.formFieldResponse.upsert({
-    where: {
-      formResponseId_formFieldId: {
-        formResponseId: frsHalloweenPar1.id,
-        formFieldId: ID.FLD_H_YEAR,
-      },
-    },
-    update: {},
-    create: {
-      formResponseId: frsHalloweenPar1.id,
-      formFieldId: ID.FLD_H_YEAR,
-      formId: formHalloweenReg.id,
-      valueArray: ['Year 3'],
-    },
-  });
-
-  await prisma.formFieldResponse.upsert({
-    where: {
-      formResponseId_formFieldId: {
-        formResponseId: frsHalloweenPar1.id,
-        formFieldId: ID.FLD_H_DIET,
-      },
-    },
-    update: {},
-    create: {
-      formResponseId: frsHalloweenPar1.id,
-      formFieldId: ID.FLD_H_DIET,
-      formId: formHalloweenReg.id,
-      valueArray: ['Vegetarian'],
-    },
-  });
-
-  // Halloween REGISTRATION - par2
-  const frsHalloweenPar2 = await prisma.formResponse.upsert({
-    where: { id: ID.FRS_HALLOWEEN_PAR2 },
-    update: {},
-    create: {
-      id: ID.FRS_HALLOWEEN_PAR2,
-      formId: formHalloweenReg.id,
-      eventRegistrationId: regHalloweenPar2.id,
-    },
-  });
-
-  await prisma.formFieldResponse.upsert({
-    where: {
-      formResponseId_formFieldId: {
-        formResponseId: frsHalloweenPar2.id,
-        formFieldId: ID.FLD_H_NAME,
-      },
-    },
-    update: {},
-    create: {
-      formResponseId: frsHalloweenPar2.id,
-      formFieldId: ID.FLD_H_NAME,
-      formId: formHalloweenReg.id,
-      valueText: 'Chaiwat Srisuk',
-      valueArray: [],
-    },
-  });
-
-  await prisma.formFieldResponse.upsert({
-    where: {
-      formResponseId_formFieldId: {
-        formResponseId: frsHalloweenPar2.id,
-        formFieldId: ID.FLD_H_STUID,
-      },
-    },
-    update: {},
-    create: {
-      formResponseId: frsHalloweenPar2.id,
-      formFieldId: ID.FLD_H_STUID,
-      formId: formHalloweenReg.id,
-      valueText: '662115533',
-      valueArray: [],
-    },
-  });
-
-  await prisma.formFieldResponse.upsert({
-    where: {
-      formResponseId_formFieldId: {
-        formResponseId: frsHalloweenPar2.id,
-        formFieldId: ID.FLD_H_YEAR,
-      },
-    },
-    update: {},
-    create: {
-      formResponseId: frsHalloweenPar2.id,
-      formFieldId: ID.FLD_H_YEAR,
-      formId: formHalloweenReg.id,
-      valueArray: ['Year 4'],
-    },
-  });
-
-  await prisma.formFieldResponse.upsert({
-    where: {
-      formResponseId_formFieldId: {
-        formResponseId: frsHalloweenPar2.id,
-        formFieldId: ID.FLD_H_DIET,
-      },
-    },
-    update: {},
-    create: {
-      formResponseId: frsHalloweenPar2.id,
-      formFieldId: ID.FLD_H_DIET,
-      formId: formHalloweenReg.id,
-      valueArray: ['None'],
-    },
-  });
-
-  // Halloween REGISTRATION - par3
-  const frsHalloweenPar3 = await prisma.formResponse.upsert({
-    where: { id: ID.FRS_HALLOWEEN_PAR3 },
-    update: {},
-    create: {
-      id: ID.FRS_HALLOWEEN_PAR3,
-      formId: formHalloweenReg.id,
-      eventRegistrationId: regHalloweenPar3.id,
-    },
-  });
-
-  await prisma.formFieldResponse.upsert({
-    where: {
-      formResponseId_formFieldId: {
-        formResponseId: frsHalloweenPar3.id,
-        formFieldId: ID.FLD_H_NAME,
-      },
-    },
-    update: {},
-    create: {
-      formResponseId: frsHalloweenPar3.id,
-      formFieldId: ID.FLD_H_NAME,
-      formId: formHalloweenReg.id,
-      valueText: 'Min Thant Ko',
-      valueArray: [],
-    },
-  });
-
-  await prisma.formFieldResponse.upsert({
-    where: {
-      formResponseId_formFieldId: {
-        formResponseId: frsHalloweenPar3.id,
-        formFieldId: ID.FLD_H_STUID,
-      },
-    },
-    update: {},
-    create: {
-      formResponseId: frsHalloweenPar3.id,
-      formFieldId: ID.FLD_H_STUID,
-      formId: formHalloweenReg.id,
-      valueText: '662115510',
-      valueArray: [],
-    },
-  });
-
-  await prisma.formFieldResponse.upsert({
-    where: {
-      formResponseId_formFieldId: {
-        formResponseId: frsHalloweenPar3.id,
-        formFieldId: ID.FLD_H_YEAR,
-      },
-    },
-    update: {},
-    create: {
-      formResponseId: frsHalloweenPar3.id,
-      formFieldId: ID.FLD_H_YEAR,
-      formId: formHalloweenReg.id,
-      valueArray: ['Year 3'],
-    },
-  });
-
-  await prisma.formFieldResponse.upsert({
-    where: {
-      formResponseId_formFieldId: {
-        formResponseId: frsHalloweenPar3.id,
-        formFieldId: ID.FLD_H_DIET,
-      },
-    },
-    update: {},
-    create: {
-      formResponseId: frsHalloweenPar3.id,
-      formFieldId: ID.FLD_H_DIET,
-      formId: formHalloweenReg.id,
-      valueArray: ['None'],
-    },
-  });
-
-  // New Year REGISTRATION - par1
-  const frsNewYearPar1 = await prisma.formResponse.upsert({
-    where: { id: ID.FRS_NY_PAR1 },
-    update: {},
-    create: {
-      id: ID.FRS_NY_PAR1,
-      formId: formNewYearReg.id,
-      eventRegistrationId: regNewYearPar1.id,
-    },
-  });
-
-  await prisma.formFieldResponse.upsert({
-    where: {
-      formResponseId_formFieldId: {
-        formResponseId: frsNewYearPar1.id,
-        formFieldId: ID.FLD_NY_NAME,
-      },
-    },
-    update: {},
-    create: {
-      formResponseId: frsNewYearPar1.id,
-      formFieldId: ID.FLD_NY_NAME,
-      formId: formNewYearReg.id,
-      valueText: 'Su Su Myint',
-      valueArray: [],
-    },
-  });
-
-  await prisma.formFieldResponse.upsert({
-    where: {
-      formResponseId_formFieldId: {
-        formResponseId: frsNewYearPar1.id,
-        formFieldId: ID.FLD_NY_NICK,
-      },
-    },
-    update: {},
-    create: {
-      formResponseId: frsNewYearPar1.id,
-      formFieldId: ID.FLD_NY_NICK,
-      formId: formNewYearReg.id,
-      valueText: 'Su',
-      valueArray: [],
-    },
-  });
-
-  await prisma.formFieldResponse.upsert({
-    where: {
-      formResponseId_formFieldId: {
-        formResponseId: frsNewYearPar1.id,
-        formFieldId: ID.FLD_NY_TSHIRT,
-      },
-    },
-    update: {},
-    create: {
-      formResponseId: frsNewYearPar1.id,
-      formFieldId: ID.FLD_NY_TSHIRT,
-      formId: formNewYearReg.id,
-      valueArray: ['M'],
-    },
-  });
-
-  await prisma.formFieldResponse.upsert({
-    where: {
-      formResponseId_formFieldId: {
-        formResponseId: frsNewYearPar1.id,
-        formFieldId: ID.FLD_NY_HEAR,
-      },
-    },
-    update: {},
-    create: {
-      formResponseId: frsNewYearPar1.id,
-      formFieldId: ID.FLD_NY_HEAR,
-      formId: formNewYearReg.id,
-      valueArray: ['Instagram'],
-    },
-  });
-
-  // New Year REGISTRATION - par2
-  const frsNewYearPar2 = await prisma.formResponse.upsert({
-    where: { id: ID.FRS_NY_PAR2 },
-    update: {},
-    create: {
-      id: ID.FRS_NY_PAR2,
-      formId: formNewYearReg.id,
-      eventRegistrationId: regNewYearPar2.id,
-    },
-  });
-
-  await prisma.formFieldResponse.upsert({
-    where: {
-      formResponseId_formFieldId: {
-        formResponseId: frsNewYearPar2.id,
-        formFieldId: ID.FLD_NY_NAME,
-      },
-    },
-    update: {},
-    create: {
-      formResponseId: frsNewYearPar2.id,
-      formFieldId: ID.FLD_NY_NAME,
-      formId: formNewYearReg.id,
-      valueText: 'Chaiwat Srisuk',
-      valueArray: [],
-    },
-  });
-
-  await prisma.formFieldResponse.upsert({
-    where: {
-      formResponseId_formFieldId: {
-        formResponseId: frsNewYearPar2.id,
-        formFieldId: ID.FLD_NY_NICK,
-      },
-    },
-    update: {},
-    create: {
-      formResponseId: frsNewYearPar2.id,
-      formFieldId: ID.FLD_NY_NICK,
-      formId: formNewYearReg.id,
-      valueText: 'Chai',
-      valueArray: [],
-    },
-  });
-
-  await prisma.formFieldResponse.upsert({
-    where: {
-      formResponseId_formFieldId: {
-        formResponseId: frsNewYearPar2.id,
-        formFieldId: ID.FLD_NY_TSHIRT,
-      },
-    },
-    update: {},
-    create: {
-      formResponseId: frsNewYearPar2.id,
-      formFieldId: ID.FLD_NY_TSHIRT,
-      formId: formNewYearReg.id,
-      valueArray: ['L'],
-    },
-  });
-
-  await prisma.formFieldResponse.upsert({
-    where: {
-      formResponseId_formFieldId: {
-        formResponseId: frsNewYearPar2.id,
-        formFieldId: ID.FLD_NY_HEAR,
-      },
-    },
-    update: {},
-    create: {
-      formResponseId: frsNewYearPar2.id,
-      formFieldId: ID.FLD_NY_HEAR,
-      formId: formNewYearReg.id,
-      valueArray: ['Friend'],
-    },
-  });
-
-  console.log('✓ Form responses seeded');
   console.log('');
-  console.log('─────────────────────────────────────────────────');
+  console.log('─────────────────────────────────────────────────────────────────');
   console.log('Seed completed successfully!');
   console.log('');
-  console.log('  1  university  (CMU)');
-  console.log('  6  users       (password: 12345678)');
-  console.log('     noprofile1@cmu.ac.th');
-  console.log('     onlyorganizer1@cmu.ac.th');
-  console.log('     onlyorganizer2@cmu.ac.th');
-  console.log('     onlyparticipant1@cmu.ac.th');
-  console.log('     onlyparticipant2@cmu.ac.th');
-  console.log('     bothprofile1@cmu.ac.th');
-  console.log('  3  organizer profiles');
-  console.log('  3  participant profiles');
-  console.log('  14 events across 3 organizers');
-  console.log('     org1: DRAFT, PUBLISHED(form+reg), ONGOING, CONCLUDED');
-  console.log('     org2: DRAFT, PUBLISHED(form), ONGOING, CONCLUDED');
-  console.log(
-    '     org3: DRAFT x2, PUBLISHED x2(form+reg/no-form), ONGOING, CONCLUDED',
-  );
-  console.log('  3  forms  (Halloween reg, New Year reg, New Year feedback)');
-  console.log('  11 form fields');
-  console.log('  17 event registrations');
-  console.log('  5  form responses with field responses');
-  console.log('─────────────────────────────────────────────────');
+  console.log('  1  university  (CMU — cmu.ac.th)');
+  console.log('  8  users       (password: 12345678 for all)');
+  console.log('     organizer1@cmu.ac.th  (org1 — CAMT Student Affairs)');
+  console.log('     organizer2@cmu.ac.th  (org2 — CMU Music and Arts Club)');
+  console.log('     organizer3@cmu.ac.th  (org3 — SE Department Club)');
+  console.log('     participant1@cmu.ac.th  (Su Su Myint)');
+  console.log('     participant2@cmu.ac.th  (Chaiwat Srisuk)');
+  console.log('     participant3@cmu.ac.th  (Min Thant Ko)');
+  console.log('     participant4@cmu.ac.th  (Nattapon Wongkham)');
+  console.log('     participant5@cmu.ac.th  (Pimchanok Rattana)');
+  console.log('');
+  console.log('  14 events:');
+  console.log('     PUBLISHED:  Halloween (3/100 seats), New Year FULL (5/5), Sukhothai (1/10), Concert (0/300)');
+  console.log('     ONGOING:    Exchange FULL (3/3), Bootcamp (2/25), AI Seminar (0/50 — no form)');
+  console.log('     CONCLUDED:  Hackathon (2/60), Sports Day (2/∞), Orientation (0/200)');
+  console.log('     DRAFT:      SE Workshop, Music Concert, Cultural Festival');
+  console.log('     PUBLISHED:  No Form Event (0/∞ — no form)');
+  console.log('');
+  console.log('  10 forms  (reg + feedback for various events)');
+  console.log('');
+  console.log('  Registration summary:');
+  console.log('     Halloween:  par1✓ par2✓ par3✓         (3 CONFIRMED, tickets ACTIVE)');
+  console.log('     New Year:   par1✓ par2✓ par3✓ par4✓ par5✓  (5 CONFIRMED, FULL, tickets ACTIVE)');
+  console.log('     Sukhothai:  par1✓ par2✗               (1 CONFIRMED, 1 CANCELLED)');
+  console.log('     Exchange:   par1✓ par2✓ par3✓         (3 CONFIRMED, FULL, tickets ACTIVE)');
+  console.log('     Bootcamp:   par1✓ par3✓               (2 CONFIRMED, tickets ACTIVE)');
+  console.log('     Hackathon:  par1✓ par2✓               (2 CONFIRMED, tickets EXPIRED)');
+  console.log('     Sports:     par2✓ par4✓               (2 CONFIRMED, tickets EXPIRED, unlimited)');
+  console.log('');
+  console.log('  Feedback responses: 3');
+  console.log('     Hackathon: par1(5★), par2(4★)');
+  console.log('     New Year:  par1(5★) only — par2-5 not submitted yet');
+  console.log('');
+  console.log('  Useful test scenarios:');
+  console.log('     EventFullException:     try registering any participant for New Year or Exchange');
+  console.log('     AlreadyRegistered:      try registering par1 for Halloween again');
+  console.log('     FormNotFoundException:  try registering for AI Seminar or No Form Event');
+  console.log('     CancelledTicket:        par2 Sukhothai ticket');
+  console.log('     ExpiredTickets:         Hackathon and Sports Day tickets');
+  console.log('     FeedbackAlreadyExists:  par1 submitting New Year feedback again');
+  console.log('     NotRegistered(feedback):par4 trying to submit Hackathon feedback');
+  console.log('─────────────────────────────────────────────────────────────────');
 }
 
 main()
@@ -1836,5 +1464,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-
-// To run: npx prisma db seed
