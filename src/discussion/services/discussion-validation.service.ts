@@ -33,7 +33,7 @@ export class DiscussionValidationService {
     return { roomId: room.id, event: room.event };
   }
 
-  // event owner organizer or confirmed participant
+  // validate event owner organizer or confirmed participant can access the room (entering the room)
   async validateRoomAccess(
     event: Event,
     role: Role,
