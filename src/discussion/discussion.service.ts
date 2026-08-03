@@ -1,4 +1,3 @@
-// discussion/discussion.service.ts
 import { Injectable, Logger } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { DiscussionValidationService } from './services/discussion-validation.service';
@@ -158,6 +157,26 @@ export class DiscussionService {
         ),
       ),
     );
+  }
+
+  async validateAccessOnly(
+    roomId: string,
+    role: Role,
+    participantProfileId: string | null,
+    organizerProfileId: string | null,
+  ): Promise<{ message: string }> {
+    const { event } =
+      await this.discussionValidationService.validateRoomExists(roomId);
+    return this.discussionValidationService.validateRoomAccess(
+      event,
+      role,
+      participantProfileId,
+      organizerProfileId,
+    );
+  }
+
+  async findRoomByEventId(eventId: string): Promise<{ roomId: string } | null> {
+    return this.discussionCrudService.findRoomByEventId(eventId);
   }
 
   // NOTE: Need to refactor this.

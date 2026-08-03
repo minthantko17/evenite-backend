@@ -232,6 +232,7 @@ export class DiscussionCrudService {
     );
   }
 
+  // Need to refactor later, rn only returning shape for unread count and readOnly and service is handling it (badbad)
   private async buildRoomListEntry(
     event: {
       id: string;
@@ -256,7 +257,25 @@ export class DiscussionCrudService {
     };
   }
 
-  // private mappers
+  async findClosestMessageIdToGivenTime(
+    roomId: string,
+    timestamp: Date,
+  ): Promise<string | null> {
+    const message = await this.prisma.message.findFirst({
+      where: { roomId, createdAt: { lte: timestamp } },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    });
+    return message?.id ?? null;
+  }
+
+  async findRoomByEventId(eventId: string): Promise<{ roomId: string } | null> {
+    const room = await this.prisma.discussionRoom.findUnique({
+      where: { eventId },
+      select: { id: true },
+    });
+    return room ? { roomId: room.id } : null;
+  }
 
   private mapToReturnMessageDto(message: any): ReturnMessageDto {
     const isOrganizerSender = message.senderOrganizerId !== null;
@@ -282,17 +301,5 @@ export class DiscussionCrudService {
       sender,
       createdAt: message.createdAt,
     };
-  }
-
-  async findClosestMessageIdToGivenTime(
-    roomId: string,
-    timestamp: Date,
-  ): Promise<string | null> {
-    const message = await this.prisma.message.findFirst({
-      where: { roomId, createdAt: { lte: timestamp } },
-      orderBy: { createdAt: 'desc' },
-      select: { id: true },
-    });
-    return message?.id ?? null;
   }
 }
