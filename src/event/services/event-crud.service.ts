@@ -73,7 +73,12 @@ export class EventCrudService {
           data,
         });
       }
-      return await this.prisma.event.create({ data });
+      return await this.prisma.event.create({
+        data: {
+          ...data,
+          discussionRoom: { create: {} },
+        },
+      });
     } catch {
       throw new SaveEventException();
     }
