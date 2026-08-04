@@ -9,9 +9,11 @@ import { UniversityModule } from './university/university.module';
 import { UserModule } from './user/user.module';
 import { ScheduleModule } from "@nestjs/schedule";
 import { RegistrationModule } from './registration/registration.module';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 
 @Module({
   imports: [
+    EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
     PrismaModule,
     EventModule,

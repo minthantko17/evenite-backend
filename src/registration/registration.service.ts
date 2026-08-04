@@ -26,6 +26,7 @@ import { TicketNotFoundException } from './exceptions/ticket-not-found.exception
 import { SaveFormResponseException } from '../form/exceptions/save-form-response.exception';
 import { SaveTicketException } from './exceptions/save-ticket.exception';
 import { DeleteRegistrationException } from './exceptions/delete-registration.exception';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
 export class RegistrationService {
@@ -38,6 +39,7 @@ export class RegistrationService {
     private readonly eventValidationService: EventValidationService,
     private readonly formCrudService: FormCrudService,
     private readonly formValidationService: FormValidationService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async registerAndGetTicket(
@@ -192,6 +194,12 @@ export class RegistrationService {
       this.logger.error('Failed to cancel registration', error);
       throw new SaveRegistrationException();
     }
+
+    // emit event for registration cancellation
+    this.eventEmitter.emit('registration.cancelled', {
+      eventId,
+      participantProfileId,
+    });
 
     const eventDetail =
       await this.registrationCrudService.getEventWithOrganizer(eventId);
