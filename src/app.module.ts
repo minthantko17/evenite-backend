@@ -10,6 +10,7 @@ import { UserModule } from './user/user.module';
 import { ScheduleModule } from "@nestjs/schedule";
 import { RegistrationModule } from './registration/registration.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { DiscussionModule } from './discussion/discussion.module';
 
 @Module({
   imports: [
@@ -21,7 +22,8 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
     AuthModule,
     UniversityModule,
     UserModule,
-    RegistrationModule
+    RegistrationModule,
+    DiscussionModule
   ],
   controllers: [AppController],
   providers: [AppService],
