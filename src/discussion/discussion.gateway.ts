@@ -15,8 +15,13 @@ import { Role } from '@prisma/client';
 import { DiscussionService } from './discussion.service';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { JwtAccessPayload } from '../auth/strategies/jwt-access.strategy';
+import { UsePipes, ValidationPipe } from '@nestjs/common';
 
-@WebSocketGateway({ cors: true, namespace: 'discussion' })
+@UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
+@WebSocketGateway({
+  namespace: 'discussion',
+  cors: { origin: 'http://localhost:5173', credentials: true },
+})
 export class DiscussionGateway
   implements OnGatewayConnection, OnGatewayDisconnect
 {
