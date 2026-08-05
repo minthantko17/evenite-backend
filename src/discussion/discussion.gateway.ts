@@ -47,6 +47,7 @@ export class DiscussionGateway
         },
       );
       client.data.user = payload; // store payload in socket data
+      this.logger.log(`Socket connected: ${client.id}, user: ${payload.sub}`);
     } catch {
       this.logger.warn(
         `Rejected unauthenticated socket connection: ${client.id}`,
