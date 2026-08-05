@@ -40,8 +40,12 @@ export class DiscussionGateway
   async handleConnection(client: Socket): Promise<void> {
     try {
       const token = this.extractTokenFromHandshake(client);
-      const payload =
-        await this.jwtService.verifyAsync<JwtAccessPayload>(token);
+      const payload = await this.jwtService.verifyAsync<JwtAccessPayload>(
+        token,
+        {
+          secret: process.env.JWT_ACCESS_SECRET!,
+        },
+      );
       client.data.user = payload; // store payload in socket data
     } catch {
       this.logger.warn(
