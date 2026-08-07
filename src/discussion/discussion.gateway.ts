@@ -16,6 +16,13 @@ import { DiscussionService } from './discussion.service';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { JwtAccessPayload } from '../auth/strategies/jwt-access.strategy';
 import { UsePipes, ValidationPipe } from '@nestjs/common';
+import { RoomNotFoundException } from './exceptions/room-not-found.exception';
+import { RoomAccessDeniedException } from './exceptions/room-access-denied.exception';
+import { RoomReadOnlyException } from './exceptions/room-read-only.exception';
+import { MessageContentInvalidException } from './exceptions/message-content-invalid.exception';
+import { AnnouncementNotAllowedException } from './exceptions/announcement-not-allowed.exception';
+import { RegistrationNotFoundException } from '../registration/exceptions/registration-not-found.exception';
+import { DiscussionErrorCode } from './constants/discussion-error-code.enum';
 
 @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 @WebSocketGateway({
@@ -86,17 +93,23 @@ export class DiscussionGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { roomId: string },
   ): Promise<void> {
-    const user = this.requireUser(client);
+    try {
+      const user = this.requireUser(client);
 
-    await this.discussionService.validateAccessOnly(
-      data.roomId,
-      user.currentRole!,
-      user.currentRole === Role.PARTICIPANT ? user.participantProfileId! : null,
-      user.currentRole === Role.ORGANIZER ? user.organizerProfileId! : null,
-    );
+      await this.discussionService.validateAccessOnly(
+        data.roomId,
+        user.currentRole!,
+        user.currentRole === Role.PARTICIPANT
+          ? user.participantProfileId!
+          : null,
+        user.currentRole === Role.ORGANIZER ? user.organizerProfileId! : null,
+      );
 
-    await client.join(data.roomId);
-    client.emit('room:joined', { roomId: data.roomId });
+      await client.join(data.roomId);
+      client.emit('room:joined', { roomId: data.roomId });
+    } catch (error) {
+      this.emitError(client, 'room:join', error);
+    }
   }
 
   @SubscribeMessage('room:leave')
@@ -114,17 +127,21 @@ export class DiscussionGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { roomId: string; dto: CreateMessageDto },
   ): Promise<void> {
-    const user = this.requireUser(client);
-
-    const message = await this.discussionService.sendMessage(
-      data.roomId,
-      data.dto,
-      user.currentRole!,
-      user.currentRole === Role.PARTICIPANT ? user.participantProfileId! : null,
-      user.currentRole === Role.ORGANIZER ? user.organizerProfileId! : null,
-    );
-
-    this.server.to(data.roomId).emit('message:new', message);
+    try {
+      const user = this.requireUser(client);
+      const message = await this.discussionService.sendMessage(
+        data.roomId,
+        data.dto,
+        user.currentRole!,
+        user.currentRole === Role.PARTICIPANT
+          ? user.participantProfileId!
+          : null,
+        user.currentRole === Role.ORGANIZER ? user.organizerProfileId! : null,
+      );
+      this.server.to(data.roomId).emit('message:new', message);
+    } catch (error) {
+      this.emitError(client, 'message:send', error);
+    }
   }
 
   // Force remove client on registration cancellation
@@ -162,5 +179,34 @@ export class DiscussionGateway
         remoteSocket.leave(roomId);
       }
     }
+  }
+
+  private resolveErrorCode(error: unknown): DiscussionErrorCode {
+    if (error instanceof RoomNotFoundException)
+      return DiscussionErrorCode.ROOM_NOT_FOUND;
+    if (error instanceof RoomAccessDeniedException)
+      return DiscussionErrorCode.ROOM_ACCESS_DENIED;
+    if (error instanceof RegistrationNotFoundException)
+      return DiscussionErrorCode.REGISTRATION_NOT_FOUND;
+    if (error instanceof RoomReadOnlyException)
+      return DiscussionErrorCode.ROOM_READ_ONLY;
+    if (error instanceof MessageContentInvalidException)
+      return DiscussionErrorCode.MESSAGE_CONTENT_INVALID;
+    if (error instanceof AnnouncementNotAllowedException)
+      return DiscussionErrorCode.ANNOUNCEMENT_NOT_ALLOWED;
+    if (error instanceof UnauthorizedException)
+      return DiscussionErrorCode.UNAUTHORIZED;
+    return DiscussionErrorCode.UNKNOWN_ERROR;
+  }
+
+  private emitError(client: Socket, event: string, error: unknown): void {
+    client.emit('error', {
+      event,
+      code: this.resolveErrorCode(error),
+      message:
+        error instanceof Error
+          ? error.message
+          : 'An unexpected error occurred.',
+    });
   }
 }
