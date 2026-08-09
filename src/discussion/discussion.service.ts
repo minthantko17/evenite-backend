@@ -136,34 +136,60 @@ export class DiscussionService {
     );
   }
 
-  async getRoomListForCaller(
+  async getCreatedDiscussionRooms(
+    organizerProfileId: string,
+    filter?: 'active' | 'archived',
+  ): Promise<ReturnDiscussionRoomListDto[]> {
+    const statusFilter = this.resolveStatusFilter(filter);
+    const events = await this.discussionCrudService.getOrganizerEventsWithRoom(
+      organizerProfileId,
+      statusFilter,
+    );
+    return this.mapEventsToRoomListDtos(
+      events,
+      Role.ORGANIZER,
+      null,
+      organizerProfileId,
+    );
+  }
+
+  async getJoinedDiscussionRooms(
+    participantProfileId: string,
+    filter?: 'active' | 'archived',
+  ): Promise<ReturnDiscussionRoomListDto[]> {
+    const statusFilter = this.resolveStatusFilter(filter);
+    const events =
+      await this.discussionCrudService.getParticipantEventsWithRoom(
+        participantProfileId,
+        statusFilter,
+      );
+    return this.mapEventsToRoomListDtos(
+      events,
+      Role.PARTICIPANT,
+      participantProfileId,
+      null,
+    );
+  }
+
+  private resolveStatusFilter(
+    filter?: 'active' | 'archived',
+  ): EventStatus[] | undefined {
+    return filter === 'active'
+      ? ACTIVE_ROOM_STATUSES
+      : filter === 'archived'
+        ? ARCHIVED_ROOM_STATUSES
+        : undefined;
+  }
+
+  private async mapEventsToRoomListDtos(
+    events: EventWithDiscussionRoom[],
     role: Role,
     participantProfileId: string | null,
     organizerProfileId: string | null,
-    filter?: 'active' | 'archived',
   ): Promise<ReturnDiscussionRoomListDto[]> {
-    const statusFilter: EventStatus[] | undefined =
-      filter === 'active'
-        ? ACTIVE_ROOM_STATUSES
-        : filter === 'archived'
-          ? ARCHIVED_ROOM_STATUSES
-          : undefined;
-
-    const events: EventWithDiscussionRoom[] =
-      role === Role.PARTICIPANT
-        ? await this.discussionCrudService.getParticipantEventsWithRoom(
-            participantProfileId!,
-            statusFilter,
-          )
-        : await this.discussionCrudService.getOrganizerEventsWithRoom(
-            organizerProfileId!,
-            statusFilter,
-          );
-
-    const eventsWithRoom: EventWithDiscussionRoom[] = events.filter(
+    const eventsWithRoom = events.filter(
       (event) => event.discussionRoom !== null,
     );
-
     return Promise.all(
       eventsWithRoom.map((event) =>
         this.mapToDiscussionRoomListDto(
