@@ -8,6 +8,7 @@ import { ReturnMessageDto } from './dto/return-message.dto';
 import { ReturnMessagePageDto } from './dto/return-message-page.dto';
 import { ReturnDiscussionRoomListDto } from './dto/return-discussion-room-list.dto';
 import { ReturnRoomReadStatusDto } from './dto/return-room-read-status.dto';
+import { ACTIVE_ROOM_STATUSES, ARCHIVED_ROOM_STATUSES } from './constants/discussion-room-filter.constants';
 
 @Injectable()
 export class DiscussionService {
@@ -137,14 +138,24 @@ export class DiscussionService {
     role: Role,
     participantProfileId: string | null,
     organizerProfileId: string | null,
+    filter?: 'active' | 'archived',
   ): Promise<ReturnDiscussionRoomListDto[]> {
+    const statusFilter =
+      filter === 'active'
+        ? ACTIVE_ROOM_STATUSES
+        : filter === 'archived'
+          ? ARCHIVED_ROOM_STATUSES
+          : undefined;
+
     const rooms =
       role === Role.PARTICIPANT
         ? await this.discussionCrudService.getRoomsForParticipant(
             participantProfileId!,
+            statusFilter,
           )
         : await this.discussionCrudService.getRoomsForOrganizer(
             organizerProfileId!,
+            statusFilter,
           );
 
     return Promise.all(

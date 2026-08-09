@@ -18,6 +18,7 @@ import { JwtAccessGuard } from '../auth/guards/jwt-access.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { JwtAccessPayload } from '../auth/strategies/jwt-access.strategy';
 import { Role } from '@prisma/client';
+import { GetRoomsQueryDto } from './dto/get-rooms-query.dto';
 
 @Controller('discussion-rooms')
 @UseGuards(JwtAccessGuard, RolesGuard)
@@ -26,6 +27,7 @@ export class DiscussionController {
 
   @Get()
   async getRoomList(
+    @Query() query: GetRoomsQueryDto,
     @Req() req: Request,
   ): Promise<ReturnDiscussionRoomListDto[]> {
     const user = req.user as JwtAccessPayload;
@@ -33,6 +35,7 @@ export class DiscussionController {
       user.currentRole!,
       user.currentRole === Role.PARTICIPANT ? user.participantProfileId! : null,
       user.currentRole === Role.ORGANIZER ? user.organizerProfileId! : null,
+      query.filter,
     );
   }
 

@@ -1,6 +1,6 @@
 // discussion/services/discussion-crud.service.ts
 import { Injectable, Logger } from '@nestjs/common';
-import { Prisma, Role } from '@prisma/client';
+import { Prisma, Role, EventStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   ReturnMessageDto,
@@ -194,16 +194,18 @@ export class DiscussionCrudService {
   // get room list (Chat List)
   async getRoomsForParticipant(
     participantProfileId: string,
+    statusFilter?: EventStatus[],
   ): Promise<ReturnDiscussionRoomListDto[]> {
     const registrations = await this.prisma.eventRegistration.findMany({
-      where: { participantId: participantProfileId, status: 'CONFIRMED' },
+      where: {
+        participantId: participantProfileId,
+        status: 'CONFIRMED',
+        ...(statusFilter && { event: { status: { in: statusFilter } } }),
+      },
       select: {
         event: {
           select: {
-            id: true,
-            title: true,
-            bannerUrl: true,
-            status: true,
+            id: true, title: true, bannerUrl: true, status: true,
             discussionRoom: { select: { id: true } },
           },
         },
@@ -221,14 +223,15 @@ export class DiscussionCrudService {
 
   async getRoomsForOrganizer(
     organizerProfileId: string,
+    statusFilter?: EventStatus[],
   ): Promise<ReturnDiscussionRoomListDto[]> {
     const events = await this.prisma.event.findMany({
-      where: { organizerId: organizerProfileId },
+      where: {
+        organizerId: organizerProfileId,
+        ...(statusFilter && { status: { in: statusFilter } }),
+      },
       select: {
-        id: true,
-        title: true,
-        bannerUrl: true,
-        status: true,
+        id: true, title: true, bannerUrl: true, status: true,
         discussionRoom: { select: { id: true } },
       },
     });
