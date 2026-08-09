@@ -1,6 +1,6 @@
 // discussion/services/discussion-crud.service.ts
 import { Injectable, Logger } from '@nestjs/common';
-import { Prisma, Role, EventStatus } from '@prisma/client';
+import { Prisma, Role, EventStatus, RegistrationStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   ReturnMessageDto,
@@ -12,6 +12,7 @@ import { ReturnRoomReadStatusDto } from '../dto/return-room-read-status.dto';
 import { SaveMessageException } from '../exceptions/save-message.exception';
 import { SaveRoomReadStatusException } from '../exceptions/save-room-read-status.exception';
 import type { BilingualField } from '../../event/dto/bilingual-field.dto';
+import { EventWithDiscussionRoom } from '../types/discussion.types';
 
 const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 25;
@@ -78,7 +79,9 @@ export class DiscussionCrudService {
     });
 
     const hasMoreMessageInQueriedDirection = messages.length > take;
-    const page = hasMoreMessageInQueriedDirection ? messages.slice(0, take) : messages;
+    const page = hasMoreMessageInQueriedDirection
+      ? messages.slice(0, take)
+      : messages;
     const orderedPage = isBefore ? [...page].reverse() : page;
     const mapped = orderedPage.map((m) => this.mapToReturnMessageDto(m));
 
@@ -192,80 +195,36 @@ export class DiscussionCrudService {
   }
 
   // get room list (Chat List)
-  async getRoomsForParticipant(
+  async getParticipantEventsWithRoom(
     participantProfileId: string,
     statusFilter?: EventStatus[],
-  ): Promise<ReturnDiscussionRoomListDto[]> {
-    const registrations = await this.prisma.eventRegistration.findMany({
-      where: {
-        participantId: participantProfileId,
-        status: 'CONFIRMED',
-        ...(statusFilter && { event: { status: { in: statusFilter } } }),
-      },
-      select: {
-        event: {
-          select: {
-            id: true, title: true, bannerUrl: true, status: true,
-            discussionRoom: { select: { id: true } },
-          },
+  ): Promise<EventWithDiscussionRoom[]> {
+    const registrations =
+      await this.prisma.eventRegistration.findMany({
+        where: {
+          participantId: participantProfileId,
+          status: RegistrationStatus.CONFIRMED,
+          ...(statusFilter && { event: { status: { in: statusFilter } } }),
         },
-      },
-    });
+        include: {
+          event: { include: { discussionRoom: true } },
+        },
+      });
 
-    return Promise.all(
-      registrations
-        .filter((r) => r.event.discussionRoom)
-        .map((r) =>
-          this.buildRoomListEntry(r.event, r.event.discussionRoom!.id),
-        ),
-    );
+    return registrations.map((registration) => registration.event);
   }
 
-  async getRoomsForOrganizer(
+  async getOrganizerEventsWithRoom(
     organizerProfileId: string,
     statusFilter?: EventStatus[],
-  ): Promise<ReturnDiscussionRoomListDto[]> {
-    const events = await this.prisma.event.findMany({
+  ): Promise<EventWithDiscussionRoom[]> {
+    return this.prisma.event.findMany({
       where: {
         organizerId: organizerProfileId,
         ...(statusFilter && { status: { in: statusFilter } }),
       },
-      select: {
-        id: true, title: true, bannerUrl: true, status: true,
-        discussionRoom: { select: { id: true } },
-      },
+      include: { discussionRoom: true },
     });
-
-    return Promise.all(
-      events
-        .filter((e) => e.discussionRoom)
-        .map((e) => this.buildRoomListEntry(e, e.discussionRoom!.id)),
-    );
-  }
-
-  // Need to refactor later, rn only returning shape for unread count and readOnly and service is handling it (badbad)
-  private async buildRoomListEntry(
-    event: {
-      id: string;
-      title: unknown;
-      bannerUrl: string | null;
-      status: string;
-    },
-    roomId: string,
-  ): Promise<ReturnDiscussionRoomListDto> {
-    const lastMessage = await this.getLatestMessageForRoom(roomId);
-    return {
-      roomId,
-      event: {
-        id: event.id,
-        title: event.title as BilingualField,
-        bannerUrl: event.bannerUrl ?? '',
-        status: event.status as any,
-      },
-      lastMessage,
-      unreadCount: 0, // will be filled in by service layer
-      isReadOnly: false, // will be filled in by service layer
-    };
   }
 
   async findClosestMessageIdToGivenTime(

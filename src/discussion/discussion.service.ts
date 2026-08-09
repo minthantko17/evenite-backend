@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { Role, EventStatus } from '@prisma/client';
 import { DiscussionValidationService } from './services/discussion-validation.service';
 import { DiscussionCrudService } from './services/discussion-crud.service';
 import { CreateMessageDto } from './dto/create-message.dto';
@@ -9,6 +9,8 @@ import { ReturnMessagePageDto } from './dto/return-message-page.dto';
 import { ReturnDiscussionRoomListDto } from './dto/return-discussion-room-list.dto';
 import { ReturnRoomReadStatusDto } from './dto/return-room-read-status.dto';
 import { ACTIVE_ROOM_STATUSES, ARCHIVED_ROOM_STATUSES } from './constants/discussion-room-filter.constants';
+import { EventWithDiscussionRoom } from './types/discussion.types';
+import { BilingualField } from '../event/dto/bilingual-field.dto';
 
 @Injectable()
 export class DiscussionService {
@@ -140,28 +142,32 @@ export class DiscussionService {
     organizerProfileId: string | null,
     filter?: 'active' | 'archived',
   ): Promise<ReturnDiscussionRoomListDto[]> {
-    const statusFilter =
+    const statusFilter: EventStatus[] | undefined =
       filter === 'active'
         ? ACTIVE_ROOM_STATUSES
         : filter === 'archived'
           ? ARCHIVED_ROOM_STATUSES
           : undefined;
 
-    const rooms =
+    const events: EventWithDiscussionRoom[] =
       role === Role.PARTICIPANT
-        ? await this.discussionCrudService.getRoomsForParticipant(
+        ? await this.discussionCrudService.getParticipantEventsWithRoom(
             participantProfileId!,
             statusFilter,
           )
-        : await this.discussionCrudService.getRoomsForOrganizer(
+        : await this.discussionCrudService.getOrganizerEventsWithRoom(
             organizerProfileId!,
             statusFilter,
           );
 
+    const eventsWithRoom: EventWithDiscussionRoom[] = events.filter(
+      (event) => event.discussionRoom !== null,
+    );
+
     return Promise.all(
-      rooms.map((room) =>
-        this.attachReadStatusAndReadOnlyFlag(
-          room,
+      eventsWithRoom.map((event) =>
+        this.mapToDiscussionRoomListDto(
+          event,
           role,
           participantProfileId,
           organizerProfileId,
@@ -190,35 +196,53 @@ export class DiscussionService {
     return this.discussionCrudService.findRoomByEventId(eventId);
   }
 
-  // NOTE: Need to refactor this.
-  private async attachReadStatusAndReadOnlyFlag(
-    room: ReturnDiscussionRoomListDto,
+  private async mapToDiscussionRoomListDto(
+    event: EventWithDiscussionRoom,
     role: Role,
     participantProfileId: string | null,
     organizerProfileId: string | null,
   ): Promise<ReturnDiscussionRoomListDto> {
-    const readStatus = await this.discussionCrudService.getRoomReadStatus(
-      room.roomId,
-      role,
-      participantProfileId,
-      organizerProfileId,
-    );
-    const sinceDate = readStatus?.lastReadAt ?? new Date(0);
-    const unreadCount = await this.discussionCrudService.countUnreadMessages(
-      room.roomId,
-      sinceDate,
-    );
+    const roomId: string = event.discussionRoom!.id;
 
-    const { event } = await this.discussionValidationService.validateRoomExists(
-      room.roomId,
-    );
-    let isReadOnly = false;
+    const lastMessage: ReturnMessageDto | null =
+      await this.discussionCrudService.getLatestMessageForRoom(roomId);
+
+    const readStatus: { lastReadAt: Date } | null =
+      await this.discussionCrudService.getRoomReadStatus(
+        roomId,
+        role,
+        participantProfileId,
+        organizerProfileId,
+      );
+
+    const unreadCount: number =
+      await this.discussionCrudService.countUnreadMessages(
+        roomId,
+        readStatus?.lastReadAt ?? new Date(0),
+      );
+
+    const isReadOnly: boolean = this.checkIsReadOnly(event);
+
+    return {
+      roomId,
+      event: {
+        id: event.id,
+        title: event.title as unknown as BilingualField,
+        bannerUrl: event.bannerUrl ?? '',
+        status: event.status,
+      },
+      lastMessage,
+      unreadCount,
+      isReadOnly,
+    };
+  }
+
+  private checkIsReadOnly(event: EventWithDiscussionRoom): boolean {
     try {
       this.discussionValidationService.validateRoomWritable(event);
+      return false;
     } catch {
-      isReadOnly = true;
+      return true;
     }
-
-    return { ...room, unreadCount, isReadOnly };
   }
 }
