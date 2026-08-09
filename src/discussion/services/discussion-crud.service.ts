@@ -77,19 +77,25 @@ export class DiscussionCrudService {
       },
     });
 
-    const hasMoreMessage = messages.length > take;
-    const page = hasMoreMessage ? messages.slice(0, take) : messages;
+    const hasMoreMessageInQueriedDirection = messages.length > take;
+    const page = hasMoreMessageInQueriedDirection ? messages.slice(0, take) : messages;
     const orderedPage = isBefore ? [...page].reverse() : page;
+    const mapped = orderedPage.map((m) => this.mapToReturnMessageDto(m));
 
-    const mappedReturnMessages = orderedPage.map((m) =>
-      this.mapToReturnMessageDto(m),
-    );
-    const nextCursor = hasMoreMessage ? page[page.length - 1].id : null;
+    const hasMoreOlder = isBefore ? hasMoreMessageInQueriedDirection : !!cursor;
+    const hasMoreNewer = isBefore ? !!cursor : hasMoreMessageInQueriedDirection;
+
+    // orderedPage is always oldest-first regardless of direction, so this is now trivial and unambiguous
+    const oldestCursor = orderedPage.length > 0 ? orderedPage[0].id : null;
+    const newestCursor =
+      orderedPage.length > 0 ? orderedPage[orderedPage.length - 1].id : null;
 
     return {
-      messages: mappedReturnMessages,
-      nextCursor,
-      hasMore: hasMoreMessage,
+      messages: mapped,
+      hasMoreOlder,
+      hasMoreNewer,
+      oldestCursor,
+      newestCursor,
     };
   }
 
