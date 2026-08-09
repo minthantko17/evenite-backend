@@ -85,10 +85,12 @@ export class DiscussionCrudService {
     const hasMoreOlder = isBefore ? hasMoreMessageInQueriedDirection : !!cursor;
     const hasMoreNewer = isBefore ? !!cursor : hasMoreMessageInQueriedDirection;
 
-    // orderedPage is always oldest-first regardless of direction, so this is now trivial and unambiguous
-    const oldestCursor = orderedPage.length > 0 ? orderedPage[0].id : null;
+    const oldestCursor =
+      orderedPage.length > 0 ? orderedPage[0].id : (cursor ?? null);
     const newestCursor =
-      orderedPage.length > 0 ? orderedPage[orderedPage.length - 1].id : null;
+      orderedPage.length > 0
+        ? orderedPage[orderedPage.length - 1].id
+        : (cursor ?? null);
 
     return {
       messages: mapped,
