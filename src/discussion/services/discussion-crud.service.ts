@@ -13,8 +13,8 @@ import { SaveMessageException } from '../exceptions/save-message.exception';
 import { SaveRoomReadStatusException } from '../exceptions/save-room-read-status.exception';
 import type { BilingualField } from '../../event/dto/bilingual-field.dto';
 
-const DEFAULT_PAGE_SIZE = 50;
-const MAX_PAGE_SIZE = 50;
+const DEFAULT_PAGE_SIZE = 5;
+const MAX_PAGE_SIZE = 5;
 
 @Injectable()
 export class DiscussionCrudService {
