@@ -202,7 +202,7 @@ export class DiscussionService {
     );
   }
 
-  async validateAccessOnly(
+  async authorizeRoomJoinAccess(
     roomId: string,
     role: Role,
     participantProfileId: string | null,

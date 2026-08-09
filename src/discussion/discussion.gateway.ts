@@ -96,7 +96,7 @@ export class DiscussionGateway
     try {
       const user = this.requireUser(client);
 
-      await this.discussionService.validateAccessOnly(
+      await this.discussionService.authorizeRoomJoinAccess(
         data.roomId,
         user.currentRole!,
         user.currentRole === Role.PARTICIPANT
