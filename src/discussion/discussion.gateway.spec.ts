@@ -1,0 +1,557 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { mockDeep, mockReset } from 'jest-mock-extended';
+import { JwtService } from '@nestjs/jwt';
+import { Logger, UnauthorizedException } from '@nestjs/common';
+import { Role } from '@prisma/client';
+import { Server, Socket } from 'socket.io';
+import { DiscussionGateway } from './discussion.gateway';
+import { DiscussionService } from './discussion.service';
+import { CreateMessageDto } from './dto/create-message.dto';
+import { ReturnMessageDto } from './dto/return-message.dto';
+import { JwtAccessPayload } from '../auth/strategies/jwt-access.strategy';
+import { RoomNotFoundException } from './exceptions/room-not-found.exception';
+import { RoomAccessDeniedException } from './exceptions/room-access-denied.exception';
+import { RoomReadOnlyException } from './exceptions/room-read-only.exception';
+import { MessageContentInvalidException } from './exceptions/message-content-invalid.exception';
+import { AnnouncementNotAllowedException } from './exceptions/announcement-not-allowed.exception';
+import { RegistrationNotFoundException } from '../registration/exceptions/registration-not-found.exception';
+import { DiscussionErrorCode } from './constants/discussion-error-code.enum';
+
+const MOCK_ROOM_ID = 'room-1';
+const MOCK_EVENT_ID = 'event-1';
+const MOCK_ORGANIZER_PROFILE_ID = 'organizer-1';
+const MOCK_PARTICIPANT_PROFILE_ID = 'participant-1';
+
+const buildPayload = (
+  overrides: Partial<JwtAccessPayload> = {},
+): JwtAccessPayload => ({
+  sub: 'user-1',
+  email: 'user@example.com',
+  currentRole: Role.PARTICIPANT,
+  isVerified: true,
+  universityId: 'uni-1',
+  participantProfileId: MOCK_PARTICIPANT_PROFILE_ID,
+  organizerProfileId: null,
+  hasCreatedProfile: true,
+  ...overrides,
+});
+
+const createMockSocket = (overrides: Record<string, any> = {}): Socket =>
+  ({
+    id: 'socket-1',
+    handshake: { auth: {}, headers: {} },
+    data: {},
+    emit: jest.fn(),
+    disconnect: jest.fn(),
+    join: jest.fn().mockResolvedValue(undefined),
+    leave: jest.fn().mockResolvedValue(undefined),
+    ...overrides,
+  }) as unknown as Socket;
+
+const MOCK_RETURN_MESSAGE: ReturnMessageDto = {
+  id: 'message-1',
+  content: 'hello',
+  isAnnouncement: false,
+  sender: { role: Role.PARTICIPANT, name: 'Jane', imageUrl: '' },
+  createdAt: new Date('2026-08-01T00:00:00Z'),
+};
+
+const discussionServiceMock = mockDeep<DiscussionService>();
+const jwtServiceMock = mockDeep<JwtService>();
+
+describe('DiscussionGateway', () => {
+  let gateway: DiscussionGateway;
+  let roomEmitMock: jest.Mock;
+  let toMock: jest.Mock;
+  let fetchSocketsMock: jest.Mock;
+  let inMock: jest.Mock;
+  let serverMock: Server;
+
+  beforeAll(() => {
+    jest.spyOn(Logger.prototype, 'log').mockImplementation(() => {});
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
+  });
+
+  beforeEach(async () => {
+    mockReset(discussionServiceMock);
+    mockReset(jwtServiceMock);
+
+    roomEmitMock = jest.fn();
+    toMock = jest.fn(() => ({ emit: roomEmitMock }));
+    fetchSocketsMock = jest.fn().mockResolvedValue([]);
+    inMock = jest.fn(() => ({ fetchSockets: fetchSocketsMock }));
+    serverMock = { to: toMock, in: inMock } as unknown as Server;
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        DiscussionGateway,
+        { provide: DiscussionService, useValue: discussionServiceMock },
+        { provide: JwtService, useValue: jwtServiceMock },
+      ],
+    }).compile();
+
+    gateway = module.get<DiscussionGateway>(DiscussionGateway);
+    gateway.server = serverMock;
+  });
+
+  describe('handleConnection', () => {
+    it('UT-HC-01: TokenInAuth + VerifySucceeds → client.data.user set, no disconnect', async () => {
+      const payload = buildPayload();
+      jwtServiceMock.verifyAsync.mockResolvedValue(payload);
+      const client = createMockSocket({
+        handshake: { auth: { token: 'valid-token' }, headers: {} },
+      });
+
+      await gateway.handleConnection(client);
+
+      expect(client.data.user).toEqual(payload);
+      expect(client.disconnect).not.toHaveBeenCalled();
+      expect(client.emit).not.toHaveBeenCalled();
+    });
+
+    it('UT-HC-02: TokenInHeader + VerifySucceeds → client.data.user set, confirms header extraction works too', async () => {
+      const payload = buildPayload();
+      jwtServiceMock.verifyAsync.mockResolvedValue(payload);
+      const client = createMockSocket({
+        handshake: {
+          auth: {},
+          headers: { authorization: 'Bearer header-token' },
+        },
+      });
+
+      await gateway.handleConnection(client);
+
+      expect(client.data.user).toEqual(payload);
+      expect(jwtServiceMock.verifyAsync).toHaveBeenCalledWith(
+        'header-token',
+        expect.objectContaining({ secret: expect.anything() }),
+      );
+    });
+
+    it('UT-HC-03: no token in either location → emits error, disconnects', async () => {
+      const client = createMockSocket();
+
+      await gateway.handleConnection(client);
+
+      expect(client.emit).toHaveBeenCalledWith('error', {
+        message: 'Unauthorized',
+      });
+      expect(client.disconnect).toHaveBeenCalled();
+      expect(jwtServiceMock.verifyAsync).not.toHaveBeenCalled();
+    });
+
+    it('UT-HC-04: token present + VerifyFails → emits error, disconnects, client.data.user NOT set', async () => {
+      jwtServiceMock.verifyAsync.mockRejectedValue(new Error('bad token'));
+      const client = createMockSocket({
+        handshake: { auth: { token: 'invalid-token' }, headers: {} },
+      });
+
+      await gateway.handleConnection(client);
+
+      expect(client.emit).toHaveBeenCalledWith('error', {
+        message: 'Unauthorized',
+      });
+      expect(client.disconnect).toHaveBeenCalled();
+      expect(client.data.user).toBeUndefined();
+    });
+  });
+
+  describe('handleDisconnect', () => {
+    it('logs the disconnection without throwing', () => {
+      const client = createMockSocket();
+
+      expect(() => gateway.handleDisconnect(client)).not.toThrow();
+    });
+  });
+
+  describe('extractTokenFromHandshake (private)', () => {
+    it('UT-ET-01: AuthTokenPresent → returns auth.token, header ignored', () => {
+      const client = createMockSocket({
+        handshake: {
+          auth: { token: 'auth-token' },
+          headers: { authorization: 'Bearer header-token' },
+        },
+      });
+
+      const result = (gateway as any).extractTokenFromHandshake(client);
+
+      expect(result).toBe('auth-token');
+    });
+
+    it('UT-ET-02: AuthTokenAbsent + HeaderPresent → returns stripped header token', () => {
+      const client = createMockSocket({
+        handshake: {
+          auth: {},
+          headers: { authorization: 'Bearer header-token' },
+        },
+      });
+
+      const result = (gateway as any).extractTokenFromHandshake(client);
+
+      expect(result).toBe('header-token');
+    });
+
+    it('UT-ET-03: AuthTokenAbsent + HeaderAbsent → throws UnauthorizedException', () => {
+      const client = createMockSocket({
+        handshake: { auth: {}, headers: {} },
+      });
+
+      expect(() => (gateway as any).extractTokenFromHandshake(client)).toThrow(
+        UnauthorizedException,
+      );
+    });
+  });
+
+  describe('requireUser (private)', () => {
+    it('UT-RU-01: client.data.user set → returns the payload', () => {
+      const payload = buildPayload();
+      const client = createMockSocket({ data: { user: payload } });
+
+      const result = (gateway as any).requireUser(client);
+
+      expect(result).toEqual(payload);
+    });
+
+    it('UT-RU-02: client.data.user unset → throws UnauthorizedException', () => {
+      const client = createMockSocket({ data: {} });
+
+      expect(() => (gateway as any).requireUser(client)).toThrow(
+        UnauthorizedException,
+      );
+    });
+  });
+
+  describe('handleJoinRoom', () => {
+    it('UT-JR-01: not authenticated → emitError called with room:join, UNAUTHORIZED code', async () => {
+      const client = createMockSocket({ data: {} });
+
+      await gateway.handleJoinRoom(client, { roomId: MOCK_ROOM_ID });
+
+      expect(client.emit).toHaveBeenCalledWith('error', {
+        event: 'room:join',
+        code: DiscussionErrorCode.UNAUTHORIZED,
+        message: 'Socket not authenticated',
+      });
+      expect(client.join).not.toHaveBeenCalled();
+    });
+
+    it('UT-JR-02: RoleOrganizer + AuthorizeSucceeds → client.join called, emits room:joined', async () => {
+      const payload = buildPayload({
+        currentRole: Role.ORGANIZER,
+        participantProfileId: null,
+        organizerProfileId: MOCK_ORGANIZER_PROFILE_ID,
+      });
+      const client = createMockSocket({ data: { user: payload } });
+      discussionServiceMock.authorizeRoomJoinAccess.mockResolvedValue({
+        message: 'Organizer has access to this room.',
+      });
+
+      await gateway.handleJoinRoom(client, { roomId: MOCK_ROOM_ID });
+
+      expect(discussionServiceMock.authorizeRoomJoinAccess).toHaveBeenCalledWith(
+        MOCK_ROOM_ID,
+        Role.ORGANIZER,
+        null,
+        MOCK_ORGANIZER_PROFILE_ID,
+      );
+      expect(client.join).toHaveBeenCalledWith(MOCK_ROOM_ID);
+      expect(client.emit).toHaveBeenCalledWith('room:joined', {
+        roomId: MOCK_ROOM_ID,
+      });
+    });
+
+    it('UT-JR-03: RoleParticipant + AuthorizeSucceeds → client.join called, emits room:joined', async () => {
+      const payload = buildPayload({
+        currentRole: Role.PARTICIPANT,
+        participantProfileId: MOCK_PARTICIPANT_PROFILE_ID,
+        organizerProfileId: null,
+      });
+      const client = createMockSocket({ data: { user: payload } });
+      discussionServiceMock.authorizeRoomJoinAccess.mockResolvedValue({
+        message: 'Participant has access to this room.',
+      });
+
+      await gateway.handleJoinRoom(client, { roomId: MOCK_ROOM_ID });
+
+      expect(discussionServiceMock.authorizeRoomJoinAccess).toHaveBeenCalledWith(
+        MOCK_ROOM_ID,
+        Role.PARTICIPANT,
+        MOCK_PARTICIPANT_PROFILE_ID,
+        null,
+      );
+      expect(client.join).toHaveBeenCalledWith(MOCK_ROOM_ID);
+      expect(client.emit).toHaveBeenCalledWith('room:joined', {
+        roomId: MOCK_ROOM_ID,
+      });
+    });
+
+    it('UT-JR-04: AuthorizeFails → client.join NOT called, emitError called with resolved error code', async () => {
+      const payload = buildPayload();
+      const client = createMockSocket({ data: { user: payload } });
+      discussionServiceMock.authorizeRoomJoinAccess.mockRejectedValue(
+        new RoomAccessDeniedException(),
+      );
+
+      await gateway.handleJoinRoom(client, { roomId: MOCK_ROOM_ID });
+
+      expect(client.join).not.toHaveBeenCalled();
+      expect(client.emit).toHaveBeenCalledWith('error', {
+        event: 'room:join',
+        code: DiscussionErrorCode.ROOM_ACCESS_DENIED,
+        message: expect.any(String),
+      });
+    });
+  });
+
+  describe('handleLeaveRoom', () => {
+    it('UT-LR-01: calls client.leave with data.roomId', async () => {
+      const client = createMockSocket();
+
+      await gateway.handleLeaveRoom(client, { roomId: MOCK_ROOM_ID });
+
+      expect(client.leave).toHaveBeenCalledWith(MOCK_ROOM_ID);
+    });
+  });
+
+  describe('handleSendMessage', () => {
+    const dto: CreateMessageDto = { content: 'hello' };
+
+    it('UT-SM-01: not authenticated → emitError(message:send, UNAUTHORIZED), server.to(...).emit NOT called', async () => {
+      const client = createMockSocket({ data: {} });
+
+      await gateway.handleSendMessage(client, { roomId: MOCK_ROOM_ID, dto });
+
+      expect(client.emit).toHaveBeenCalledWith('error', {
+        event: 'message:send',
+        code: DiscussionErrorCode.UNAUTHORIZED,
+        message: 'Socket not authenticated',
+      });
+      expect(toMock).not.toHaveBeenCalled();
+    });
+
+    it('UT-SM-02: RoleOrganizer + SendSucceeds → server.to(roomId).emit(message:new, message) called', async () => {
+      const payload = buildPayload({
+        currentRole: Role.ORGANIZER,
+        participantProfileId: null,
+        organizerProfileId: MOCK_ORGANIZER_PROFILE_ID,
+      });
+      const client = createMockSocket({ data: { user: payload } });
+      discussionServiceMock.sendMessage.mockResolvedValue(MOCK_RETURN_MESSAGE);
+
+      await gateway.handleSendMessage(client, { roomId: MOCK_ROOM_ID, dto });
+
+      expect(discussionServiceMock.sendMessage).toHaveBeenCalledWith(
+        MOCK_ROOM_ID,
+        dto,
+        Role.ORGANIZER,
+        null,
+        MOCK_ORGANIZER_PROFILE_ID,
+      );
+      expect(toMock).toHaveBeenCalledWith(MOCK_ROOM_ID);
+      expect(roomEmitMock).toHaveBeenCalledWith(
+        'message:new',
+        MOCK_RETURN_MESSAGE,
+      );
+    });
+
+    it('UT-SM-03: RoleParticipant + SendSucceeds → correct profile id threaded through', async () => {
+      const payload = buildPayload({
+        currentRole: Role.PARTICIPANT,
+        participantProfileId: MOCK_PARTICIPANT_PROFILE_ID,
+        organizerProfileId: null,
+      });
+      const client = createMockSocket({ data: { user: payload } });
+      discussionServiceMock.sendMessage.mockResolvedValue(MOCK_RETURN_MESSAGE);
+
+      await gateway.handleSendMessage(client, { roomId: MOCK_ROOM_ID, dto });
+
+      expect(discussionServiceMock.sendMessage).toHaveBeenCalledWith(
+        MOCK_ROOM_ID,
+        dto,
+        Role.PARTICIPANT,
+        MOCK_PARTICIPANT_PROFILE_ID,
+        null,
+      );
+      expect(roomEmitMock).toHaveBeenCalledWith(
+        'message:new',
+        MOCK_RETURN_MESSAGE,
+      );
+    });
+
+    it('UT-SM-04: SendFails → server.to(...).emit NOT called, emitError(message:send, <resolved code>) called', async () => {
+      const payload = buildPayload();
+      const client = createMockSocket({ data: { user: payload } });
+      discussionServiceMock.sendMessage.mockRejectedValue(
+        new MessageContentInvalidException('Message cannot be empty.'),
+      );
+
+      await gateway.handleSendMessage(client, { roomId: MOCK_ROOM_ID, dto });
+
+      expect(toMock).not.toHaveBeenCalled();
+      expect(client.emit).toHaveBeenCalledWith('error', {
+        event: 'message:send',
+        code: DiscussionErrorCode.MESSAGE_CONTENT_INVALID,
+        message: 'Message cannot be empty.',
+      });
+    });
+  });
+
+  describe('handleRegistrationCancelled', () => {
+    it('UT-RC-01: RoomFound → forceDisconnectParticipant called with (roomId, participantProfileId)', async () => {
+      discussionServiceMock.findRoomByEventId.mockResolvedValue({
+        roomId: MOCK_ROOM_ID,
+      });
+      fetchSocketsMock.mockResolvedValue([]);
+
+      await gateway.handleRegistrationCancelled({
+        eventId: MOCK_EVENT_ID,
+        participantProfileId: MOCK_PARTICIPANT_PROFILE_ID,
+      });
+
+      expect(discussionServiceMock.findRoomByEventId).toHaveBeenCalledWith(
+        MOCK_EVENT_ID,
+      );
+      expect(inMock).toHaveBeenCalledWith(MOCK_ROOM_ID);
+    });
+
+    it('UT-RC-02: RoomNotFound → forceDisconnectParticipant NOT called, returns silently', async () => {
+      discussionServiceMock.findRoomByEventId.mockResolvedValue(null);
+
+      await gateway.handleRegistrationCancelled({
+        eventId: MOCK_EVENT_ID,
+        participantProfileId: MOCK_PARTICIPANT_PROFILE_ID,
+      });
+
+      expect(inMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('forceDisconnectParticipant (private)', () => {
+    it('UT-FD-01: NoSockets → no emit, no leave calls at all', async () => {
+      fetchSocketsMock.mockResolvedValue([]);
+
+      await (gateway as any).forceDisconnectParticipant(
+        MOCK_ROOM_ID,
+        MOCK_PARTICIPANT_PROFILE_ID,
+      );
+
+      expect(inMock).toHaveBeenCalledWith(MOCK_ROOM_ID);
+    });
+
+    it('UT-FD-02: single socket, Matches → emits room:kicked and leaves', async () => {
+      const remoteSocket = {
+        data: { user: { participantProfileId: MOCK_PARTICIPANT_PROFILE_ID } },
+        emit: jest.fn(),
+        leave: jest.fn(),
+      };
+      fetchSocketsMock.mockResolvedValue([remoteSocket]);
+
+      await (gateway as any).forceDisconnectParticipant(
+        MOCK_ROOM_ID,
+        MOCK_PARTICIPANT_PROFILE_ID,
+      );
+
+      expect(remoteSocket.emit).toHaveBeenCalledWith('room:kicked', {
+        roomId: MOCK_ROOM_ID,
+      });
+      expect(remoteSocket.leave).toHaveBeenCalledWith(MOCK_ROOM_ID);
+    });
+
+    it('UT-FD-03: single socket, NoMatch → neither emit nor leave called', async () => {
+      const remoteSocket = {
+        data: { user: { participantProfileId: 'someone-else' } },
+        emit: jest.fn(),
+        leave: jest.fn(),
+      };
+      fetchSocketsMock.mockResolvedValue([remoteSocket]);
+
+      await (gateway as any).forceDisconnectParticipant(
+        MOCK_ROOM_ID,
+        MOCK_PARTICIPANT_PROFILE_ID,
+      );
+
+      expect(remoteSocket.emit).not.toHaveBeenCalled();
+      expect(remoteSocket.leave).not.toHaveBeenCalled();
+    });
+
+    it('UT-FD-04: multiple sockets, mixed match → only matching sockets receive emit+leave', async () => {
+      const matchingSocket = {
+        data: { user: { participantProfileId: MOCK_PARTICIPANT_PROFILE_ID } },
+        emit: jest.fn(),
+        leave: jest.fn(),
+      };
+      const otherSocket = {
+        data: { user: { participantProfileId: 'someone-else' } },
+        emit: jest.fn(),
+        leave: jest.fn(),
+      };
+      fetchSocketsMock.mockResolvedValue([matchingSocket, otherSocket]);
+
+      await (gateway as any).forceDisconnectParticipant(
+        MOCK_ROOM_ID,
+        MOCK_PARTICIPANT_PROFILE_ID,
+      );
+
+      expect(matchingSocket.emit).toHaveBeenCalledWith('room:kicked', {
+        roomId: MOCK_ROOM_ID,
+      });
+      expect(matchingSocket.leave).toHaveBeenCalledWith(MOCK_ROOM_ID);
+      expect(otherSocket.emit).not.toHaveBeenCalled();
+      expect(otherSocket.leave).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('resolveErrorCode (private)', () => {
+    it.each([
+      [new RoomNotFoundException(), DiscussionErrorCode.ROOM_NOT_FOUND],
+      [new RoomAccessDeniedException(), DiscussionErrorCode.ROOM_ACCESS_DENIED],
+      [
+        new RegistrationNotFoundException(),
+        DiscussionErrorCode.REGISTRATION_NOT_FOUND,
+      ],
+      [new RoomReadOnlyException(), DiscussionErrorCode.ROOM_READ_ONLY],
+      [
+        new MessageContentInvalidException(),
+        DiscussionErrorCode.MESSAGE_CONTENT_INVALID,
+      ],
+      [
+        new AnnouncementNotAllowedException(),
+        DiscussionErrorCode.ANNOUNCEMENT_NOT_ALLOWED,
+      ],
+      [new UnauthorizedException(), DiscussionErrorCode.UNAUTHORIZED],
+      [new Error('some other error'), DiscussionErrorCode.UNKNOWN_ERROR],
+      ['a plain string throw', DiscussionErrorCode.UNKNOWN_ERROR],
+    ])('UT-RE: maps %p to %s', (error, expectedCode) => {
+      const result = (gateway as any).resolveErrorCode(error);
+
+      expect(result).toBe(expectedCode);
+    });
+  });
+
+  describe('emitError (private)', () => {
+    it('UT-EE-01: IsError → message = error.message', () => {
+      const client = createMockSocket();
+      const error = new RoomAccessDeniedException('custom message');
+
+      (gateway as any).emitError(client, 'room:join', error);
+
+      expect(client.emit).toHaveBeenCalledWith('error', {
+        event: 'room:join',
+        code: DiscussionErrorCode.ROOM_ACCESS_DENIED,
+        message: 'custom message',
+      });
+    });
+
+    it('UT-EE-02: NotError → message = "An unexpected error occurred."', () => {
+      const client = createMockSocket();
+
+      (gateway as any).emitError(client, 'room:join', 'a plain string');
+
+      expect(client.emit).toHaveBeenCalledWith('error', {
+        event: 'room:join',
+        code: DiscussionErrorCode.UNKNOWN_ERROR,
+        message: 'An unexpected error occurred.',
+      });
+    });
+  });
+});
