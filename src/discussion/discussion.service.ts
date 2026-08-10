@@ -79,11 +79,7 @@ export class DiscussionService {
       organizerProfileId,
     );
 
-    // if no cursor, resume from the caller's last-read position
-    let cursor = query.cursor;
-    let direction = query.direction ?? 'before';
-
-    if (!cursor) {
+    if (!query.cursor) {
       const readStatus = await this.discussionCrudService.getRoomReadStatus(
         roomId,
         role,
@@ -92,23 +88,19 @@ export class DiscussionService {
       );
 
       if (readStatus) {
-        const anchorMessage =
-          await this.discussionCrudService.findClosestMessageIdToGivenTime(
-            roomId,
-            readStatus.lastReadAt,
-          );
-        if (anchorMessage) {
-          cursor = anchorMessage;
-          direction = 'after';
-        }
+        return this.discussionCrudService.getMessagesFromTimestamp(
+          roomId,
+          readStatus.lastReadAt,
+          query.limit,
+        );
       }
-      // if no readStatus, cursor stays undefined
+      // if no readStatus, fall through to plain latest-page fetch below
     }
 
     return this.discussionCrudService.getMessagePage(
       roomId,
-      cursor,
-      direction,
+      query.cursor,
+      query.direction ?? 'before',
       query.limit,
     );
   }

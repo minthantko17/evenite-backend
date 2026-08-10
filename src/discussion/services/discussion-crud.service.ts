@@ -104,6 +104,48 @@ export class DiscussionCrudService {
     };
   }
 
+  async getMessagesFromTimestamp(
+    roomId: string,
+    lastReadAt: Date,
+    limit: number | undefined,
+  ): Promise<ReturnMessagePageDto> {
+    const take = Math.min(limit ?? DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
+
+    // find the actual last-read message
+    const anchorMessage = await this.prisma.message.findFirst({
+      where: { roomId, createdAt: { lte: lastReadAt } },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
+    });
+
+    // if no message exists at or before lastReadAt (e.g. room empty), just return everything from the beginning
+    const anchorTime = anchorMessage?.createdAt ?? new Date(0);
+
+    const messages = await this.prisma.message.findMany({
+      where: { roomId, createdAt: { gte: anchorTime } },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      take: take + 1,
+      include: {
+        senderParticipant: {
+          select: { firstName: true, nickname: true, imageUrl: true },
+        },
+        senderOrganizer: { select: { name: true, imageUrl: true } },
+      },
+    });
+
+    const hasMoreNewer = messages.length > take;
+    const page = hasMoreNewer ? messages.slice(0, take) : messages;
+    const mapped = page.map((m) => this.mapToReturnMessageDto(m));
+
+    return {
+      messages: mapped,
+      hasMoreOlder: true,
+      hasMoreNewer,
+      oldestCursor: page.length > 0 ? page[0].id : null,
+      newestCursor: page.length > 0 ? page[page.length - 1].id : null,
+    };
+  }
+
   async getLatestMessageForRoom(
     roomId: string,
   ): Promise<ReturnMessageDto | null> {
@@ -199,17 +241,16 @@ export class DiscussionCrudService {
     participantProfileId: string,
     statusFilter?: EventStatus[],
   ): Promise<EventWithDiscussionRoom[]> {
-    const registrations =
-      await this.prisma.eventRegistration.findMany({
-        where: {
-          participantId: participantProfileId,
-          status: RegistrationStatus.CONFIRMED,
-          ...(statusFilter && { event: { status: { in: statusFilter } } }),
-        },
-        include: {
-          event: { include: { discussionRoom: true } },
-        },
-      });
+    const registrations = await this.prisma.eventRegistration.findMany({
+      where: {
+        participantId: participantProfileId,
+        status: RegistrationStatus.CONFIRMED,
+        ...(statusFilter && { event: { status: { in: statusFilter } } }),
+      },
+      include: {
+        event: { include: { discussionRoom: true } },
+      },
+    });
 
     return registrations.map((registration) => registration.event);
   }
