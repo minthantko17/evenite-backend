@@ -1,4 +1,3 @@
-// discussion/services/discussion-crud.service.ts
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma, Role, EventStatus, RegistrationStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -266,18 +265,6 @@ export class DiscussionCrudService {
       },
       include: { discussionRoom: true },
     });
-  }
-
-  async findClosestMessageIdToGivenTime(
-    roomId: string,
-    timestamp: Date,
-  ): Promise<string | null> {
-    const message = await this.prisma.message.findFirst({
-      where: { roomId, createdAt: { lte: timestamp } },
-      orderBy: { createdAt: 'desc' },
-      select: { id: true },
-    });
-    return message?.id ?? null;
   }
 
   async findRoomByEventId(eventId: string): Promise<{ roomId: string } | null> {
