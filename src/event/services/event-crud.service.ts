@@ -73,7 +73,12 @@ export class EventCrudService {
           data,
         });
       }
-      return await this.prisma.event.create({ data });
+      return await this.prisma.event.create({
+        data: {
+          ...data,
+          discussionRoom: { create: {} },
+        },
+      });
     } catch {
       throw new SaveEventException();
     }
@@ -95,6 +100,7 @@ export class EventCrudService {
       orderBy: { createdAt: 'desc' },
       include: {
         forms: { select: { id: true, type: true } },
+        discussionRoom: { select: { id: true } },
       },
     });
 
@@ -106,6 +112,7 @@ export class EventCrudService {
       where: { id },
       include: {
         forms: { select: { id: true, type: true } },
+        discussionRoom: { select: { id: true } },
       },
     });
 
@@ -130,6 +137,7 @@ export class EventCrudService {
       orderBy: { createdAt: 'desc' },
       include: {
         forms: { select: { id: true, type: true } },
+        discussionRoom: { select: { id: true } },
       },
     });
     return events.map((event) => this.mapToEventResponseDto(event));
@@ -170,6 +178,7 @@ export class EventCrudService {
           data: { status: newStatus },
           include: {
             forms: { select: { id: true, type: true } },
+            discussionRoom: { select: { id: true } },
           },
         });
 
@@ -254,6 +263,7 @@ export class EventCrudService {
       publishedAt: event.publishedAt ?? null,
       createdAt: event.createdAt,
       updatedAt: event.updatedAt,
+      roomId: event.discussionRoom?.id ?? null,
       forms:
         event.forms?.map((form: any) => ({
           id: form.id,

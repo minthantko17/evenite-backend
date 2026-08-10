@@ -37,4 +37,5 @@ export interface EventResponseDto {
   createdAt: Date;
   updatedAt: Date;
   forms: CreatedEventForm[];
+  roomId: string | null;
 }

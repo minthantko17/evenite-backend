@@ -87,23 +87,47 @@ export class RegistrationValidationService {
   }
 
   async validateTicketOwnership(
-  ticketId: string,
-  participantProfileId: string,
-): Promise<{ message: string }> {
-  const ticket = await this.prisma.ticket.findUnique({
-    where: { id: ticketId },
-    select: {
-      eventRegistration: {
-        select: { participantId: true },
+    ticketId: string,
+    participantProfileId: string,
+  ): Promise<{ message: string }> {
+    const ticket = await this.prisma.ticket.findUnique({
+      where: { id: ticketId },
+      select: {
+        eventRegistration: {
+          select: { participantId: true },
+        },
       },
-    },
-  });
+    });
 
-  // intentionally return only Reg not found to avoid leaking ticket existence
-  if (!ticket || ticket.eventRegistration.participantId !== participantProfileId) {
-    throw new RegistrationNotFoundException();
+    // intentionally return only Reg not found to avoid leaking ticket existence
+    if (
+      !ticket ||
+      ticket.eventRegistration.participantId !== participantProfileId
+    ) {
+      throw new RegistrationNotFoundException();
+    }
+
+    return { message: 'Ticket ownership validated.' };
   }
 
-  return { message: 'Ticket ownership validated.' };
-}
+  async validateConfirmedRegistration(
+    eventId: string,
+    participantProfileId: string,
+  ): Promise<{ message: string }> {
+    const registration = await this.prisma.eventRegistration.findUnique({
+      where: {
+        participantId_eventId: {
+          participantId: participantProfileId,
+          eventId,
+        },
+      },
+      select: { status: true },
+    });
+
+    if (!registration || registration.status !== RegistrationStatus.CONFIRMED) {
+      throw new RegistrationNotFoundException();
+    }
+
+    return { message: 'Participant is confirmed for this event.' };
+  }
 }
