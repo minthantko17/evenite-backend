@@ -1,6 +1,7 @@
 import { Role } from '@prisma/client';
 
 export class ReturnMessageSenderDto {
+  id!: string;
   role!: Role;
   name!: string;
   imageUrl!: string;

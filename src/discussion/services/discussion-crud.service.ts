@@ -40,9 +40,9 @@ export class DiscussionCrudService {
         },
         include: {
           senderParticipant: {
-            select: { firstName: true, nickname: true, imageUrl: true },
+            select: { id: true, firstName: true, nickname: true, imageUrl: true },
           },
-          senderOrganizer: { select: { name: true, imageUrl: true } },
+          senderOrganizer: { select: { id: true, name: true, imageUrl: true } },
         },
       });
       return this.mapToReturnMessageDto(message);
@@ -71,9 +71,9 @@ export class DiscussionCrudService {
       take: take + 1, // fetch extra one to check if there's more
       include: {
         senderParticipant: {
-          select: { firstName: true, nickname: true, imageUrl: true },
+          select: { id: true, firstName: true, nickname: true, imageUrl: true },
         },
-        senderOrganizer: { select: { name: true, imageUrl: true } },
+        senderOrganizer: { select: { id: true, name: true, imageUrl: true } },
       },
     });
 
@@ -126,9 +126,9 @@ export class DiscussionCrudService {
       take: take + 1,
       include: {
         senderParticipant: {
-          select: { firstName: true, nickname: true, imageUrl: true },
+          select: { id: true, firstName: true, nickname: true, imageUrl: true },
         },
-        senderOrganizer: { select: { name: true, imageUrl: true } },
+        senderOrganizer: { select: { id: true, name: true, imageUrl: true } },
       },
     });
 
@@ -153,9 +153,9 @@ export class DiscussionCrudService {
       orderBy: { createdAt: 'desc' },
       include: {
         senderParticipant: {
-          select: { firstName: true, nickname: true, imageUrl: true },
+          select: { id: true, firstName: true, nickname: true, imageUrl: true },
         },
-        senderOrganizer: { select: { name: true, imageUrl: true } },
+        senderOrganizer: { select: { id: true, name: true, imageUrl: true } },
       },
     });
     return message ? this.mapToReturnMessageDto(message) : null;
@@ -279,11 +279,13 @@ export class DiscussionCrudService {
     const isOrganizerSender = message.senderOrganizerId !== null;
     const sender: ReturnMessageSenderDto = isOrganizerSender
       ? {
+          id: message.senderOrganizer!.id,
           role: Role.ORGANIZER,
           name: message.senderOrganizer?.name ?? '',
           imageUrl: message.senderOrganizer?.imageUrl ?? '',
         }
       : {
+          id: message.senderParticipant!.id,
           role: Role.PARTICIPANT,
           name:
             message.senderParticipant?.nickname ||
