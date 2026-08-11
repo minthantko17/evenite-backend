@@ -88,7 +88,7 @@ export class DiscussionService {
       );
 
       if (readStatus) {
-        return this.discussionCrudService.getMessagesFromTimestamp(
+        return this.discussionCrudService.getPaginatedMessagesByTimestamp(
           roomId,
           readStatus.lastReadAt,
           query.limit,
@@ -97,7 +97,7 @@ export class DiscussionService {
       // if no readStatus, fall through to plain latest-page fetch below
     }
 
-    return this.discussionCrudService.getMessagePage(
+    return this.discussionCrudService.getPaginatedMessagesByCursor(
       roomId,
       query.cursor,
       query.direction ?? 'before',

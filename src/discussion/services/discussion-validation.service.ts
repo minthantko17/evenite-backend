@@ -1,4 +1,3 @@
-// discussion/services/discussion-validation.service.ts
 import { Injectable } from '@nestjs/common';
 import { Event, EventStatus, Role } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';

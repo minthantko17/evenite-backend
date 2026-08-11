@@ -1,4 +1,3 @@
-// discussion/services/discussion-crud.service.ts
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma, Role, EventStatus, RegistrationStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -54,7 +53,7 @@ export class DiscussionCrudService {
   }
 
   // get messages with cursor pagination
-  async getMessagePage(
+  async getPaginatedMessagesByCursor(
     roomId: string,
     cursor: string | undefined,
     direction: 'before' | 'after',
@@ -104,7 +103,7 @@ export class DiscussionCrudService {
     };
   }
 
-  async getMessagesFromTimestamp(
+  async getPaginatedMessagesByTimestamp(
     roomId: string,
     lastReadAt: Date,
     limit: number | undefined,
@@ -266,18 +265,6 @@ export class DiscussionCrudService {
       },
       include: { discussionRoom: true },
     });
-  }
-
-  async findClosestMessageIdToGivenTime(
-    roomId: string,
-    timestamp: Date,
-  ): Promise<string | null> {
-    const message = await this.prisma.message.findFirst({
-      where: { roomId, createdAt: { lte: timestamp } },
-      orderBy: { createdAt: 'desc' },
-      select: { id: true },
-    });
-    return message?.id ?? null;
   }
 
   async findRoomByEventId(eventId: string): Promise<{ roomId: string } | null> {
