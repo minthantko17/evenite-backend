@@ -81,6 +81,9 @@ describe('DiscussionValidationService', () => {
       await expect(service.validateRoomExists(MOCK_ROOM_ID)).rejects.toThrow(
         RoomNotFoundException,
       );
+      await expect(service.validateRoomExists(MOCK_ROOM_ID)).rejects.toThrow(
+        'Discussion room not found.',
+      );
     });
   });
 
@@ -114,6 +117,16 @@ describe('DiscussionValidationService', () => {
           MOCK_ORGANIZER_PROFILE_ID,
         ),
       ).rejects.toThrow(RoomAccessDeniedException);
+      await expect(
+        service.validateRoomAccess(
+          event,
+          Role.ORGANIZER,
+          null,
+          MOCK_ORGANIZER_PROFILE_ID,
+        ),
+      ).rejects.toThrow(
+        'You do not have permission to access this discussion room.',
+      );
     });
 
     it('UT-VA-03: RoleOrganizer + organizerProfileId null → throws RoomAccessDeniedException', async () => {
@@ -122,6 +135,11 @@ describe('DiscussionValidationService', () => {
       await expect(
         service.validateRoomAccess(event, Role.ORGANIZER, null, null),
       ).rejects.toThrow(RoomAccessDeniedException);
+      await expect(
+        service.validateRoomAccess(event, Role.ORGANIZER, null, null),
+      ).rejects.toThrow(
+        'You do not have permission to access this discussion room.',
+      );
     });
 
     it('UT-VA-04: RoleParticipant + HasParticipantId + ConfirmedReg → returns access-confirmation message', async () => {
@@ -159,6 +177,14 @@ describe('DiscussionValidationService', () => {
           null,
         ),
       ).rejects.toThrow(RegistrationNotFoundException);
+      await expect(
+        service.validateRoomAccess(
+          event,
+          Role.PARTICIPANT,
+          MOCK_PARTICIPANT_PROFILE_ID,
+          null,
+        ),
+      ).rejects.toThrow('Registration not found.');
     });
 
     it('UT-VA-06: RoleParticipant + participantProfileId null → throws RoomAccessDeniedException', async () => {
@@ -167,6 +193,11 @@ describe('DiscussionValidationService', () => {
       await expect(
         service.validateRoomAccess(event, Role.PARTICIPANT, null, null),
       ).rejects.toThrow(RoomAccessDeniedException);
+      await expect(
+        service.validateRoomAccess(event, Role.PARTICIPANT, null, null),
+      ).rejects.toThrow(
+        'You do not have permission to access this discussion room.',
+      );
       expect(
         registrationValidationServiceMock.validateConfirmedRegistration,
       ).not.toHaveBeenCalled();
@@ -204,7 +235,9 @@ describe('DiscussionValidationService', () => {
       expect(() => service.validateRoomWritable(event)).toThrow(
         RoomReadOnlyException,
       );
-      expect(() => service.validateRoomWritable(event)).toThrow(/cancelled/i);
+      expect(() => service.validateRoomWritable(event)).toThrow(
+        'This event has been cancelled. The discussion room is read-only.',
+      );
     });
 
     it('UT-RW-05: CONCLUDED + HasEndAt + WithinGrace → writable', () => {
@@ -228,6 +261,9 @@ describe('DiscussionValidationService', () => {
 
       expect(() => service.validateRoomWritable(event)).toThrow(
         RoomReadOnlyException,
+      );
+      expect(() => service.validateRoomWritable(event)).toThrow(
+        'This discussion room is read-only and no longer accepts new messages.',
       );
     });
 
@@ -261,6 +297,9 @@ describe('DiscussionValidationService', () => {
       expect(() => service.validateRoomWritable(event)).toThrow(
         RoomReadOnlyException,
       );
+      expect(() => service.validateRoomWritable(event)).toThrow(
+        'This discussion room is read-only and no longer accepts new messages.',
+      );
     });
 
     it('UT-RW-09: CONCLUDED + NoEndAt + startAt null + WithinGrace → writable (reference = epoch + 6h; edge case)', () => {
@@ -286,6 +325,9 @@ describe('DiscussionValidationService', () => {
 
       expect(() => service.validateRoomWritable(event)).toThrow(
         RoomReadOnlyException,
+      );
+      expect(() => service.validateRoomWritable(event)).toThrow(
+        'This discussion room is read-only and no longer accepts new messages.',
       );
     });
   });
@@ -328,6 +370,9 @@ describe('DiscussionValidationService', () => {
 
       expect(() => service.validateMessageContent(exactly2001)).toThrow(
         MessageContentInvalidException,
+      );
+      expect(() => service.validateMessageContent(exactly2001)).toThrow(
+        'Message cannot exceed 2000 characters.',
       );
     });
 
@@ -372,6 +417,9 @@ describe('DiscussionValidationService', () => {
       expect(() =>
         service.validateAnnouncementPermission(true, Role.PARTICIPANT),
       ).toThrow(AnnouncementNotAllowedException);
+      expect(() =>
+        service.validateAnnouncementPermission(true, Role.PARTICIPANT),
+      ).toThrow('Only the organizer can send announcements.');
     });
   });
 });
