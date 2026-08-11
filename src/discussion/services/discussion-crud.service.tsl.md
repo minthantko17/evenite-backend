@@ -37,7 +37,7 @@ Resulting test frames:
 
 ---
 
-### `getMessagePage(roomId, cursor, direction, limit)`
+### `getPaginatedMessagesByCursor(roomId, cursor, direction, limit)`
 
 ```
 Parameter direction:
@@ -81,7 +81,7 @@ Resulting test frames (cross-product of direction × cursor × page-fullness):
 
 ---
 
-### `getMessagesFromTimestamp(roomId, lastReadAt, limit)`
+### `getPaginatedMessagesByTimestamp(roomId, lastReadAt, limit)`
 
 ```
 Parameter anchorMessage lookup (message at-or-before lastReadAt):

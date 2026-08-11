@@ -263,14 +263,14 @@ describe('DiscussionCrudService', () => {
     });
   });
 
-  describe('getMessagePage', () => {
+  describe('getPaginatedMessagesByCursor', () => {
     it('UT-GMP-01: Before + HasCursor + MorePages → hasMoreOlder=true, hasMoreNewer=true, page reversed to ascending', async () => {
       // 26 rows returned (desc order) for take=25 → extra row present
       prismaMock.message.findMany.mockResolvedValue(
         buildRawMessages(26) as any,
       );
 
-      const result = await service.getMessagePage(
+      const result = await service.getPaginatedMessagesByCursor(
         MOCK_ROOM_ID,
         'cursor-1',
         'before',
@@ -290,7 +290,7 @@ describe('DiscussionCrudService', () => {
         buildRawMessages(5) as any,
       );
 
-      const result = await service.getMessagePage(
+      const result = await service.getPaginatedMessagesByCursor(
         MOCK_ROOM_ID,
         'cursor-1',
         'before',
@@ -306,7 +306,7 @@ describe('DiscussionCrudService', () => {
         buildRawMessages(11) as any,
       );
 
-      const result = await service.getMessagePage(
+      const result = await service.getPaginatedMessagesByCursor(
         MOCK_ROOM_ID,
         undefined,
         'before',
@@ -322,7 +322,7 @@ describe('DiscussionCrudService', () => {
         buildRawMessages(3) as any,
       );
 
-      const result = await service.getMessagePage(
+      const result = await service.getPaginatedMessagesByCursor(
         MOCK_ROOM_ID,
         undefined,
         'before',
@@ -338,7 +338,7 @@ describe('DiscussionCrudService', () => {
         buildRawMessages(11) as any,
       );
 
-      const result = await service.getMessagePage(
+      const result = await service.getPaginatedMessagesByCursor(
         MOCK_ROOM_ID,
         'cursor-1',
         'after',
@@ -356,7 +356,7 @@ describe('DiscussionCrudService', () => {
         buildRawMessages(3) as any,
       );
 
-      const result = await service.getMessagePage(
+      const result = await service.getPaginatedMessagesByCursor(
         MOCK_ROOM_ID,
         'cursor-1',
         'after',
@@ -372,7 +372,7 @@ describe('DiscussionCrudService', () => {
         buildRawMessages(11) as any,
       );
 
-      const result = await service.getMessagePage(
+      const result = await service.getPaginatedMessagesByCursor(
         MOCK_ROOM_ID,
         undefined,
         'after',
@@ -388,7 +388,7 @@ describe('DiscussionCrudService', () => {
         buildRawMessages(3) as any,
       );
 
-      const result = await service.getMessagePage(
+      const result = await service.getPaginatedMessagesByCursor(
         MOCK_ROOM_ID,
         undefined,
         'after',
@@ -402,7 +402,7 @@ describe('DiscussionCrudService', () => {
     it('UT-GMP-09: Before + HasCursor + EmptyPage → oldestCursor = newestCursor = input cursor (fallback)', async () => {
       prismaMock.message.findMany.mockResolvedValue([] as any);
 
-      const result = await service.getMessagePage(
+      const result = await service.getPaginatedMessagesByCursor(
         MOCK_ROOM_ID,
         'cursor-1',
         'before',
@@ -416,7 +416,7 @@ describe('DiscussionCrudService', () => {
     it('UT-GMP-10: After + HasCursor + EmptyPage → oldestCursor = newestCursor = input cursor (fallback)', async () => {
       prismaMock.message.findMany.mockResolvedValue([] as any);
 
-      const result = await service.getMessagePage(
+      const result = await service.getPaginatedMessagesByCursor(
         MOCK_ROOM_ID,
         'cursor-1',
         'after',
@@ -430,7 +430,7 @@ describe('DiscussionCrudService', () => {
     it('UT-GMP-11: DefaultLimit (undefined) → take = DEFAULT_PAGE_SIZE used in the Prisma call', async () => {
       prismaMock.message.findMany.mockResolvedValue([] as any);
 
-      await service.getMessagePage(MOCK_ROOM_ID, undefined, 'before', undefined);
+      await service.getPaginatedMessagesByCursor(MOCK_ROOM_ID, undefined, 'before', undefined);
 
       expect(prismaMock.message.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ take: DEFAULT_PAGE_SIZE + 1 }),
@@ -440,7 +440,7 @@ describe('DiscussionCrudService', () => {
     it('UT-GMP-12: CustomLimit (<= MAX_PAGE_SIZE) → take = provided limit', async () => {
       prismaMock.message.findMany.mockResolvedValue([] as any);
 
-      await service.getMessagePage(MOCK_ROOM_ID, undefined, 'before', 5);
+      await service.getPaginatedMessagesByCursor(MOCK_ROOM_ID, undefined, 'before', 5);
 
       expect(prismaMock.message.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ take: 6 }),
@@ -450,7 +450,7 @@ describe('DiscussionCrudService', () => {
     it('UT-GMP-13: ClampedLimit (> MAX_PAGE_SIZE) → take = MAX_PAGE_SIZE', async () => {
       prismaMock.message.findMany.mockResolvedValue([] as any);
 
-      await service.getMessagePage(MOCK_ROOM_ID, undefined, 'before', 999);
+      await service.getPaginatedMessagesByCursor(MOCK_ROOM_ID, undefined, 'before', 999);
 
       expect(prismaMock.message.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ take: MAX_PAGE_SIZE + 1 }),
@@ -458,7 +458,7 @@ describe('DiscussionCrudService', () => {
     });
   });
 
-  describe('getMessagesFromTimestamp', () => {
+  describe('getPaginatedMessagesByTimestamp', () => {
     const lastReadAt = new Date('2026-08-01T00:05:00Z');
 
     it('UT-GFT-01: AnchorFound + NoMoreNewer → hasMoreOlder=true (always), hasMoreNewer=false', async () => {
@@ -469,7 +469,7 @@ describe('DiscussionCrudService', () => {
         buildRawMessages(3) as any,
       );
 
-      const result = await service.getMessagesFromTimestamp(
+      const result = await service.getPaginatedMessagesByTimestamp(
         MOCK_ROOM_ID,
         lastReadAt,
         10,
@@ -492,7 +492,7 @@ describe('DiscussionCrudService', () => {
         buildRawMessages(11) as any,
       );
 
-      const result = await service.getMessagesFromTimestamp(
+      const result = await service.getPaginatedMessagesByTimestamp(
         MOCK_ROOM_ID,
         lastReadAt,
         10,
@@ -508,7 +508,7 @@ describe('DiscussionCrudService', () => {
         buildRawMessages(3) as any,
       );
 
-      await service.getMessagesFromTimestamp(MOCK_ROOM_ID, lastReadAt, 10);
+      await service.getPaginatedMessagesByTimestamp(MOCK_ROOM_ID, lastReadAt, 10);
 
       expect(prismaMock.message.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -521,7 +521,7 @@ describe('DiscussionCrudService', () => {
       prismaMock.message.findFirst.mockResolvedValue(null);
       prismaMock.message.findMany.mockResolvedValue([] as any);
 
-      const result = await service.getMessagesFromTimestamp(
+      const result = await service.getPaginatedMessagesByTimestamp(
         MOCK_ROOM_ID,
         lastReadAt,
         10,
@@ -538,7 +538,7 @@ describe('DiscussionCrudService', () => {
       prismaMock.message.findFirst.mockResolvedValue(null);
       prismaMock.message.findMany.mockResolvedValue([] as any);
 
-      await service.getMessagesFromTimestamp(MOCK_ROOM_ID, lastReadAt, undefined);
+      await service.getPaginatedMessagesByTimestamp(MOCK_ROOM_ID, lastReadAt, undefined);
 
       expect(prismaMock.message.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ take: DEFAULT_PAGE_SIZE + 1 }),

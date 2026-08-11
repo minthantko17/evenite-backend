@@ -106,8 +106,8 @@ describe('DiscussionService', () => {
     );
     validationServiceMock.validateAnnouncementPermission.mockReturnValue(false);
     crudServiceMock.createMessage.mockResolvedValue(MOCK_RETURN_MESSAGE);
-    crudServiceMock.getMessagePage.mockResolvedValue(MOCK_MESSAGE_PAGE);
-    crudServiceMock.getMessagesFromTimestamp.mockResolvedValue(
+    crudServiceMock.getPaginatedMessagesByCursor.mockResolvedValue(MOCK_MESSAGE_PAGE);
+    crudServiceMock.getPaginatedMessagesByTimestamp.mockResolvedValue(
       MOCK_MESSAGE_PAGE,
     );
     crudServiceMock.getRoomReadStatus.mockResolvedValue(null);
@@ -402,7 +402,7 @@ describe('DiscussionService', () => {
 
       expect(validationServiceMock.validateRoomAccess).not.toHaveBeenCalled();
       expect(crudServiceMock.getRoomReadStatus).not.toHaveBeenCalled();
-      expect(crudServiceMock.getMessagePage).not.toHaveBeenCalled();
+      expect(crudServiceMock.getPaginatedMessagesByCursor).not.toHaveBeenCalled();
     });
 
     it('UT-GM-02: throws RoomAccessDeniedException when caller is not authorized', async () => {
@@ -422,11 +422,11 @@ describe('DiscussionService', () => {
       ).rejects.toThrow(RoomAccessDeniedException);
 
       expect(crudServiceMock.getRoomReadStatus).not.toHaveBeenCalled();
-      expect(crudServiceMock.getMessagePage).not.toHaveBeenCalled();
-      expect(crudServiceMock.getMessagesFromTimestamp).not.toHaveBeenCalled();
+      expect(crudServiceMock.getPaginatedMessagesByCursor).not.toHaveBeenCalled();
+      expect(crudServiceMock.getPaginatedMessagesByTimestamp).not.toHaveBeenCalled();
     });
 
-    it('UT-GM-03: with an explicit cursor, calls getMessagePage and skips the read-status lookup', async () => {
+    it('UT-GM-03: with an explicit cursor, calls getPaginatedMessagesByCursor and skips the read-status lookup', async () => {
       const query: GetMessagesQueryDto = {
         cursor: 'message-5',
         direction: 'after',
@@ -443,7 +443,7 @@ describe('DiscussionService', () => {
 
       expect(result).toEqual(MOCK_MESSAGE_PAGE);
       expect(crudServiceMock.getRoomReadStatus).not.toHaveBeenCalled();
-      expect(crudServiceMock.getMessagePage).toHaveBeenCalledWith(
+      expect(crudServiceMock.getPaginatedMessagesByCursor).toHaveBeenCalledWith(
         MOCK_ROOM_ID,
         'message-5',
         'after',
@@ -462,7 +462,7 @@ describe('DiscussionService', () => {
         MOCK_ORGANIZER_PROFILE_ID,
       );
 
-      expect(crudServiceMock.getMessagePage).toHaveBeenCalledWith(
+      expect(crudServiceMock.getPaginatedMessagesByCursor).toHaveBeenCalledWith(
         MOCK_ROOM_ID,
         'message-5',
         'before',
@@ -483,12 +483,12 @@ describe('DiscussionService', () => {
       );
 
       expect(result).toEqual(MOCK_MESSAGE_PAGE);
-      expect(crudServiceMock.getMessagesFromTimestamp).toHaveBeenCalledWith(
+      expect(crudServiceMock.getPaginatedMessagesByTimestamp).toHaveBeenCalledWith(
         MOCK_ROOM_ID,
         MOCK_READ_STATUS.lastReadAt,
         20,
       );
-      expect(crudServiceMock.getMessagePage).not.toHaveBeenCalled();
+      expect(crudServiceMock.getPaginatedMessagesByCursor).not.toHaveBeenCalled();
     });
 
     it('UT-GM-06: with no cursor and no read status, falls through to the latest-page fetch', async () => {
@@ -504,13 +504,13 @@ describe('DiscussionService', () => {
       );
 
       expect(result).toEqual(MOCK_MESSAGE_PAGE);
-      expect(crudServiceMock.getMessagePage).toHaveBeenCalledWith(
+      expect(crudServiceMock.getPaginatedMessagesByCursor).toHaveBeenCalledWith(
         MOCK_ROOM_ID,
         undefined,
         'before',
         20,
       );
-      expect(crudServiceMock.getMessagesFromTimestamp).not.toHaveBeenCalled();
+      expect(crudServiceMock.getPaginatedMessagesByTimestamp).not.toHaveBeenCalled();
     });
   });
 

@@ -53,7 +53,7 @@ export class DiscussionCrudService {
   }
 
   // get messages with cursor pagination
-  async getMessagePage(
+  async getPaginatedMessagesByCursor(
     roomId: string,
     cursor: string | undefined,
     direction: 'before' | 'after',
@@ -103,7 +103,7 @@ export class DiscussionCrudService {
     };
   }
 
-  async getMessagesFromTimestamp(
+  async getPaginatedMessagesByTimestamp(
     roomId: string,
     lastReadAt: Date,
     limit: number | undefined,

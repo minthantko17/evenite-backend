@@ -91,9 +91,9 @@ Parameter query.limit:
     limit exceeds MAX_PAGE_SIZE (clamped).
 
 Resulting call-path branches (for test-case construction):
-  ExplicitCursor            → calls getMessagePage(cursor, direction, limit)          [single]
-  NoCursor + HasReadStatus  → calls getMessagesFromTimestamp(lastReadAt, limit)        [single]
-  NoCursor + NoReadStatus   → falls through, calls getMessagePage(undefined, 'before', limit)  [single]
+  ExplicitCursor            → calls getPaginatedMessagesByCursor(cursor, direction, limit)          [single]
+  NoCursor + HasReadStatus  → calls getPaginatedMessagesByTimestamp(lastReadAt, limit)        [single]
+  NoCursor + NoReadStatus   → falls through, calls getPaginatedMessagesByCursor(undefined, 'before', limit)  [single]
 
 
 // markRoomAsRead
