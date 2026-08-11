@@ -52,7 +52,12 @@ const MOCK_RETURN_MESSAGE: ReturnMessageDto = {
   id: 'message-1',
   content: 'hello',
   isAnnouncement: false,
-  sender: { role: Role.PARTICIPANT, name: 'Jane', imageUrl: '' },
+  sender: {
+    id: MOCK_PARTICIPANT_PROFILE_ID,
+    role: Role.PARTICIPANT,
+    name: 'Jane',
+    imageUrl: '',
+  },
   createdAt: new Date('2026-08-01T00:00:00Z'),
 };
 
@@ -199,6 +204,9 @@ describe('DiscussionGateway', () => {
       expect(() => (gateway as any).extractTokenFromHandshake(client)).toThrow(
         UnauthorizedException,
       );
+      expect(() => (gateway as any).extractTokenFromHandshake(client)).toThrow(
+        'No token provided',
+      );
     });
   });
 
@@ -217,6 +225,9 @@ describe('DiscussionGateway', () => {
 
       expect(() => (gateway as any).requireUser(client)).toThrow(
         UnauthorizedException,
+      );
+      expect(() => (gateway as any).requireUser(client)).toThrow(
+        'Socket not authenticated',
       );
     });
   });
@@ -298,7 +309,7 @@ describe('DiscussionGateway', () => {
       expect(client.emit).toHaveBeenCalledWith('error', {
         event: 'room:join',
         code: DiscussionErrorCode.ROOM_ACCESS_DENIED,
-        message: expect.any(String),
+        message: 'You do not have permission to access this discussion room.',
       });
     });
   });

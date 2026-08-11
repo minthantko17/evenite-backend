@@ -36,6 +36,7 @@ const MOCK_RETURN_MESSAGE: ReturnMessageDto = {
   content: 'hello world',
   isAnnouncement: false,
   sender: {
+    id: MOCK_PARTICIPANT_PROFILE_ID,
     role: Role.PARTICIPANT,
     name: 'Jane Doe',
     imageUrl: '',
@@ -150,6 +151,15 @@ describe('DiscussionService', () => {
           MOCK_ORGANIZER_PROFILE_ID,
         ),
       ).rejects.toThrow(RoomNotFoundException);
+      await expect(
+        service.sendMessage(
+          MOCK_ROOM_ID,
+          dto,
+          Role.ORGANIZER,
+          null,
+          MOCK_ORGANIZER_PROFILE_ID,
+        ),
+      ).rejects.toThrow('Discussion room not found.');
 
       expect(validationServiceMock.validateRoomAccess).not.toHaveBeenCalled();
       expect(validationServiceMock.validateRoomWritable).not.toHaveBeenCalled();
@@ -174,6 +184,17 @@ describe('DiscussionService', () => {
           null,
         ),
       ).rejects.toThrow(RoomAccessDeniedException);
+      await expect(
+        service.sendMessage(
+          MOCK_ROOM_ID,
+          dto,
+          Role.PARTICIPANT,
+          MOCK_PARTICIPANT_PROFILE_ID,
+          null,
+        ),
+      ).rejects.toThrow(
+        'You do not have permission to access this discussion room.',
+      );
 
       expect(validationServiceMock.validateRoomWritable).not.toHaveBeenCalled();
       expect(
@@ -197,6 +218,17 @@ describe('DiscussionService', () => {
           MOCK_ORGANIZER_PROFILE_ID,
         ),
       ).rejects.toThrow(RoomReadOnlyException);
+      await expect(
+        service.sendMessage(
+          MOCK_ROOM_ID,
+          dto,
+          Role.ORGANIZER,
+          null,
+          MOCK_ORGANIZER_PROFILE_ID,
+        ),
+      ).rejects.toThrow(
+        'This discussion room is read-only and no longer accepts new messages.',
+      );
 
       expect(
         validationServiceMock.validateMessageContent,
@@ -219,6 +251,15 @@ describe('DiscussionService', () => {
           MOCK_ORGANIZER_PROFILE_ID,
         ),
       ).rejects.toThrow(MessageContentInvalidException);
+      await expect(
+        service.sendMessage(
+          MOCK_ROOM_ID,
+          dto,
+          Role.ORGANIZER,
+          null,
+          MOCK_ORGANIZER_PROFILE_ID,
+        ),
+      ).rejects.toThrow('Message cannot be empty.');
 
       expect(
         validationServiceMock.validateAnnouncementPermission,
@@ -243,6 +284,15 @@ describe('DiscussionService', () => {
           null,
         ),
       ).rejects.toThrow(AnnouncementNotAllowedException);
+      await expect(
+        service.sendMessage(
+          MOCK_ROOM_ID,
+          dto,
+          Role.PARTICIPANT,
+          MOCK_PARTICIPANT_PROFILE_ID,
+          null,
+        ),
+      ).rejects.toThrow('Only the organizer can send announcements.');
 
       expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
     });
@@ -399,6 +449,15 @@ describe('DiscussionService', () => {
           MOCK_ORGANIZER_PROFILE_ID,
         ),
       ).rejects.toThrow(RoomNotFoundException);
+      await expect(
+        service.getMessages(
+          MOCK_ROOM_ID,
+          query,
+          Role.ORGANIZER,
+          null,
+          MOCK_ORGANIZER_PROFILE_ID,
+        ),
+      ).rejects.toThrow('Discussion room not found.');
 
       expect(validationServiceMock.validateRoomAccess).not.toHaveBeenCalled();
       expect(crudServiceMock.getRoomReadStatus).not.toHaveBeenCalled();
@@ -420,6 +479,17 @@ describe('DiscussionService', () => {
           null,
         ),
       ).rejects.toThrow(RoomAccessDeniedException);
+      await expect(
+        service.getMessages(
+          MOCK_ROOM_ID,
+          query,
+          Role.PARTICIPANT,
+          MOCK_PARTICIPANT_PROFILE_ID,
+          null,
+        ),
+      ).rejects.toThrow(
+        'You do not have permission to access this discussion room.',
+      );
 
       expect(crudServiceMock.getRoomReadStatus).not.toHaveBeenCalled();
       expect(crudServiceMock.getPaginatedMessagesByCursor).not.toHaveBeenCalled();
@@ -528,6 +598,14 @@ describe('DiscussionService', () => {
           MOCK_ORGANIZER_PROFILE_ID,
         ),
       ).rejects.toThrow(RoomNotFoundException);
+      await expect(
+        service.markRoomAsRead(
+          MOCK_ROOM_ID,
+          Role.ORGANIZER,
+          null,
+          MOCK_ORGANIZER_PROFILE_ID,
+        ),
+      ).rejects.toThrow('Discussion room not found.');
 
       expect(crudServiceMock.upsertRoomReadStatus).not.toHaveBeenCalled();
     });
@@ -545,6 +623,16 @@ describe('DiscussionService', () => {
           null,
         ),
       ).rejects.toThrow(RoomAccessDeniedException);
+      await expect(
+        service.markRoomAsRead(
+          MOCK_ROOM_ID,
+          Role.PARTICIPANT,
+          MOCK_PARTICIPANT_PROFILE_ID,
+          null,
+        ),
+      ).rejects.toThrow(
+        'You do not have permission to access this discussion room.',
+      );
 
       expect(crudServiceMock.upsertRoomReadStatus).not.toHaveBeenCalled();
     });
@@ -625,8 +713,20 @@ describe('DiscussionService', () => {
         MOCK_ORGANIZER_PROFILE_ID,
       );
 
-      expect(result).toHaveLength(1);
-      expect(result[0].roomId).toBe(MOCK_ROOM_ID);
+      expect(result).toEqual([
+        {
+          roomId: MOCK_ROOM_ID,
+          event: {
+            id: MOCK_EVENT_WITH_ROOM.id,
+            title: MOCK_EVENT_WITH_ROOM.title,
+            bannerUrl: MOCK_EVENT_WITH_ROOM.bannerUrl,
+            status: MOCK_EVENT_WITH_ROOM.status,
+          },
+          lastMessage: null,
+          unreadCount: 0,
+          isReadOnly: false,
+        },
+      ]);
       expect(crudServiceMock.getLatestMessageForRoom).toHaveBeenCalledTimes(1);
     });
 
@@ -688,7 +788,20 @@ describe('DiscussionService', () => {
         MOCK_ORGANIZER_PROFILE_ID,
       );
 
-      expect(result[0].lastMessage).toBeNull();
+      expect(result).toEqual([
+        {
+          roomId: MOCK_ROOM_ID,
+          event: {
+            id: MOCK_EVENT_WITH_ROOM.id,
+            title: MOCK_EVENT_WITH_ROOM.title,
+            bannerUrl: MOCK_EVENT_WITH_ROOM.bannerUrl,
+            status: MOCK_EVENT_WITH_ROOM.status,
+          },
+          lastMessage: null,
+          unreadCount: 0,
+          isReadOnly: false,
+        },
+      ]);
     });
 
     it('UT-CR-07b: event bannerUrl falls back to an empty string when null', async () => {
@@ -700,7 +813,20 @@ describe('DiscussionService', () => {
         MOCK_ORGANIZER_PROFILE_ID,
       );
 
-      expect(result[0].event.bannerUrl).toBe('');
+      expect(result).toEqual([
+        {
+          roomId: MOCK_ROOM_ID,
+          event: {
+            id: MOCK_EVENT_WITH_ROOM_NO_BANNER.id,
+            title: MOCK_EVENT_WITH_ROOM_NO_BANNER.title,
+            bannerUrl: '',
+            status: MOCK_EVENT_WITH_ROOM_NO_BANNER.status,
+          },
+          lastMessage: null,
+          unreadCount: 0,
+          isReadOnly: false,
+        },
+      ]);
     });
 
     it('UT-CR-08: counts unread messages from the epoch when no read status exists', async () => {
@@ -729,7 +855,20 @@ describe('DiscussionService', () => {
         MOCK_ORGANIZER_PROFILE_ID,
       );
 
-      expect(result[0].isReadOnly).toBe(true);
+      expect(result).toEqual([
+        {
+          roomId: MOCK_ROOM_ID,
+          event: {
+            id: MOCK_EVENT_WITH_ROOM.id,
+            title: MOCK_EVENT_WITH_ROOM.title,
+            bannerUrl: MOCK_EVENT_WITH_ROOM.bannerUrl,
+            status: MOCK_EVENT_WITH_ROOM.status,
+          },
+          lastMessage: null,
+          unreadCount: 0,
+          isReadOnly: true,
+        },
+      ]);
     });
   });
 
@@ -758,7 +897,20 @@ describe('DiscussionService', () => {
         MOCK_PARTICIPANT_PROFILE_ID,
       );
 
-      expect(result).toHaveLength(1);
+      expect(result).toEqual([
+        {
+          roomId: MOCK_ROOM_ID,
+          event: {
+            id: MOCK_EVENT_WITH_ROOM.id,
+            title: MOCK_EVENT_WITH_ROOM.title,
+            bannerUrl: MOCK_EVENT_WITH_ROOM.bannerUrl,
+            status: MOCK_EVENT_WITH_ROOM.status,
+          },
+          lastMessage: MOCK_RETURN_MESSAGE,
+          unreadCount: 0,
+          isReadOnly: false,
+        },
+      ]);
       expect(crudServiceMock.getRoomReadStatus).toHaveBeenCalledWith(
         MOCK_ROOM_ID,
         Role.PARTICIPANT,
@@ -782,6 +934,14 @@ describe('DiscussionService', () => {
           MOCK_ORGANIZER_PROFILE_ID,
         ),
       ).rejects.toThrow(RoomNotFoundException);
+      await expect(
+        service.authorizeRoomJoinAccess(
+          MOCK_ROOM_ID,
+          Role.ORGANIZER,
+          null,
+          MOCK_ORGANIZER_PROFILE_ID,
+        ),
+      ).rejects.toThrow('Discussion room not found.');
     });
 
     it('UT-AA-02: bubbles RoomAccessDeniedException when the caller is not authorized', async () => {
@@ -797,6 +957,16 @@ describe('DiscussionService', () => {
           null,
         ),
       ).rejects.toThrow(RoomAccessDeniedException);
+      await expect(
+        service.authorizeRoomJoinAccess(
+          MOCK_ROOM_ID,
+          Role.PARTICIPANT,
+          MOCK_PARTICIPANT_PROFILE_ID,
+          null,
+        ),
+      ).rejects.toThrow(
+        'You do not have permission to access this discussion room.',
+      );
     });
 
     it('UT-AA-03: returns the access-confirmation message with no other side effects when authorized', async () => {
