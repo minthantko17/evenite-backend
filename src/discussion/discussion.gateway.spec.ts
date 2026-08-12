@@ -100,7 +100,7 @@ describe('DiscussionGateway', () => {
   });
 
   describe('handleConnection', () => {
-    it('UT-HC-01: TokenInAuth + VerifySucceeds → client.data.user set, no disconnect', async () => {
+    it('UT-6-028-01: TokenInAuth + VerifySucceeds → client.data.user set, no disconnect', async () => {
       const payload = buildPayload();
       jwtServiceMock.verifyAsync.mockResolvedValue(payload);
       const client = createMockSocket({
@@ -114,7 +114,7 @@ describe('DiscussionGateway', () => {
       expect(client.emit).not.toHaveBeenCalled();
     });
 
-    it('UT-HC-02: TokenInHeader + VerifySucceeds → client.data.user set, confirms header extraction works too', async () => {
+    it('UT-6-028-02: TokenInHeader + VerifySucceeds → client.data.user set, confirms header extraction works too', async () => {
       const payload = buildPayload();
       jwtServiceMock.verifyAsync.mockResolvedValue(payload);
       const client = createMockSocket({
@@ -133,7 +133,7 @@ describe('DiscussionGateway', () => {
       );
     });
 
-    it('UT-HC-03: no token in either location → emits error, disconnects', async () => {
+    it('UT-6-028-03: no token in either location → emits error, disconnects', async () => {
       const client = createMockSocket();
 
       await gateway.handleConnection(client);
@@ -145,7 +145,7 @@ describe('DiscussionGateway', () => {
       expect(jwtServiceMock.verifyAsync).not.toHaveBeenCalled();
     });
 
-    it('UT-HC-04: token present + VerifyFails → emits error, disconnects, client.data.user NOT set', async () => {
+    it('UT-6-028-04: token present + VerifyFails → emits error, disconnects, client.data.user NOT set', async () => {
       jwtServiceMock.verifyAsync.mockRejectedValue(new Error('bad token'));
       const client = createMockSocket({
         handshake: { auth: { token: 'invalid-token' }, headers: {} },
@@ -233,7 +233,7 @@ describe('DiscussionGateway', () => {
   });
 
   describe('handleJoinRoom', () => {
-    it('UT-JR-01: not authenticated → emitError called with room:join, UNAUTHORIZED code', async () => {
+    it('UT-6-029-01: not authenticated → emitError called with room:join, UNAUTHORIZED code', async () => {
       const client = createMockSocket({ data: {} });
 
       await gateway.handleJoinRoom(client, { roomId: MOCK_ROOM_ID });
@@ -246,7 +246,7 @@ describe('DiscussionGateway', () => {
       expect(client.join).not.toHaveBeenCalled();
     });
 
-    it('UT-JR-02: RoleOrganizer + AuthorizeSucceeds → client.join called, emits room:joined', async () => {
+    it('UT-6-029-02: RoleOrganizer + AuthorizeSucceeds → client.join called, emits room:joined', async () => {
       const payload = buildPayload({
         currentRole: Role.ORGANIZER,
         participantProfileId: null,
@@ -271,7 +271,7 @@ describe('DiscussionGateway', () => {
       });
     });
 
-    it('UT-JR-03: RoleParticipant + AuthorizeSucceeds → client.join called, emits room:joined', async () => {
+    it('UT-6-029-03: RoleParticipant + AuthorizeSucceeds → client.join called, emits room:joined', async () => {
       const payload = buildPayload({
         currentRole: Role.PARTICIPANT,
         participantProfileId: MOCK_PARTICIPANT_PROFILE_ID,
@@ -296,7 +296,7 @@ describe('DiscussionGateway', () => {
       });
     });
 
-    it('UT-JR-04: AuthorizeFails → client.join NOT called, emitError called with resolved error code', async () => {
+    it('UT-6-029-04: AuthorizeFails → client.join NOT called, emitError called with resolved error code', async () => {
       const payload = buildPayload();
       const client = createMockSocket({ data: { user: payload } });
       discussionServiceMock.authorizeRoomJoinAccess.mockRejectedValue(
@@ -315,7 +315,7 @@ describe('DiscussionGateway', () => {
   });
 
   describe('handleLeaveRoom', () => {
-    it('UT-LR-01: calls client.leave with data.roomId', async () => {
+    it('UT-6-030-01: calls client.leave with data.roomId', async () => {
       const client = createMockSocket();
 
       await gateway.handleLeaveRoom(client, { roomId: MOCK_ROOM_ID });
@@ -327,7 +327,7 @@ describe('DiscussionGateway', () => {
   describe('handleSendMessage', () => {
     const dto: CreateMessageDto = { content: 'hello' };
 
-    it('UT-SM-01: not authenticated → emitError(message:send, UNAUTHORIZED), server.to(...).emit NOT called', async () => {
+    it('UT-6-031-01: not authenticated → emitError(message:send, UNAUTHORIZED), server.to(...).emit NOT called', async () => {
       const client = createMockSocket({ data: {} });
 
       await gateway.handleSendMessage(client, { roomId: MOCK_ROOM_ID, dto });
@@ -340,7 +340,7 @@ describe('DiscussionGateway', () => {
       expect(toMock).not.toHaveBeenCalled();
     });
 
-    it('UT-SM-02: RoleOrganizer + SendSucceeds → server.to(roomId).emit(message:new, message) called', async () => {
+    it('UT-6-031-02: RoleOrganizer + SendSucceeds → server.to(roomId).emit(message:new, message) called', async () => {
       const payload = buildPayload({
         currentRole: Role.ORGANIZER,
         participantProfileId: null,
@@ -365,7 +365,7 @@ describe('DiscussionGateway', () => {
       );
     });
 
-    it('UT-SM-03: RoleParticipant + SendSucceeds → correct profile id threaded through', async () => {
+    it('UT-6-031-03: RoleParticipant + SendSucceeds → correct profile id threaded through', async () => {
       const payload = buildPayload({
         currentRole: Role.PARTICIPANT,
         participantProfileId: MOCK_PARTICIPANT_PROFILE_ID,
@@ -389,7 +389,7 @@ describe('DiscussionGateway', () => {
       );
     });
 
-    it('UT-SM-04: SendFails → server.to(...).emit NOT called, emitError(message:send, <resolved code>) called', async () => {
+    it('UT-6-031-04: SendFails → server.to(...).emit NOT called, emitError(message:send, <resolved code>) called', async () => {
       const payload = buildPayload();
       const client = createMockSocket({ data: { user: payload } });
       discussionServiceMock.sendMessage.mockRejectedValue(
@@ -408,7 +408,7 @@ describe('DiscussionGateway', () => {
   });
 
   describe('handleRegistrationCancelled', () => {
-    it('UT-RC-01: RoomFound → forceDisconnectParticipant called with (roomId, participantProfileId)', async () => {
+    it('UT-6-032-01: RoomFound → forceDisconnectParticipant called with (roomId, participantProfileId)', async () => {
       discussionServiceMock.findRoomByEventId.mockResolvedValue({
         roomId: MOCK_ROOM_ID,
       });
@@ -425,7 +425,7 @@ describe('DiscussionGateway', () => {
       expect(inMock).toHaveBeenCalledWith(MOCK_ROOM_ID);
     });
 
-    it('UT-RC-02: RoomNotFound → forceDisconnectParticipant NOT called, returns silently', async () => {
+    it('UT-6-032-02: RoomNotFound → forceDisconnectParticipant NOT called, returns silently', async () => {
       discussionServiceMock.findRoomByEventId.mockResolvedValue(null);
 
       await gateway.handleRegistrationCancelled({
@@ -438,7 +438,7 @@ describe('DiscussionGateway', () => {
   });
 
   describe('forceDisconnectParticipant (private)', () => {
-    it('UT-FD-01: NoSockets → no emit, no leave calls at all', async () => {
+    it('UT-6-033-01: NoSockets → no emit, no leave calls at all', async () => {
       fetchSocketsMock.mockResolvedValue([]);
 
       await (gateway as any).forceDisconnectParticipant(
@@ -449,7 +449,7 @@ describe('DiscussionGateway', () => {
       expect(inMock).toHaveBeenCalledWith(MOCK_ROOM_ID);
     });
 
-    it('UT-FD-02: single socket, Matches → emits room:kicked and leaves', async () => {
+    it('UT-6-033-02: single socket, Matches → emits room:kicked and leaves', async () => {
       const remoteSocket = {
         data: { user: { participantProfileId: MOCK_PARTICIPANT_PROFILE_ID } },
         emit: jest.fn(),
@@ -468,7 +468,7 @@ describe('DiscussionGateway', () => {
       expect(remoteSocket.leave).toHaveBeenCalledWith(MOCK_ROOM_ID);
     });
 
-    it('UT-FD-03: single socket, NoMatch → neither emit nor leave called', async () => {
+    it('UT-6-033-03: single socket, NoMatch → neither emit nor leave called', async () => {
       const remoteSocket = {
         data: { user: { participantProfileId: 'someone-else' } },
         emit: jest.fn(),
@@ -485,7 +485,7 @@ describe('DiscussionGateway', () => {
       expect(remoteSocket.leave).not.toHaveBeenCalled();
     });
 
-    it('UT-FD-04: multiple sockets, mixed match → only matching sockets receive emit+leave', async () => {
+    it('UT-6-033-04: multiple sockets, mixed match → only matching sockets receive emit+leave', async () => {
       const matchingSocket = {
         data: { user: { participantProfileId: MOCK_PARTICIPANT_PROFILE_ID } },
         emit: jest.fn(),
@@ -532,7 +532,7 @@ describe('DiscussionGateway', () => {
       [new UnauthorizedException(), DiscussionErrorCode.UNAUTHORIZED],
       [new Error('some other error'), DiscussionErrorCode.UNKNOWN_ERROR],
       ['a plain string throw', DiscussionErrorCode.UNKNOWN_ERROR],
-    ])('UT-RE: maps %p to %s', (error, expectedCode) => {
+    ])('UT-6-034: maps %p to %s', (error, expectedCode) => {
       const result = (gateway as any).resolveErrorCode(error);
 
       expect(result).toBe(expectedCode);
@@ -540,7 +540,7 @@ describe('DiscussionGateway', () => {
   });
 
   describe('emitError (private)', () => {
-    it('UT-EE-01: IsError → message = error.message', () => {
+    it('UT-6-035-01: IsError → message = error.message', () => {
       const client = createMockSocket();
       const error = new RoomAccessDeniedException('custom message');
 
@@ -553,7 +553,7 @@ describe('DiscussionGateway', () => {
       });
     });
 
-    it('UT-EE-02: NotError → message = "An unexpected error occurred."', () => {
+    it('UT-6-035-02: NotError → message = "An unexpected error occurred."', () => {
       const client = createMockSocket();
 
       (gateway as any).emitError(client, 'room:join', 'a plain string');
