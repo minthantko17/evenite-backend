@@ -17,15 +17,18 @@ import { AnnouncementNotAllowedException } from './exceptions/announcement-not-a
 import { RegistrationNotFoundException } from '../registration/exceptions/registration-not-found.exception';
 import { DiscussionErrorCode } from './constants/discussion-error-code.enum';
 
-const MOCK_ROOM_ID = 'room-1';
-const MOCK_EVENT_ID = 'event-1';
-const MOCK_ORGANIZER_PROFILE_ID = 'organizer-1';
-const MOCK_PARTICIPANT_PROFILE_ID = 'participant-1';
+const MOCK_ROOM_ID = 'e8946e7f-42a6-4586-9089-9267d0312bff';
+const MOCK_EVENT_ID = '1fa29edd-3a7d-4d2c-bf8f-8521eb4e76b8';
+const MOCK_ORGANIZER_PROFILE_ID = '084066b4-231a-4e1e-bb37-084d5ea66c8a';
+const MOCK_PARTICIPANT_PROFILE_ID = 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44';
+const MOCK_OTHER_PARTICIPANT_PROFILE_ID = '14e145a2-ed46-4b38-8b5b-ab3a64a9ccea';
+const MOCK_USER_ID = '45e6a118-94a3-4e22-8c4d-00068fdbc9f2';
+const MOCK_MESSAGE_ID = 'e9697c17-fc38-4625-aaeb-a4f43cce4e09';
 
 const buildPayload = (
   overrides: Partial<JwtAccessPayload> = {},
 ): JwtAccessPayload => ({
-  sub: 'user-1',
+  sub: MOCK_USER_ID,
   email: 'user@example.com',
   currentRole: Role.PARTICIPANT,
   isVerified: true,
@@ -49,7 +52,7 @@ const createMockSocket = (overrides: Record<string, any> = {}): Socket =>
   }) as unknown as Socket;
 
 const MOCK_RETURN_MESSAGE: ReturnMessageDto = {
-  id: 'message-1',
+  id: MOCK_MESSAGE_ID,
   content: 'hello',
   isAnnouncement: false,
   sender: {
@@ -470,7 +473,7 @@ describe('DiscussionGateway', () => {
 
     it('UT-6-033-03: single socket, NoMatch → neither emit nor leave called', async () => {
       const remoteSocket = {
-        data: { user: { participantProfileId: 'someone-else' } },
+        data: { user: { participantProfileId: MOCK_OTHER_PARTICIPANT_PROFILE_ID } },
         emit: jest.fn(),
         leave: jest.fn(),
       };
@@ -492,7 +495,7 @@ describe('DiscussionGateway', () => {
         leave: jest.fn(),
       };
       const otherSocket = {
-        data: { user: { participantProfileId: 'someone-else' } },
+        data: { user: { participantProfileId: MOCK_OTHER_PARTICIPANT_PROFILE_ID } },
         emit: jest.fn(),
         leave: jest.fn(),
       };

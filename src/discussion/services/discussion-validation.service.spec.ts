@@ -11,10 +11,11 @@ import { MessageContentInvalidException } from '../exceptions/message-content-in
 import { AnnouncementNotAllowedException } from '../exceptions/announcement-not-allowed.exception';
 import { RegistrationNotFoundException } from '../../registration/exceptions/registration-not-found.exception';
 
-const MOCK_ROOM_ID = 'room-1';
-const MOCK_EVENT_ID = 'event-1';
-const MOCK_ORGANIZER_PROFILE_ID = 'organizer-1';
-const MOCK_PARTICIPANT_PROFILE_ID = 'participant-1';
+const MOCK_ROOM_ID = 'e8946e7f-42a6-4586-9089-9267d0312bff';
+const MOCK_EVENT_ID = '1fa29edd-3a7d-4d2c-bf8f-8521eb4e76b8';
+const MOCK_ORGANIZER_PROFILE_ID = '084066b4-231a-4e1e-bb37-084d5ea66c8a';
+const MOCK_PARTICIPANT_PROFILE_ID = 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44';
+const MOCK_OTHER_ORGANIZER_PROFILE_ID = 'd1f5649f-cc81-4bdf-bcfc-ddb265b33de0';
 
 const buildEvent = (overrides: Partial<Event> = {}): Event =>
   ({
@@ -107,7 +108,7 @@ describe('DiscussionValidationService', () => {
     });
 
     it('UT-6-002-02: RoleOrganizer + not-owner → throws RoomAccessDeniedException', async () => {
-      const event = buildEvent({ organizerId: 'someone-else' });
+      const event = buildEvent({ organizerId: MOCK_OTHER_ORGANIZER_PROFILE_ID });
 
       await expect(
         service.validateRoomAccess(

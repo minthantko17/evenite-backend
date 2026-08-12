@@ -8,16 +8,51 @@ import { ReturnMessageDto } from '../dto/return-message.dto';
 import { SaveMessageException } from '../exceptions/save-message.exception';
 import { SaveRoomReadStatusException } from '../exceptions/save-room-read-status.exception';
 
-const MOCK_ROOM_ID = 'room-1';
-const MOCK_EVENT_ID = 'event-1';
-const MOCK_PARTICIPANT_PROFILE_ID = 'participant-1';
-const MOCK_ORGANIZER_PROFILE_ID = 'organizer-1';
+const MOCK_ROOM_ID = 'e8946e7f-42a6-4586-9089-9267d0312bff';
+const MOCK_EVENT_ID = '1fa29edd-3a7d-4d2c-bf8f-8521eb4e76b8';
+const MOCK_OTHER_EVENT_ID = '6a552788-764e-4613-bad0-30a595762649';
+const MOCK_PARTICIPANT_PROFILE_ID = 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44';
+const MOCK_ORGANIZER_PROFILE_ID = '084066b4-231a-4e1e-bb37-084d5ea66c8a';
+const MOCK_MESSAGE_ID = 'e9697c17-fc38-4625-aaeb-a4f43cce4e09';
+const MOCK_CURSOR_ID = 'bb0d173c-621e-4065-8022-9b8b17eb9f7c';
+
+// pool of distinct uuidv4s for sequentially generated message fixtures
+const MOCK_MESSAGE_IDS = [
+  '8b2e4235-9659-4e26-81ba-cd3d069e165d',
+  '012207df-bc1a-41e2-9810-418355ee4233',
+  '3db57247-17a6-4254-b5f0-eeb1489bed47',
+  '5ac0f7a7-b029-497f-a6c7-1937ab6501a9',
+  'e7308906-0a95-4e24-968a-bb820449a674',
+  '432f7bd3-e13d-4386-8561-d7183695d85b',
+  'f9ed9b7e-1975-4cf0-adde-bcaecdf3ab32',
+  '417be413-1759-4dc3-a29c-b494b22a0c41',
+  'c561aa78-7381-45ee-8cb5-b14e64124972',
+  '25db2ffa-8100-4355-be3c-904724963e5c',
+  '157b19ea-4fc0-48c8-a52f-eca29e0f726d',
+  'bf5ce410-51da-4f90-856a-f08223bcd09d',
+  '49837a5b-8c90-4998-a2e7-ae3caa1f0f63',
+  '2b8fa815-067e-453c-a4c5-ebca1b8a3dd5',
+  '3d03e6bd-1332-4171-bfa6-79a5f214e689',
+  '0f201050-f915-4fdf-893b-be78ed2522b8',
+  '078c0a05-311f-4418-8ab3-9772ee39bca1',
+  'e5574ca4-5958-4f1c-a7e8-d14da59c846c',
+  'fbde6c39-4a2a-4026-af47-7fc391f902d9',
+  '62a56809-e8d0-4647-b0c3-d6a4e6af83f5',
+  'e73c2296-7c70-46f8-910f-0715973f8ca3',
+  'f4573578-f708-4f0a-8b7b-6acf72ddc9dc',
+  '929d27c5-9f2f-433e-afa9-b88123476ba1',
+  '375e56cc-b1e2-4360-8761-2b8e3c5e0c92',
+  '083eff78-4a36-4ed3-af22-11cae757a46d',
+  '6799a0c0-2e10-4b42-a69a-f2f8e7385eef',
+];
+
+const mockMessageId = (n: number) => MOCK_MESSAGE_IDS[n];
 
 const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 25;
 
 const buildRawMessage = (overrides: Record<string, any> = {}) => ({
-  id: 'message-1',
+  id: MOCK_MESSAGE_ID,
   roomId: MOCK_ROOM_ID,
   content: 'hello world',
   isAnnouncement: false,
@@ -34,10 +69,10 @@ const buildRawMessage = (overrides: Record<string, any> = {}) => ({
   ...overrides,
 });
 
-const buildRawMessages = (count: number, prefix = 'message') =>
+const buildRawMessages = (count: number) =>
   Array.from({ length: count }, (_, i) =>
     buildRawMessage({
-      id: `${prefix}-${i}`,
+      id: mockMessageId(i),
       createdAt: new Date(2026, 7, 1, 0, i),
     }),
   );
@@ -313,7 +348,7 @@ describe('DiscussionCrudService', () => {
 
       const result = await service.getPaginatedMessagesByCursor(
         MOCK_ROOM_ID,
-        'cursor-1',
+        MOCK_CURSOR_ID,
         'before',
         undefined,
       );
@@ -323,8 +358,8 @@ describe('DiscussionCrudService', () => {
         messages: orderedPage.map(mapRawToExpected),
         hasMoreOlder: true,
         hasMoreNewer: true,
-        oldestCursor: 'message-24',
-        newestCursor: 'message-0',
+        oldestCursor: mockMessageId(24),
+        newestCursor: mockMessageId(0),
       });
     });
 
@@ -334,7 +369,7 @@ describe('DiscussionCrudService', () => {
 
       const result = await service.getPaginatedMessagesByCursor(
         MOCK_ROOM_ID,
-        'cursor-1',
+        MOCK_CURSOR_ID,
         'before',
         10,
       );
@@ -344,8 +379,8 @@ describe('DiscussionCrudService', () => {
         messages: orderedPage.map(mapRawToExpected),
         hasMoreOlder: false,
         hasMoreNewer: true,
-        oldestCursor: 'message-4',
-        newestCursor: 'message-0',
+        oldestCursor: mockMessageId(4),
+        newestCursor: mockMessageId(0),
       });
     });
 
@@ -365,8 +400,8 @@ describe('DiscussionCrudService', () => {
         messages: orderedPage.map(mapRawToExpected),
         hasMoreOlder: true,
         hasMoreNewer: false,
-        oldestCursor: 'message-9',
-        newestCursor: 'message-0',
+        oldestCursor: mockMessageId(9),
+        newestCursor: mockMessageId(0),
       });
     });
 
@@ -386,8 +421,8 @@ describe('DiscussionCrudService', () => {
         messages: orderedPage.map(mapRawToExpected),
         hasMoreOlder: false,
         hasMoreNewer: false,
-        oldestCursor: 'message-2',
-        newestCursor: 'message-0',
+        oldestCursor: mockMessageId(2),
+        newestCursor: mockMessageId(0),
       });
     });
 
@@ -397,7 +432,7 @@ describe('DiscussionCrudService', () => {
 
       const result = await service.getPaginatedMessagesByCursor(
         MOCK_ROOM_ID,
-        'cursor-1',
+        MOCK_CURSOR_ID,
         'after',
         10,
       );
@@ -407,8 +442,8 @@ describe('DiscussionCrudService', () => {
         messages: orderedPage.map(mapRawToExpected),
         hasMoreOlder: true,
         hasMoreNewer: true,
-        oldestCursor: 'message-0',
-        newestCursor: 'message-9',
+        oldestCursor: mockMessageId(0),
+        newestCursor: mockMessageId(9),
       });
     });
 
@@ -418,7 +453,7 @@ describe('DiscussionCrudService', () => {
 
       const result = await service.getPaginatedMessagesByCursor(
         MOCK_ROOM_ID,
-        'cursor-1',
+        MOCK_CURSOR_ID,
         'after',
         10,
       );
@@ -427,8 +462,8 @@ describe('DiscussionCrudService', () => {
         messages: raws.map(mapRawToExpected),
         hasMoreOlder: true,
         hasMoreNewer: false,
-        oldestCursor: 'message-0',
-        newestCursor: 'message-2',
+        oldestCursor: mockMessageId(0),
+        newestCursor: mockMessageId(2),
       });
     });
 
@@ -448,8 +483,8 @@ describe('DiscussionCrudService', () => {
         messages: orderedPage.map(mapRawToExpected),
         hasMoreOlder: false,
         hasMoreNewer: true,
-        oldestCursor: 'message-0',
-        newestCursor: 'message-9',
+        oldestCursor: mockMessageId(0),
+        newestCursor: mockMessageId(9),
       });
     });
 
@@ -468,8 +503,8 @@ describe('DiscussionCrudService', () => {
         messages: raws.map(mapRawToExpected),
         hasMoreOlder: false,
         hasMoreNewer: false,
-        oldestCursor: 'message-0',
-        newestCursor: 'message-2',
+        oldestCursor: mockMessageId(0),
+        newestCursor: mockMessageId(2),
       });
     });
 
@@ -478,7 +513,7 @@ describe('DiscussionCrudService', () => {
 
       const result = await service.getPaginatedMessagesByCursor(
         MOCK_ROOM_ID,
-        'cursor-1',
+        MOCK_CURSOR_ID,
         'before',
         10,
       );
@@ -487,8 +522,8 @@ describe('DiscussionCrudService', () => {
         messages: [],
         hasMoreOlder: false,
         hasMoreNewer: true,
-        oldestCursor: 'cursor-1',
-        newestCursor: 'cursor-1',
+        oldestCursor: MOCK_CURSOR_ID,
+        newestCursor: MOCK_CURSOR_ID,
       });
     });
 
@@ -497,7 +532,7 @@ describe('DiscussionCrudService', () => {
 
       const result = await service.getPaginatedMessagesByCursor(
         MOCK_ROOM_ID,
-        'cursor-1',
+        MOCK_CURSOR_ID,
         'after',
         10,
       );
@@ -506,8 +541,8 @@ describe('DiscussionCrudService', () => {
         messages: [],
         hasMoreOlder: true,
         hasMoreNewer: false,
-        oldestCursor: 'cursor-1',
-        newestCursor: 'cursor-1',
+        oldestCursor: MOCK_CURSOR_ID,
+        newestCursor: MOCK_CURSOR_ID,
       });
     });
 
@@ -574,8 +609,8 @@ describe('DiscussionCrudService', () => {
         messages: raws.map(mapRawToExpected),
         hasMoreOlder: true,
         hasMoreNewer: false,
-        oldestCursor: 'message-0',
-        newestCursor: 'message-2',
+        oldestCursor: mockMessageId(0),
+        newestCursor: mockMessageId(2),
       });
       expect(prismaMock.message.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -602,8 +637,8 @@ describe('DiscussionCrudService', () => {
         messages: page.map(mapRawToExpected),
         hasMoreOlder: true,
         hasMoreNewer: true,
-        oldestCursor: 'message-0',
-        newestCursor: 'message-9',
+        oldestCursor: mockMessageId(0),
+        newestCursor: mockMessageId(9),
       });
     });
 
@@ -622,8 +657,8 @@ describe('DiscussionCrudService', () => {
         messages: raws.map(mapRawToExpected),
         hasMoreOlder: true,
         hasMoreNewer: false,
-        oldestCursor: 'message-0',
-        newestCursor: 'message-2',
+        oldestCursor: mockMessageId(0),
+        newestCursor: mockMessageId(2),
       });
       expect(prismaMock.message.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -939,7 +974,7 @@ describe('DiscussionCrudService', () => {
     it('UT-6-013-04: mix of RoomPresent/RoomAbsent → method returns both as-is, unfiltered', async () => {
       const withRoom = buildRegistration();
       const withoutRoom = buildRegistration({
-        id: 'event-2',
+        id: MOCK_OTHER_EVENT_ID,
         discussionRoom: null,
       });
       prismaMock.eventRegistration.findMany.mockResolvedValue([

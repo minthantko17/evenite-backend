@@ -19,12 +19,18 @@ import {
 } from './constants/discussion-room-filter.constants';
 import { EventWithDiscussionRoom } from './types/discussion.types';
 
-const MOCK_ROOM_ID = 'room-1';
-const MOCK_ORGANIZER_PROFILE_ID = 'organizer-1';
-const MOCK_PARTICIPANT_PROFILE_ID = 'participant-1';
+const MOCK_ROOM_ID = 'e8946e7f-42a6-4586-9089-9267d0312bff';
+const MOCK_ORGANIZER_PROFILE_ID = '084066b4-231a-4e1e-bb37-084d5ea66c8a';
+const MOCK_PARTICIPANT_PROFILE_ID = 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44';
+const MOCK_EVENT_ID = '1fa29edd-3a7d-4d2c-bf8f-8521eb4e76b8';
+const MOCK_OTHER_EVENT_ID = '6a552788-764e-4613-bad0-30a595762649';
+const MOCK_EVENT_ID_NO_BANNER = '3856264d-5fa6-423f-ad50-0c2950e4add5';
+const MOCK_UNKNOWN_EVENT_ID = '5b53e2f2-95f3-411e-a00c-717acaed502e';
+const MOCK_MESSAGE_ID = 'e9697c17-fc38-4625-aaeb-a4f43cce4e09';
+const MOCK_CURSOR_ID = 'bb0d173c-621e-4065-8022-9b8b17eb9f7c';
 
 const MOCK_EVENT: Event = {
-  id: 'event-1',
+  id: MOCK_EVENT_ID,
   organizerId: MOCK_ORGANIZER_PROFILE_ID,
   status: EventStatus.PUBLISHED,
   startAt: new Date('2026-08-01T00:00:00Z'),
@@ -32,7 +38,7 @@ const MOCK_EVENT: Event = {
 } as Event;
 
 const MOCK_RETURN_MESSAGE: ReturnMessageDto = {
-  id: 'message-1',
+  id: MOCK_MESSAGE_ID,
   content: 'hello world',
   isAnnouncement: false,
   sender: {
@@ -48,8 +54,8 @@ const MOCK_MESSAGE_PAGE: ReturnMessagePageDto = {
   messages: [MOCK_RETURN_MESSAGE],
   hasMoreOlder: false,
   hasMoreNewer: false,
-  oldestCursor: 'message-1',
-  newestCursor: 'message-1',
+  oldestCursor: MOCK_MESSAGE_ID,
+  newestCursor: MOCK_MESSAGE_ID,
 };
 
 const MOCK_LAST_READ_AT = new Date('2026-08-01T01:00:00Z');
@@ -60,7 +66,7 @@ const MOCK_ROOM_READ_STATUS_DTO = {
 };
 
 const MOCK_EVENT_WITH_ROOM = {
-  id: 'event-1',
+  id: MOCK_EVENT_ID,
   organizerId: MOCK_ORGANIZER_PROFILE_ID,
   status: EventStatus.PUBLISHED,
   startAt: new Date('2026-08-01T00:00:00Z'),
@@ -72,13 +78,13 @@ const MOCK_EVENT_WITH_ROOM = {
 
 const MOCK_EVENT_WITHOUT_ROOM = {
   ...MOCK_EVENT_WITH_ROOM,
-  id: 'event-2',
+  id: MOCK_OTHER_EVENT_ID,
   discussionRoom: null,
 } as unknown as EventWithDiscussionRoom;
 
 const MOCK_EVENT_WITH_ROOM_NO_BANNER = {
   ...MOCK_EVENT_WITH_ROOM,
-  id: 'event-3',
+  id: MOCK_EVENT_ID_NO_BANNER,
   bannerUrl: null,
 } as unknown as EventWithDiscussionRoom;
 
@@ -498,7 +504,7 @@ describe('DiscussionService', () => {
 
     it('UT-6-018-03: with an explicit cursor, calls getPaginatedMessagesByCursor and skips the read-status lookup', async () => {
       const query: GetMessagesQueryDto = {
-        cursor: 'message-5',
+        cursor: MOCK_CURSOR_ID,
         direction: 'after',
         limit: 10,
       };
@@ -515,14 +521,14 @@ describe('DiscussionService', () => {
       expect(crudServiceMock.getRoomReadStatus).not.toHaveBeenCalled();
       expect(crudServiceMock.getPaginatedMessagesByCursor).toHaveBeenCalledWith(
         MOCK_ROOM_ID,
-        'message-5',
+        MOCK_CURSOR_ID,
         'after',
         10,
       );
     });
 
     it('UT-6-018-04: with an explicit cursor and no direction, defaults direction to "before"', async () => {
-      const query: GetMessagesQueryDto = { cursor: 'message-5' };
+      const query: GetMessagesQueryDto = { cursor: MOCK_CURSOR_ID };
 
       await service.getMessages(
         MOCK_ROOM_ID,
@@ -534,7 +540,7 @@ describe('DiscussionService', () => {
 
       expect(crudServiceMock.getPaginatedMessagesByCursor).toHaveBeenCalledWith(
         MOCK_ROOM_ID,
-        'message-5',
+        MOCK_CURSOR_ID,
         'before',
         undefined,
       );
@@ -1000,18 +1006,18 @@ describe('DiscussionService', () => {
         roomId: MOCK_ROOM_ID,
       });
 
-      const result = await service.findRoomByEventId('event-1');
+      const result = await service.findRoomByEventId(MOCK_EVENT_ID);
 
       expect(result).toEqual({ roomId: MOCK_ROOM_ID });
       expect(crudServiceMock.findRoomByEventId).toHaveBeenCalledWith(
-        'event-1',
+        MOCK_EVENT_ID,
       );
     });
 
     it('UT-6-027-02: returns null when no DiscussionRoom exists for the event', async () => {
       crudServiceMock.findRoomByEventId.mockResolvedValue(null);
 
-      const result = await service.findRoomByEventId('event-404');
+      const result = await service.findRoomByEventId(MOCK_UNKNOWN_EVENT_ID);
 
       expect(result).toBeNull();
     });
