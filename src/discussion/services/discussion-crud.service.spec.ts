@@ -48,8 +48,8 @@ const MOCK_MESSAGE_IDS = [
 
 const mockMessageId = (n: number) => MOCK_MESSAGE_IDS[n];
 
-const DEFAULT_PAGE_SIZE = 25;
-const MAX_PAGE_SIZE = 25;
+const MAX_MESSAGE_PAGE_SIZE = 25;
+const MAX_ANNOUNCEMENT_PAGE_SIZE = 15;
 
 const buildRawMessage = (overrides: Record<string, any> = {}) => ({
   id: MOCK_MESSAGE_ID,
@@ -350,7 +350,7 @@ describe('DiscussionCrudService', () => {
         MOCK_ROOM_ID,
         MOCK_CURSOR_ID,
         'before',
-        undefined,
+        MAX_MESSAGE_PAGE_SIZE,
       );
 
       const orderedPage = raws.slice(0, 25).reverse();
@@ -546,29 +546,7 @@ describe('DiscussionCrudService', () => {
       });
     });
 
-    it('UT-6-007-11: DefaultLimit (undefined) → take = DEFAULT_PAGE_SIZE used in the Prisma call', async () => {
-      prismaMock.message.findMany.mockResolvedValue([] as any);
-
-      const result = await service.getPaginatedMessagesByCursor(
-        MOCK_ROOM_ID,
-        undefined,
-        'before',
-        undefined,
-      );
-
-      expect(result).toEqual({
-        messages: [],
-        hasMoreOlder: false,
-        hasMoreNewer: false,
-        oldestCursor: null,
-        newestCursor: null,
-      });
-      expect(prismaMock.message.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ take: DEFAULT_PAGE_SIZE + 1 }),
-      );
-    });
-
-    it('UT-6-007-12: CustomLimit (<= MAX_PAGE_SIZE) → take = provided limit', async () => {
+    it('UT-6-007-11: NotAnnouncement, CustomLimit (<= MAX_MESSAGE_PAGE_SIZE) → take = provided limit', async () => {
       prismaMock.message.findMany.mockResolvedValue([] as any);
 
       await service.getPaginatedMessagesByCursor(MOCK_ROOM_ID, undefined, 'before', 5);
@@ -578,13 +556,60 @@ describe('DiscussionCrudService', () => {
       );
     });
 
-    it('UT-6-007-13: ClampedLimit (> MAX_PAGE_SIZE) → take = MAX_PAGE_SIZE', async () => {
+    it('UT-6-007-12: NotAnnouncement, ClampedLimit (> MAX_MESSAGE_PAGE_SIZE) → take = MAX_MESSAGE_PAGE_SIZE', async () => {
       prismaMock.message.findMany.mockResolvedValue([] as any);
 
       await service.getPaginatedMessagesByCursor(MOCK_ROOM_ID, undefined, 'before', 999);
 
       expect(prismaMock.message.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ take: MAX_PAGE_SIZE + 1 }),
+        expect.objectContaining({ take: MAX_MESSAGE_PAGE_SIZE + 1 }),
+      );
+    });
+
+    it('UT-6-007-13: NotAnnouncement (defaulted, param omitted) → where has no isAnnouncement key', async () => {
+      prismaMock.message.findMany.mockResolvedValue([] as any);
+
+      await service.getPaginatedMessagesByCursor(MOCK_ROOM_ID, undefined, 'before', 10);
+
+      const callArgs = prismaMock.message.findMany.mock.calls[0][0];
+      expect(callArgs?.where).toEqual({ roomId: MOCK_ROOM_ID });
+    });
+
+    it('UT-6-007-14: Announcement=true, CustomLimit (<= MAX_ANNOUNCEMENT_PAGE_SIZE) → where includes isAnnouncement: true, take = limit', async () => {
+      prismaMock.message.findMany.mockResolvedValue([] as any);
+
+      await service.getPaginatedMessagesByCursor(
+        MOCK_ROOM_ID,
+        undefined,
+        'before',
+        10,
+        true,
+      );
+
+      expect(prismaMock.message.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { roomId: MOCK_ROOM_ID, isAnnouncement: true },
+          take: 11,
+        }),
+      );
+    });
+
+    it('UT-6-007-15: Announcement=true, ClampedLimit (> MAX_ANNOUNCEMENT_PAGE_SIZE) → take = MAX_ANNOUNCEMENT_PAGE_SIZE (15, not 25)', async () => {
+      prismaMock.message.findMany.mockResolvedValue([] as any);
+
+      await service.getPaginatedMessagesByCursor(
+        MOCK_ROOM_ID,
+        undefined,
+        'before',
+        20,
+        true,
+      );
+
+      expect(prismaMock.message.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { roomId: MOCK_ROOM_ID, isAnnouncement: true },
+          take: MAX_ANNOUNCEMENT_PAGE_SIZE + 1,
+        }),
       );
     });
   });
@@ -686,14 +711,14 @@ describe('DiscussionCrudService', () => {
       });
     });
 
-    it('UT-6-008-05: limit omitted → take = DEFAULT_PAGE_SIZE used in the Prisma call', async () => {
+    it('UT-6-008-05: ClampedLimit (> MAX_MESSAGE_PAGE_SIZE) → take = MAX_MESSAGE_PAGE_SIZE', async () => {
       prismaMock.message.findFirst.mockResolvedValue(null);
       prismaMock.message.findMany.mockResolvedValue([] as any);
 
       const result = await service.getPaginatedMessagesByTimestamp(
         MOCK_ROOM_ID,
         lastReadAt,
-        undefined,
+        999,
       );
 
       expect(result).toEqual({
@@ -704,7 +729,7 @@ describe('DiscussionCrudService', () => {
         newestCursor: null,
       });
       expect(prismaMock.message.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ take: DEFAULT_PAGE_SIZE + 1 }),
+        expect.objectContaining({ take: MAX_MESSAGE_PAGE_SIZE + 1 }),
       );
     });
   });

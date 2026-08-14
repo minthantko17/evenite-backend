@@ -524,10 +524,11 @@ describe('DiscussionService', () => {
         MOCK_CURSOR_ID,
         'after',
         10,
+        false,
       );
     });
 
-    it('UT-6-018-04: with an explicit cursor and no direction, defaults direction to "before"', async () => {
+    it('UT-6-018-04: with an explicit cursor and no direction, defaults direction to "before" and pageSize to DEFAULT_MESSAGE_PAGE_SIZE', async () => {
       const query: GetMessagesQueryDto = { cursor: MOCK_CURSOR_ID };
 
       await service.getMessages(
@@ -542,7 +543,8 @@ describe('DiscussionService', () => {
         MOCK_ROOM_ID,
         MOCK_CURSOR_ID,
         'before',
-        undefined,
+        25,
+        false,
       );
     });
 
@@ -585,8 +587,100 @@ describe('DiscussionService', () => {
         undefined,
         'before',
         20,
+        false,
       );
       expect(crudServiceMock.getPaginatedMessagesByTimestamp).not.toHaveBeenCalled();
+    });
+
+    it('UT-6-018-07: limit omitted + NotAnnouncement → pageSize defaults to DEFAULT_MESSAGE_PAGE_SIZE (25)', async () => {
+      crudServiceMock.getRoomReadStatus.mockResolvedValue(null);
+      const query: GetMessagesQueryDto = {};
+
+      await service.getMessages(
+        MOCK_ROOM_ID,
+        query,
+        Role.PARTICIPANT,
+        MOCK_PARTICIPANT_PROFILE_ID,
+        null,
+      );
+
+      expect(crudServiceMock.getPaginatedMessagesByCursor).toHaveBeenCalledWith(
+        MOCK_ROOM_ID,
+        undefined,
+        'before',
+        25,
+        false,
+      );
+    });
+
+    it('UT-6-018-08: limit omitted + Announcement → pageSize defaults to DEFAULT_ANNOUNCEMENT_PAGE_SIZE (15)', async () => {
+      const query: GetMessagesQueryDto = { isAnnouncement: true };
+
+      await service.getMessages(
+        MOCK_ROOM_ID,
+        query,
+        Role.PARTICIPANT,
+        MOCK_PARTICIPANT_PROFILE_ID,
+        null,
+      );
+
+      expect(crudServiceMock.getPaginatedMessagesByCursor).toHaveBeenCalledWith(
+        MOCK_ROOM_ID,
+        undefined,
+        'before',
+        15,
+        true,
+      );
+    });
+
+    it('UT-6-018-09: Announcement + NoCursor → skips the read-status lookup entirely (regardless of whether a read status exists) and calls getPaginatedMessagesByCursor', async () => {
+      const query: GetMessagesQueryDto = { isAnnouncement: true, limit: 10 };
+
+      const result = await service.getMessages(
+        MOCK_ROOM_ID,
+        query,
+        Role.ORGANIZER,
+        null,
+        MOCK_ORGANIZER_PROFILE_ID,
+      );
+
+      expect(result).toEqual(MOCK_MESSAGE_PAGE);
+      expect(crudServiceMock.getRoomReadStatus).not.toHaveBeenCalled();
+      expect(crudServiceMock.getPaginatedMessagesByTimestamp).not.toHaveBeenCalled();
+      expect(crudServiceMock.getPaginatedMessagesByCursor).toHaveBeenCalledWith(
+        MOCK_ROOM_ID,
+        undefined,
+        'before',
+        10,
+        true,
+      );
+    });
+
+    it('UT-6-018-10: Announcement + ExplicitCursor → calls getPaginatedMessagesByCursor with isAnnouncement=true, skips read-status lookup', async () => {
+      const query: GetMessagesQueryDto = {
+        cursor: MOCK_CURSOR_ID,
+        direction: 'after',
+        isAnnouncement: true,
+        limit: 5,
+      };
+
+      const result = await service.getMessages(
+        MOCK_ROOM_ID,
+        query,
+        Role.ORGANIZER,
+        null,
+        MOCK_ORGANIZER_PROFILE_ID,
+      );
+
+      expect(result).toEqual(MOCK_MESSAGE_PAGE);
+      expect(crudServiceMock.getRoomReadStatus).not.toHaveBeenCalled();
+      expect(crudServiceMock.getPaginatedMessagesByCursor).toHaveBeenCalledWith(
+        MOCK_ROOM_ID,
+        MOCK_CURSOR_ID,
+        'after',
+        5,
+        true,
+      );
     });
   });
 

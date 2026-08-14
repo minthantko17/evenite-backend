@@ -57,7 +57,7 @@ Environment (test frame combination rules):
   [single] RoomExists=false forces a single test case (all downstream parameters irrelevant once RoomNotFoundException fires).
 
 
-// getMessage
+// getMessages
 Parameter roomId:
   room existence:
     room exists.                          [property RoomExists]
@@ -68,15 +68,20 @@ Parameter event / access (derived from roomId + role + profile ids):
     caller is authorized (owner or confirmed participant).    [property Authorized] [if RoomExists]
     caller is not authorized.                                  [error] [if RoomExists]
 
+Parameter query.isAnnouncement:
+  flag value:
+    true.                                  [property Announcement]
+    false or omitted (DTO defaults to false).   [property NotAnnouncement]
+
 Parameter query.cursor:
   cursor presence:
     cursor provided (explicit).           [property ExplicitCursor]
     cursor not provided.                  [property NoCursor]
 
-Parameter RoomReadStatus (only relevant when NoCursor):
+Parameter RoomReadStatus (only relevant when NoCursor + NotAnnouncement — announcements never consult read status):
   read status existence:
-    a RoomReadStatus exists for this caller+room.       [property HasReadStatus] [if NoCursor]
-    no RoomReadStatus exists for this caller+room.      [property NoReadStatus] [if NoCursor]
+    a RoomReadStatus exists for this caller+room.       [property HasReadStatus] [if NoCursor] [if NotAnnouncement]
+    no RoomReadStatus exists for this caller+room.      [property NoReadStatus] [if NoCursor] [if NotAnnouncement]
 
 Parameter query.direction (only relevant when ExplicitCursor):
   direction value:
@@ -84,16 +89,19 @@ Parameter query.direction (only relevant when ExplicitCursor):
     direction = 'after'.                  [if ExplicitCursor]
     direction omitted (defaults to 'before').   [if ExplicitCursor]
 
-Parameter query.limit:
+Parameter query.limit (pageSize resolution):
   limit value:
-    limit omitted (uses DEFAULT_PAGE_SIZE).
-    limit within MAX_PAGE_SIZE.
-    limit exceeds MAX_PAGE_SIZE (clamped).
+    limit omitted + NotAnnouncement → pageSize = DEFAULT_MESSAGE_PAGE_SIZE (25).
+    limit omitted + Announcement    → pageSize = DEFAULT_ANNOUNCEMENT_PAGE_SIZE (15).
+    limit provided                  → pageSize = limit, regardless of isAnnouncement (clamping to the announcement/message max happens one layer down, in DiscussionCrudService).
 
 Resulting call-path branches (for test-case construction):
-  ExplicitCursor            → calls getPaginatedMessagesByCursor(cursor, direction, limit)          [single]
-  NoCursor + HasReadStatus  → calls getPaginatedMessagesByTimestamp(lastReadAt, limit)        [single]
-  NoCursor + NoReadStatus   → falls through, calls getPaginatedMessagesByCursor(undefined, 'before', limit)  [single]
+  Announcement (any cursor/direction state)     → skips read-status lookup entirely, calls getPaginatedMessagesByCursor(cursor ?? undefined, direction ?? 'before', pageSize, true)   [single — isAnnouncement short-circuits before the cursor check is even relevant to read-status]
+  NotAnnouncement + ExplicitCursor              → calls getPaginatedMessagesByCursor(cursor, direction, pageSize, false)          [single]
+  NotAnnouncement + NoCursor + HasReadStatus    → calls getPaginatedMessagesByTimestamp(lastReadAt, pageSize)        [single]
+  NotAnnouncement + NoCursor + NoReadStatus     → falls through, calls getPaginatedMessagesByCursor(undefined, 'before', pageSize, false)  [single]
+
+Note: getPaginatedMessagesByTimestamp is NEVER called when isAnnouncement=true — announcements are always paginated via getPaginatedMessagesByCursor's isAnnouncement filter, never via last-read-timestamp tracking (announcements aren't covered by RoomReadStatus).
 
 
 // markRoomAsRead
