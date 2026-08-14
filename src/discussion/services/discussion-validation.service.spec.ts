@@ -11,10 +11,11 @@ import { MessageContentInvalidException } from '../exceptions/message-content-in
 import { AnnouncementNotAllowedException } from '../exceptions/announcement-not-allowed.exception';
 import { RegistrationNotFoundException } from '../../registration/exceptions/registration-not-found.exception';
 
-const MOCK_ROOM_ID = 'room-1';
-const MOCK_EVENT_ID = 'event-1';
-const MOCK_ORGANIZER_PROFILE_ID = 'organizer-1';
-const MOCK_PARTICIPANT_PROFILE_ID = 'participant-1';
+const MOCK_ROOM_ID = 'e8946e7f-42a6-4586-9089-9267d0312bff';
+const MOCK_EVENT_ID = '1fa29edd-3a7d-4d2c-bf8f-8521eb4e76b8';
+const MOCK_ORGANIZER_PROFILE_ID = '084066b4-231a-4e1e-bb37-084d5ea66c8a';
+const MOCK_PARTICIPANT_PROFILE_ID = 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44';
+const MOCK_OTHER_ORGANIZER_PROFILE_ID = 'd1f5649f-cc81-4bdf-bcfc-ddb265b33de0';
 
 const buildEvent = (overrides: Partial<Event> = {}): Event =>
   ({
@@ -61,7 +62,7 @@ describe('DiscussionValidationService', () => {
   });
 
   describe('validateRoomExists', () => {
-    it('UT-VE-01: a DiscussionRoom with this id exists → returns { roomId, event }', async () => {
+    it('UT-6-001-01: a DiscussionRoom with this id exists → returns { roomId, event }', async () => {
       const event = buildEvent();
       prismaMock.discussionRoom.findUnique.mockResolvedValue({
         id: MOCK_ROOM_ID,
@@ -75,7 +76,7 @@ describe('DiscussionValidationService', () => {
       expect(result).toEqual({ roomId: MOCK_ROOM_ID, event });
     });
 
-    it('UT-VE-02: no DiscussionRoom with this id exists → throws RoomNotFoundException', async () => {
+    it('UT-6-001-02: no DiscussionRoom with this id exists → throws RoomNotFoundException', async () => {
       prismaMock.discussionRoom.findUnique.mockResolvedValue(null);
 
       await expect(service.validateRoomExists(MOCK_ROOM_ID)).rejects.toThrow(
@@ -88,7 +89,7 @@ describe('DiscussionValidationService', () => {
   });
 
   describe('validateRoomAccess', () => {
-    it('UT-VA-01: RoleOrganizer + IsOwner → returns access-confirmation message', async () => {
+    it('UT-6-002-01: RoleOrganizer + IsOwner → returns access-confirmation message', async () => {
       const event = buildEvent({ organizerId: MOCK_ORGANIZER_PROFILE_ID });
 
       const result = await service.validateRoomAccess(
@@ -106,8 +107,8 @@ describe('DiscussionValidationService', () => {
       ).not.toHaveBeenCalled();
     });
 
-    it('UT-VA-02: RoleOrganizer + not-owner → throws RoomAccessDeniedException', async () => {
-      const event = buildEvent({ organizerId: 'someone-else' });
+    it('UT-6-002-02: RoleOrganizer + not-owner → throws RoomAccessDeniedException', async () => {
+      const event = buildEvent({ organizerId: MOCK_OTHER_ORGANIZER_PROFILE_ID });
 
       await expect(
         service.validateRoomAccess(
@@ -129,7 +130,7 @@ describe('DiscussionValidationService', () => {
       );
     });
 
-    it('UT-VA-03: RoleOrganizer + organizerProfileId null → throws RoomAccessDeniedException', async () => {
+    it('UT-6-002-03: RoleOrganizer + organizerProfileId null → throws RoomAccessDeniedException', async () => {
       const event = buildEvent({ organizerId: MOCK_ORGANIZER_PROFILE_ID });
 
       await expect(
@@ -142,7 +143,7 @@ describe('DiscussionValidationService', () => {
       );
     });
 
-    it('UT-VA-04: RoleParticipant + HasParticipantId + ConfirmedReg → returns access-confirmation message', async () => {
+    it('UT-6-002-04: RoleParticipant + HasParticipantId + ConfirmedReg → returns access-confirmation message', async () => {
       const event = buildEvent();
       registrationValidationServiceMock.validateConfirmedRegistration.mockResolvedValue(
         { message: 'Participant is confirmed for this event.' },
@@ -163,7 +164,7 @@ describe('DiscussionValidationService', () => {
       ).toHaveBeenCalledWith(event.id, MOCK_PARTICIPANT_PROFILE_ID);
     });
 
-    it('UT-VA-05: RoleParticipant + HasParticipantId + not-confirmed → RegistrationNotFoundException bubbles', async () => {
+    it('UT-6-002-05: RoleParticipant + HasParticipantId + not-confirmed → RegistrationNotFoundException bubbles', async () => {
       const event = buildEvent();
       registrationValidationServiceMock.validateConfirmedRegistration.mockRejectedValue(
         new RegistrationNotFoundException(),
@@ -187,7 +188,7 @@ describe('DiscussionValidationService', () => {
       ).rejects.toThrow('Registration not found.');
     });
 
-    it('UT-VA-06: RoleParticipant + participantProfileId null → throws RoomAccessDeniedException', async () => {
+    it('UT-6-002-06: RoleParticipant + participantProfileId null → throws RoomAccessDeniedException', async () => {
       const event = buildEvent();
 
       await expect(
@@ -205,7 +206,7 @@ describe('DiscussionValidationService', () => {
   });
 
   describe('validateRoomWritable', () => {
-    it('UT-RW-01: PUBLISHED → writable', () => {
+    it('UT-6-003-01: PUBLISHED → writable', () => {
       const event = buildEvent({ status: EventStatus.PUBLISHED });
 
       const result = service.validateRoomWritable(event);
@@ -213,7 +214,7 @@ describe('DiscussionValidationService', () => {
       expect(result).toEqual({ message: 'Discussion room is writable.' });
     });
 
-    it('UT-RW-02: ONGOING → writable', () => {
+    it('UT-6-003-02: ONGOING → writable', () => {
       const event = buildEvent({ status: EventStatus.ONGOING });
 
       const result = service.validateRoomWritable(event);
@@ -221,7 +222,7 @@ describe('DiscussionValidationService', () => {
       expect(result).toEqual({ message: 'Discussion room is writable.' });
     });
 
-    it('UT-RW-03: DRAFT → writable', () => {
+    it('UT-6-003-03: DRAFT → writable', () => {
       const event = buildEvent({ status: EventStatus.DRAFT });
 
       const result = service.validateRoomWritable(event);
@@ -229,7 +230,7 @@ describe('DiscussionValidationService', () => {
       expect(result).toEqual({ message: 'Discussion room is writable.' });
     });
 
-    it('UT-RW-04: CANCELLED → throws RoomReadOnlyException with cancellation message', () => {
+    it('UT-6-003-04: CANCELLED → throws RoomReadOnlyException with cancellation message', () => {
       const event = buildEvent({ status: EventStatus.CANCELLED });
 
       expect(() => service.validateRoomWritable(event)).toThrow(
@@ -240,7 +241,7 @@ describe('DiscussionValidationService', () => {
       );
     });
 
-    it('UT-RW-05: CONCLUDED + HasEndAt + WithinGrace → writable', () => {
+    it('UT-6-003-05: CONCLUDED + HasEndAt + WithinGrace → writable', () => {
       const endAt = new Date('2026-08-01T00:00:00Z');
       const event = buildEvent({ status: EventStatus.CONCLUDED, endAt });
       jest
@@ -252,7 +253,7 @@ describe('DiscussionValidationService', () => {
       expect(result).toEqual({ message: 'Discussion room is writable.' });
     });
 
-    it('UT-RW-06: CONCLUDED + HasEndAt + past 72h → throws with default message', () => {
+    it('UT-6-003-06: CONCLUDED + HasEndAt + past 72h → throws with default message', () => {
       const endAt = new Date('2026-08-01T00:00:00Z');
       const event = buildEvent({ status: EventStatus.CONCLUDED, endAt });
       jest
@@ -267,7 +268,7 @@ describe('DiscussionValidationService', () => {
       );
     });
 
-    it('UT-RW-07: CONCLUDED + NoEndAt + startAt present + WithinGrace → writable (reference = startAt + 6h)', () => {
+    it('UT-6-003-07: CONCLUDED + NoEndAt + startAt present + WithinGrace → writable (reference = startAt + 6h)', () => {
       const startAt = new Date('2026-08-01T00:00:00Z');
       const event = buildEvent({
         status: EventStatus.CONCLUDED,
@@ -283,7 +284,7 @@ describe('DiscussionValidationService', () => {
       expect(result).toEqual({ message: 'Discussion room is writable.' });
     });
 
-    it('UT-RW-08: CONCLUDED + NoEndAt + startAt present + past 72h → throws', () => {
+    it('UT-6-003-08: CONCLUDED + NoEndAt + startAt present + past 72h → throws', () => {
       const startAt = new Date('2026-08-01T00:00:00Z');
       const event = buildEvent({
         status: EventStatus.CONCLUDED,
@@ -302,7 +303,7 @@ describe('DiscussionValidationService', () => {
       );
     });
 
-    it('UT-RW-09: CONCLUDED + NoEndAt + startAt null + WithinGrace → writable (reference = epoch + 6h; edge case)', () => {
+    it('UT-6-003-09: CONCLUDED + NoEndAt + startAt null + WithinGrace → writable (reference = epoch + 6h; edge case)', () => {
       const event = buildEvent({
         status: EventStatus.CONCLUDED,
         endAt: null,
@@ -315,7 +316,7 @@ describe('DiscussionValidationService', () => {
       expect(result).toEqual({ message: 'Discussion room is writable.' });
     });
 
-    it('UT-RW-10: CONCLUDED + NoEndAt + startAt null + past 72h → throws (realistic case)', () => {
+    it('UT-6-003-10: CONCLUDED + NoEndAt + startAt null + past 72h → throws (realistic case)', () => {
       const event = buildEvent({
         status: EventStatus.CONCLUDED,
         endAt: null,
@@ -333,13 +334,13 @@ describe('DiscussionValidationService', () => {
   });
 
   describe('validateMessageContent', () => {
-    it('UT-MC-01: non-empty, length <= 2000 → returns the original content', () => {
+    it('UT-6-004-01: non-empty, length <= 2000 → returns the original content', () => {
       const result = service.validateMessageContent('hello world');
 
       expect(result).toBe('hello world');
     });
 
-    it('UT-MC-02: empty after trim ("", "   ") → throws "cannot be empty"', () => {
+    it('UT-6-004-02: empty after trim ("", "   ") → throws "cannot be empty"', () => {
       expect(() => service.validateMessageContent('   ')).toThrow(
         MessageContentInvalidException,
       );
@@ -348,7 +349,7 @@ describe('DiscussionValidationService', () => {
       );
     });
 
-    it('UT-MC-03: length > 2000 chars after trim → throws "cannot exceed..."', () => {
+    it('UT-6-004-03: length > 2000 chars after trim → throws "cannot exceed..."', () => {
       const tooLong = 'a'.repeat(2001);
 
       expect(() => service.validateMessageContent(tooLong)).toThrow(
@@ -359,13 +360,13 @@ describe('DiscussionValidationService', () => {
       );
     });
 
-    it('UT-MC-04: exactly 2000 chars after trim (boundary) → passes', () => {
+    it('UT-6-004-04: exactly 2000 chars after trim (boundary) → passes', () => {
       const exactly2000 = 'a'.repeat(2000);
 
       expect(() => service.validateMessageContent(exactly2000)).not.toThrow();
     });
 
-    it('UT-MC-05: exactly 2001 chars after trim (boundary) → throws', () => {
+    it('UT-6-004-05: exactly 2001 chars after trim (boundary) → throws', () => {
       const exactly2001 = 'a'.repeat(2001);
 
       expect(() => service.validateMessageContent(exactly2001)).toThrow(
@@ -376,7 +377,7 @@ describe('DiscussionValidationService', () => {
       );
     });
 
-    it('UT-MC-06: leading/trailing whitespace, valid once trimmed → passes, returns original (untrimmed) content', () => {
+    it('UT-6-004-06: leading/trailing whitespace, valid once trimmed → passes, returns original (untrimmed) content', () => {
       const padded = '  hello  ';
 
       const result = service.validateMessageContent(padded);
@@ -386,7 +387,7 @@ describe('DiscussionValidationService', () => {
   });
 
   describe('validateAnnouncementPermission', () => {
-    it('UT-AP-01: NotAnnouncing + ORGANIZER → returns false', () => {
+    it('UT-6-005-01: NotAnnouncing + ORGANIZER → returns false', () => {
       const result = service.validateAnnouncementPermission(
         false,
         Role.ORGANIZER,
@@ -395,7 +396,7 @@ describe('DiscussionValidationService', () => {
       expect(result).toBe(false);
     });
 
-    it('UT-AP-02: NotAnnouncing + PARTICIPANT → returns false (role irrelevant)', () => {
+    it('UT-6-005-02: NotAnnouncing + PARTICIPANT → returns false (role irrelevant)', () => {
       const result = service.validateAnnouncementPermission(
         false,
         Role.PARTICIPANT,
@@ -404,7 +405,7 @@ describe('DiscussionValidationService', () => {
       expect(result).toBe(false);
     });
 
-    it('UT-AP-03: Announcing + RoleOrganizer → returns true', () => {
+    it('UT-6-005-03: Announcing + RoleOrganizer → returns true', () => {
       const result = service.validateAnnouncementPermission(
         true,
         Role.ORGANIZER,
@@ -413,7 +414,7 @@ describe('DiscussionValidationService', () => {
       expect(result).toBe(true);
     });
 
-    it('UT-AP-04: Announcing + RoleParticipant → throws AnnouncementNotAllowedException', () => {
+    it('UT-6-005-04: Announcing + RoleParticipant → throws AnnouncementNotAllowedException', () => {
       expect(() =>
         service.validateAnnouncementPermission(true, Role.PARTICIPANT),
       ).toThrow(AnnouncementNotAllowedException);

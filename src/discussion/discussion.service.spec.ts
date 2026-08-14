@@ -19,12 +19,18 @@ import {
 } from './constants/discussion-room-filter.constants';
 import { EventWithDiscussionRoom } from './types/discussion.types';
 
-const MOCK_ROOM_ID = 'room-1';
-const MOCK_ORGANIZER_PROFILE_ID = 'organizer-1';
-const MOCK_PARTICIPANT_PROFILE_ID = 'participant-1';
+const MOCK_ROOM_ID = 'e8946e7f-42a6-4586-9089-9267d0312bff';
+const MOCK_ORGANIZER_PROFILE_ID = '084066b4-231a-4e1e-bb37-084d5ea66c8a';
+const MOCK_PARTICIPANT_PROFILE_ID = 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44';
+const MOCK_EVENT_ID = '1fa29edd-3a7d-4d2c-bf8f-8521eb4e76b8';
+const MOCK_OTHER_EVENT_ID = '6a552788-764e-4613-bad0-30a595762649';
+const MOCK_EVENT_ID_NO_BANNER = '3856264d-5fa6-423f-ad50-0c2950e4add5';
+const MOCK_UNKNOWN_EVENT_ID = '5b53e2f2-95f3-411e-a00c-717acaed502e';
+const MOCK_MESSAGE_ID = 'e9697c17-fc38-4625-aaeb-a4f43cce4e09';
+const MOCK_CURSOR_ID = 'bb0d173c-621e-4065-8022-9b8b17eb9f7c';
 
 const MOCK_EVENT: Event = {
-  id: 'event-1',
+  id: MOCK_EVENT_ID,
   organizerId: MOCK_ORGANIZER_PROFILE_ID,
   status: EventStatus.PUBLISHED,
   startAt: new Date('2026-08-01T00:00:00Z'),
@@ -32,7 +38,7 @@ const MOCK_EVENT: Event = {
 } as Event;
 
 const MOCK_RETURN_MESSAGE: ReturnMessageDto = {
-  id: 'message-1',
+  id: MOCK_MESSAGE_ID,
   content: 'hello world',
   isAnnouncement: false,
   sender: {
@@ -48,8 +54,8 @@ const MOCK_MESSAGE_PAGE: ReturnMessagePageDto = {
   messages: [MOCK_RETURN_MESSAGE],
   hasMoreOlder: false,
   hasMoreNewer: false,
-  oldestCursor: 'message-1',
-  newestCursor: 'message-1',
+  oldestCursor: MOCK_MESSAGE_ID,
+  newestCursor: MOCK_MESSAGE_ID,
 };
 
 const MOCK_LAST_READ_AT = new Date('2026-08-01T01:00:00Z');
@@ -60,7 +66,7 @@ const MOCK_ROOM_READ_STATUS_DTO = {
 };
 
 const MOCK_EVENT_WITH_ROOM = {
-  id: 'event-1',
+  id: MOCK_EVENT_ID,
   organizerId: MOCK_ORGANIZER_PROFILE_ID,
   status: EventStatus.PUBLISHED,
   startAt: new Date('2026-08-01T00:00:00Z'),
@@ -72,13 +78,13 @@ const MOCK_EVENT_WITH_ROOM = {
 
 const MOCK_EVENT_WITHOUT_ROOM = {
   ...MOCK_EVENT_WITH_ROOM,
-  id: 'event-2',
+  id: MOCK_OTHER_EVENT_ID,
   discussionRoom: null,
 } as unknown as EventWithDiscussionRoom;
 
 const MOCK_EVENT_WITH_ROOM_NO_BANNER = {
   ...MOCK_EVENT_WITH_ROOM,
-  id: 'event-3',
+  id: MOCK_EVENT_ID_NO_BANNER,
   bannerUrl: null,
 } as unknown as EventWithDiscussionRoom;
 
@@ -136,7 +142,7 @@ describe('DiscussionService', () => {
   });
 
   describe('sendMessage', () => {
-    it('UT-SM-01: throws RoomNotFoundException when room does not exist, and skips all downstream validation', async () => {
+    it('UT-6-017-01: throws RoomNotFoundException when room does not exist, and skips all downstream validation', async () => {
       validationServiceMock.validateRoomExists.mockRejectedValue(
         new RoomNotFoundException(),
       );
@@ -169,7 +175,7 @@ describe('DiscussionService', () => {
       expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
     });
 
-    it('UT-SM-02: throws RoomAccessDeniedException when caller is neither owner nor confirmed participant', async () => {
+    it('UT-6-017-02: throws RoomAccessDeniedException when caller is neither owner nor confirmed participant', async () => {
       validationServiceMock.validateRoomAccess.mockRejectedValue(
         new RoomAccessDeniedException(),
       );
@@ -203,7 +209,7 @@ describe('DiscussionService', () => {
       expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
     });
 
-    it('UT-SM-03: throws RoomReadOnlyException when room is not writable (concluded past grace period / cancelled)', async () => {
+    it('UT-6-017-03: throws RoomReadOnlyException when room is not writable (concluded past grace period / cancelled)', async () => {
       validationServiceMock.validateRoomWritable.mockImplementation(() => {
         throw new RoomReadOnlyException();
       });
@@ -236,7 +242,7 @@ describe('DiscussionService', () => {
       expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
     });
 
-    it('UT-SM-04: throws MessageContentInvalidException when content is empty/whitespace-only or exceeds 2000 characters', async () => {
+    it('UT-6-017-04: throws MessageContentInvalidException when content is empty/whitespace-only or exceeds 2000 characters', async () => {
       validationServiceMock.validateMessageContent.mockImplementation(() => {
         throw new MessageContentInvalidException('Message cannot be empty.');
       });
@@ -267,7 +273,7 @@ describe('DiscussionService', () => {
       expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
     });
 
-    it('UT-SM-05: throws AnnouncementNotAllowedException when a PARTICIPANT attempts to send an announcement', async () => {
+    it('UT-6-017-05: throws AnnouncementNotAllowedException when a PARTICIPANT attempts to send an announcement', async () => {
       validationServiceMock.validateAnnouncementPermission.mockImplementation(
         () => {
           throw new AnnouncementNotAllowedException();
@@ -297,7 +303,7 @@ describe('DiscussionService', () => {
       expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
     });
 
-    it('UT-SM-06: creates a regular message for an ORGANIZER, setting senderOrganizerId and leaving senderParticipantId null', async () => {
+    it('UT-6-017-06: creates a regular message for an ORGANIZER, setting senderOrganizerId and leaving senderParticipantId null', async () => {
       const dto: CreateMessageDto = { content: 'hello' };
 
       const result = await service.sendMessage(
@@ -318,7 +324,7 @@ describe('DiscussionService', () => {
       );
     });
 
-    it('UT-SM-07: creates an announcement for an ORGANIZER when dto.isAnnouncement is true', async () => {
+    it('UT-6-017-07: creates an announcement for an ORGANIZER when dto.isAnnouncement is true', async () => {
       validationServiceMock.validateAnnouncementPermission.mockReturnValue(
         true,
       );
@@ -347,7 +353,7 @@ describe('DiscussionService', () => {
       );
     });
 
-    it('UT-SM-08: creates a regular message for a confirmed PARTICIPANT, setting senderParticipantId and leaving senderOrganizerId null', async () => {
+    it('UT-6-017-08: creates a regular message for a confirmed PARTICIPANT, setting senderParticipantId and leaving senderOrganizerId null', async () => {
       const dto: CreateMessageDto = { content: 'hi there' };
 
       const result = await service.sendMessage(
@@ -368,7 +374,7 @@ describe('DiscussionService', () => {
       );
     });
 
-    it('UT-SM-09: defaults isAnnouncement to false when dto.isAnnouncement is undefined', async () => {
+    it('UT-6-017-09: defaults isAnnouncement to false when dto.isAnnouncement is undefined', async () => {
       const dto: CreateMessageDto = { content: 'no flag set' };
 
       await service.sendMessage(
@@ -384,7 +390,7 @@ describe('DiscussionService', () => {
       ).toHaveBeenCalledWith(false, Role.PARTICIPANT);
     });
 
-    it('UT-SM-10: trims surrounding whitespace from dto.content before persisting the message', async () => {
+    it('UT-6-017-10: trims surrounding whitespace from dto.content before persisting the message', async () => {
       const dto: CreateMessageDto = { content: '  padded content  ' };
 
       await service.sendMessage(
@@ -404,7 +410,7 @@ describe('DiscussionService', () => {
       );
     });
 
-    it('UT-SM-11: passes the resolved event and caller identity through the validation pipeline in order', async () => {
+    it('UT-6-017-11: passes the resolved event and caller identity through the validation pipeline in order', async () => {
       const dto: CreateMessageDto = { content: 'hello' };
 
       await service.sendMessage(
@@ -434,7 +440,7 @@ describe('DiscussionService', () => {
   });
 
   describe('getMessages', () => {
-    it('UT-GM-01: throws RoomNotFoundException when room does not exist', async () => {
+    it('UT-6-018-01: throws RoomNotFoundException when room does not exist', async () => {
       validationServiceMock.validateRoomExists.mockRejectedValue(
         new RoomNotFoundException(),
       );
@@ -464,7 +470,7 @@ describe('DiscussionService', () => {
       expect(crudServiceMock.getPaginatedMessagesByCursor).not.toHaveBeenCalled();
     });
 
-    it('UT-GM-02: throws RoomAccessDeniedException when caller is not authorized', async () => {
+    it('UT-6-018-02: throws RoomAccessDeniedException when caller is not authorized', async () => {
       validationServiceMock.validateRoomAccess.mockRejectedValue(
         new RoomAccessDeniedException(),
       );
@@ -496,9 +502,9 @@ describe('DiscussionService', () => {
       expect(crudServiceMock.getPaginatedMessagesByTimestamp).not.toHaveBeenCalled();
     });
 
-    it('UT-GM-03: with an explicit cursor, calls getPaginatedMessagesByCursor and skips the read-status lookup', async () => {
+    it('UT-6-018-03: with an explicit cursor, calls getPaginatedMessagesByCursor and skips the read-status lookup', async () => {
       const query: GetMessagesQueryDto = {
-        cursor: 'message-5',
+        cursor: MOCK_CURSOR_ID,
         direction: 'after',
         limit: 10,
       };
@@ -515,14 +521,14 @@ describe('DiscussionService', () => {
       expect(crudServiceMock.getRoomReadStatus).not.toHaveBeenCalled();
       expect(crudServiceMock.getPaginatedMessagesByCursor).toHaveBeenCalledWith(
         MOCK_ROOM_ID,
-        'message-5',
+        MOCK_CURSOR_ID,
         'after',
         10,
       );
     });
 
-    it('UT-GM-04: with an explicit cursor and no direction, defaults direction to "before"', async () => {
-      const query: GetMessagesQueryDto = { cursor: 'message-5' };
+    it('UT-6-018-04: with an explicit cursor and no direction, defaults direction to "before"', async () => {
+      const query: GetMessagesQueryDto = { cursor: MOCK_CURSOR_ID };
 
       await service.getMessages(
         MOCK_ROOM_ID,
@@ -534,13 +540,13 @@ describe('DiscussionService', () => {
 
       expect(crudServiceMock.getPaginatedMessagesByCursor).toHaveBeenCalledWith(
         MOCK_ROOM_ID,
-        'message-5',
+        MOCK_CURSOR_ID,
         'before',
         undefined,
       );
     });
 
-    it('UT-GM-05: with no cursor and an existing read status, fetches messages from the last-read timestamp', async () => {
+    it('UT-6-018-05: with no cursor and an existing read status, fetches messages from the last-read timestamp', async () => {
       crudServiceMock.getRoomReadStatus.mockResolvedValue(MOCK_READ_STATUS);
       const query: GetMessagesQueryDto = { limit: 20 };
 
@@ -561,7 +567,7 @@ describe('DiscussionService', () => {
       expect(crudServiceMock.getPaginatedMessagesByCursor).not.toHaveBeenCalled();
     });
 
-    it('UT-GM-06: with no cursor and no read status, falls through to the latest-page fetch', async () => {
+    it('UT-6-018-06: with no cursor and no read status, falls through to the latest-page fetch', async () => {
       crudServiceMock.getRoomReadStatus.mockResolvedValue(null);
       const query: GetMessagesQueryDto = { limit: 20 };
 
@@ -585,7 +591,7 @@ describe('DiscussionService', () => {
   });
 
   describe('markRoomAsRead', () => {
-    it('UT-MR-01: throws RoomNotFoundException when room does not exist', async () => {
+    it('UT-6-019-01: throws RoomNotFoundException when room does not exist', async () => {
       validationServiceMock.validateRoomExists.mockRejectedValue(
         new RoomNotFoundException(),
       );
@@ -610,7 +616,7 @@ describe('DiscussionService', () => {
       expect(crudServiceMock.upsertRoomReadStatus).not.toHaveBeenCalled();
     });
 
-    it('UT-MR-02: throws RoomAccessDeniedException when caller is not authorized', async () => {
+    it('UT-6-019-02: throws RoomAccessDeniedException when caller is not authorized', async () => {
       validationServiceMock.validateRoomAccess.mockRejectedValue(
         new RoomAccessDeniedException(),
       );
@@ -637,7 +643,7 @@ describe('DiscussionService', () => {
       expect(crudServiceMock.upsertRoomReadStatus).not.toHaveBeenCalled();
     });
 
-    it('UT-MR-03: for an ORGANIZER, upserts the read status keyed on organizerProfileId', async () => {
+    it('UT-6-019-03: for an ORGANIZER, upserts the read status keyed on organizerProfileId', async () => {
       const result = await service.markRoomAsRead(
         MOCK_ROOM_ID,
         Role.ORGANIZER,
@@ -654,7 +660,7 @@ describe('DiscussionService', () => {
       );
     });
 
-    it('UT-MR-04: for a PARTICIPANT, upserts the read status keyed on participantProfileId', async () => {
+    it('UT-6-019-04: for a PARTICIPANT, upserts the read status keyed on participantProfileId', async () => {
       const result = await service.markRoomAsRead(
         MOCK_ROOM_ID,
         Role.PARTICIPANT,
@@ -673,7 +679,7 @@ describe('DiscussionService', () => {
   });
 
   describe('getCreatedDiscussionRooms', () => {
-    it('UT-CR-01: filter="active" resolves to ACTIVE_ROOM_STATUSES', async () => {
+    it('UT-6-020-01: filter="active" resolves to ACTIVE_ROOM_STATUSES', async () => {
       await service.getCreatedDiscussionRooms(
         MOCK_ORGANIZER_PROFILE_ID,
         'active',
@@ -684,7 +690,7 @@ describe('DiscussionService', () => {
       ).toHaveBeenCalledWith(MOCK_ORGANIZER_PROFILE_ID, ACTIVE_ROOM_STATUSES);
     });
 
-    it('UT-CR-02: filter="archived" resolves to ARCHIVED_ROOM_STATUSES', async () => {
+    it('UT-6-020-02: filter="archived" resolves to ARCHIVED_ROOM_STATUSES', async () => {
       await service.getCreatedDiscussionRooms(
         MOCK_ORGANIZER_PROFILE_ID,
         'archived',
@@ -695,7 +701,7 @@ describe('DiscussionService', () => {
       ).toHaveBeenCalledWith(MOCK_ORGANIZER_PROFILE_ID, ARCHIVED_ROOM_STATUSES);
     });
 
-    it('UT-CR-03: filter omitted resolves to undefined (no status filter)', async () => {
+    it('UT-6-020-03: filter omitted resolves to undefined (no status filter)', async () => {
       await service.getCreatedDiscussionRooms(MOCK_ORGANIZER_PROFILE_ID);
 
       expect(
@@ -703,7 +709,7 @@ describe('DiscussionService', () => {
       ).toHaveBeenCalledWith(MOCK_ORGANIZER_PROFILE_ID, undefined);
     });
 
-    it('UT-CR-04: filters out events with no discussionRoom before mapping', async () => {
+    it('UT-6-020-04: filters out events with no discussionRoom before mapping', async () => {
       crudServiceMock.getOrganizerEventsWithRoom.mockResolvedValue([
         MOCK_EVENT_WITH_ROOM,
         MOCK_EVENT_WITHOUT_ROOM,
@@ -730,7 +736,7 @@ describe('DiscussionService', () => {
       expect(crudServiceMock.getLatestMessageForRoom).toHaveBeenCalledTimes(1);
     });
 
-    it('UT-CR-05: returns [] without mapping when CRUD returns no events', async () => {
+    it('UT-6-020-05: returns [] without mapping when CRUD returns no events', async () => {
       crudServiceMock.getOrganizerEventsWithRoom.mockResolvedValue([]);
 
       const result = await service.getCreatedDiscussionRooms(
@@ -741,7 +747,7 @@ describe('DiscussionService', () => {
       expect(crudServiceMock.getLatestMessageForRoom).not.toHaveBeenCalled();
     });
 
-    it('UT-CR-06: composes the room DTO from lastMessage, readStatus-derived unreadCount, and writability', async () => {
+    it('UT-6-020-06: composes the room DTO from lastMessage, readStatus-derived unreadCount, and writability', async () => {
       crudServiceMock.getOrganizerEventsWithRoom.mockResolvedValue([
         MOCK_EVENT_WITH_ROOM,
       ]);
@@ -778,7 +784,7 @@ describe('DiscussionService', () => {
       );
     });
 
-    it('UT-CR-07: lastMessage is null when the room has no messages', async () => {
+    it('UT-6-020-07: lastMessage is null when the room has no messages', async () => {
       crudServiceMock.getOrganizerEventsWithRoom.mockResolvedValue([
         MOCK_EVENT_WITH_ROOM,
       ]);
@@ -804,7 +810,7 @@ describe('DiscussionService', () => {
       ]);
     });
 
-    it('UT-CR-07b: event bannerUrl falls back to an empty string when null', async () => {
+    it('UT-6-020-08: event bannerUrl falls back to an empty string when null', async () => {
       crudServiceMock.getOrganizerEventsWithRoom.mockResolvedValue([
         MOCK_EVENT_WITH_ROOM_NO_BANNER,
       ]);
@@ -829,7 +835,7 @@ describe('DiscussionService', () => {
       ]);
     });
 
-    it('UT-CR-08: counts unread messages from the epoch when no read status exists', async () => {
+    it('UT-6-020-09: counts unread messages from the epoch when no read status exists', async () => {
       crudServiceMock.getOrganizerEventsWithRoom.mockResolvedValue([
         MOCK_EVENT_WITH_ROOM,
       ]);
@@ -843,7 +849,7 @@ describe('DiscussionService', () => {
       );
     });
 
-    it('UT-CR-09: isReadOnly is true when the room is not currently writable', async () => {
+    it('UT-6-020-10: isReadOnly is true when the room is not currently writable', async () => {
       crudServiceMock.getOrganizerEventsWithRoom.mockResolvedValue([
         MOCK_EVENT_WITH_ROOM,
       ]);
@@ -873,7 +879,7 @@ describe('DiscussionService', () => {
   });
 
   describe('getJoinedDiscussionRooms', () => {
-    it('UT-JR-01: delegates to getParticipantEventsWithRoom with the caller id and resolved status filter', async () => {
+    it('UT-6-021-01: delegates to getParticipantEventsWithRoom with the caller id and resolved status filter', async () => {
       await service.getJoinedDiscussionRooms(
         MOCK_PARTICIPANT_PROFILE_ID,
         'archived',
@@ -884,7 +890,7 @@ describe('DiscussionService', () => {
       ).toHaveBeenCalledWith(MOCK_PARTICIPANT_PROFILE_ID, ARCHIVED_ROOM_STATUSES);
     });
 
-    it('UT-JR-02: maps rooms using the participant role and profile id, filtering out roomless events', async () => {
+    it('UT-6-021-02: maps rooms using the participant role and profile id, filtering out roomless events', async () => {
       crudServiceMock.getParticipantEventsWithRoom.mockResolvedValue([
         MOCK_EVENT_WITH_ROOM,
         MOCK_EVENT_WITHOUT_ROOM,
@@ -921,7 +927,7 @@ describe('DiscussionService', () => {
   });
 
   describe('authorizeRoomJoinAccess', () => {
-    it('UT-AA-01: bubbles RoomNotFoundException when the room does not exist', async () => {
+    it('UT-6-026-01: bubbles RoomNotFoundException when the room does not exist', async () => {
       validationServiceMock.validateRoomExists.mockRejectedValue(
         new RoomNotFoundException(),
       );
@@ -944,7 +950,7 @@ describe('DiscussionService', () => {
       ).rejects.toThrow('Discussion room not found.');
     });
 
-    it('UT-AA-02: bubbles RoomAccessDeniedException when the caller is not authorized', async () => {
+    it('UT-6-026-02: bubbles RoomAccessDeniedException when the caller is not authorized', async () => {
       validationServiceMock.validateRoomAccess.mockRejectedValue(
         new RoomAccessDeniedException(),
       );
@@ -969,7 +975,7 @@ describe('DiscussionService', () => {
       );
     });
 
-    it('UT-AA-03: returns the access-confirmation message with no other side effects when authorized', async () => {
+    it('UT-6-026-03: returns the access-confirmation message with no other side effects when authorized', async () => {
       validationServiceMock.validateRoomAccess.mockResolvedValue({
         message: 'Participant has access to this room.',
       });
@@ -995,23 +1001,23 @@ describe('DiscussionService', () => {
   });
 
   describe('findRoomByEventId', () => {
-    it('UT-FR-01: returns { roomId } when a DiscussionRoom exists for the event', async () => {
+    it('UT-6-027-01: returns { roomId } when a DiscussionRoom exists for the event', async () => {
       crudServiceMock.findRoomByEventId.mockResolvedValue({
         roomId: MOCK_ROOM_ID,
       });
 
-      const result = await service.findRoomByEventId('event-1');
+      const result = await service.findRoomByEventId(MOCK_EVENT_ID);
 
       expect(result).toEqual({ roomId: MOCK_ROOM_ID });
       expect(crudServiceMock.findRoomByEventId).toHaveBeenCalledWith(
-        'event-1',
+        MOCK_EVENT_ID,
       );
     });
 
-    it('UT-FR-02: returns null when no DiscussionRoom exists for the event', async () => {
+    it('UT-6-027-02: returns null when no DiscussionRoom exists for the event', async () => {
       crudServiceMock.findRoomByEventId.mockResolvedValue(null);
 
-      const result = await service.findRoomByEventId('event-404');
+      const result = await service.findRoomByEventId(MOCK_UNKNOWN_EVENT_ID);
 
       expect(result).toBeNull();
     });
