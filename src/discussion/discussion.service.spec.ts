@@ -50,12 +50,23 @@ const MOCK_RETURN_MESSAGE: ReturnMessageDto = {
   createdAt: new Date('2026-08-01T00:00:00Z'),
 };
 
-const MOCK_MESSAGE_PAGE: ReturnMessagePageDto = {
+// distinct sentinels per crud method, so a `result` assertion alone proves
+// which method's output actually flowed through — not just that "a" mocked
+// page came back (both crud methods are mocked simultaneously in beforeEach)
+const MOCK_MESSAGE_PAGE_BY_CURSOR: ReturnMessagePageDto = {
   messages: [MOCK_RETURN_MESSAGE],
   hasMoreOlder: false,
   hasMoreNewer: false,
   oldestCursor: MOCK_MESSAGE_ID,
   newestCursor: MOCK_MESSAGE_ID,
+};
+
+const MOCK_MESSAGE_PAGE_BY_TIMESTAMP: ReturnMessagePageDto = {
+  messages: [MOCK_RETURN_MESSAGE],
+  hasMoreOlder: true,
+  hasMoreNewer: true,
+  oldestCursor: MOCK_CURSOR_ID,
+  newestCursor: MOCK_CURSOR_ID,
 };
 
 const MOCK_LAST_READ_AT = new Date('2026-08-01T01:00:00Z');
@@ -113,9 +124,11 @@ describe('DiscussionService', () => {
     );
     validationServiceMock.validateAnnouncementPermission.mockReturnValue(false);
     crudServiceMock.createMessage.mockResolvedValue(MOCK_RETURN_MESSAGE);
-    crudServiceMock.getPaginatedMessagesByCursor.mockResolvedValue(MOCK_MESSAGE_PAGE);
+    crudServiceMock.getPaginatedMessagesByCursor.mockResolvedValue(
+      MOCK_MESSAGE_PAGE_BY_CURSOR,
+    );
     crudServiceMock.getPaginatedMessagesByTimestamp.mockResolvedValue(
-      MOCK_MESSAGE_PAGE,
+      MOCK_MESSAGE_PAGE_BY_TIMESTAMP,
     );
     crudServiceMock.getRoomReadStatus.mockResolvedValue(null);
     crudServiceMock.upsertRoomReadStatus.mockResolvedValue(
@@ -517,7 +530,7 @@ describe('DiscussionService', () => {
         MOCK_ORGANIZER_PROFILE_ID,
       );
 
-      expect(result).toEqual(MOCK_MESSAGE_PAGE);
+      expect(result).toEqual(MOCK_MESSAGE_PAGE_BY_CURSOR);
       expect(crudServiceMock.getRoomReadStatus).not.toHaveBeenCalled();
       expect(crudServiceMock.getPaginatedMessagesByCursor).toHaveBeenCalledWith(
         MOCK_ROOM_ID,
@@ -531,7 +544,7 @@ describe('DiscussionService', () => {
     it('UT-6-018-04: with an explicit cursor and no direction, defaults direction to "before" and pageSize to DEFAULT_MESSAGE_PAGE_SIZE', async () => {
       const query: GetMessagesQueryDto = { cursor: MOCK_CURSOR_ID };
 
-      await service.getMessages(
+      const result = await service.getMessages(
         MOCK_ROOM_ID,
         query,
         Role.ORGANIZER,
@@ -539,6 +552,8 @@ describe('DiscussionService', () => {
         MOCK_ORGANIZER_PROFILE_ID,
       );
 
+      expect(result).toEqual(MOCK_MESSAGE_PAGE_BY_CURSOR);
+      expect(crudServiceMock.getPaginatedMessagesByTimestamp).not.toHaveBeenCalled();
       expect(crudServiceMock.getPaginatedMessagesByCursor).toHaveBeenCalledWith(
         MOCK_ROOM_ID,
         MOCK_CURSOR_ID,
@@ -560,7 +575,7 @@ describe('DiscussionService', () => {
         null,
       );
 
-      expect(result).toEqual(MOCK_MESSAGE_PAGE);
+      expect(result).toEqual(MOCK_MESSAGE_PAGE_BY_TIMESTAMP);
       expect(crudServiceMock.getPaginatedMessagesByTimestamp).toHaveBeenCalledWith(
         MOCK_ROOM_ID,
         MOCK_READ_STATUS.lastReadAt,
@@ -581,7 +596,7 @@ describe('DiscussionService', () => {
         null,
       );
 
-      expect(result).toEqual(MOCK_MESSAGE_PAGE);
+      expect(result).toEqual(MOCK_MESSAGE_PAGE_BY_CURSOR);
       expect(crudServiceMock.getPaginatedMessagesByCursor).toHaveBeenCalledWith(
         MOCK_ROOM_ID,
         undefined,
@@ -596,7 +611,7 @@ describe('DiscussionService', () => {
       crudServiceMock.getRoomReadStatus.mockResolvedValue(null);
       const query: GetMessagesQueryDto = {};
 
-      await service.getMessages(
+      const result = await service.getMessages(
         MOCK_ROOM_ID,
         query,
         Role.PARTICIPANT,
@@ -604,6 +619,7 @@ describe('DiscussionService', () => {
         null,
       );
 
+      expect(result).toEqual(MOCK_MESSAGE_PAGE_BY_CURSOR);
       expect(crudServiceMock.getPaginatedMessagesByCursor).toHaveBeenCalledWith(
         MOCK_ROOM_ID,
         undefined,
@@ -616,7 +632,7 @@ describe('DiscussionService', () => {
     it('UT-6-018-08: limit omitted + Announcement → pageSize defaults to DEFAULT_ANNOUNCEMENT_PAGE_SIZE (15)', async () => {
       const query: GetMessagesQueryDto = { isAnnouncement: true };
 
-      await service.getMessages(
+      const result = await service.getMessages(
         MOCK_ROOM_ID,
         query,
         Role.PARTICIPANT,
@@ -624,6 +640,7 @@ describe('DiscussionService', () => {
         null,
       );
 
+      expect(result).toEqual(MOCK_MESSAGE_PAGE_BY_CURSOR);
       expect(crudServiceMock.getPaginatedMessagesByCursor).toHaveBeenCalledWith(
         MOCK_ROOM_ID,
         undefined,
@@ -644,7 +661,7 @@ describe('DiscussionService', () => {
         MOCK_ORGANIZER_PROFILE_ID,
       );
 
-      expect(result).toEqual(MOCK_MESSAGE_PAGE);
+      expect(result).toEqual(MOCK_MESSAGE_PAGE_BY_CURSOR);
       expect(crudServiceMock.getRoomReadStatus).not.toHaveBeenCalled();
       expect(crudServiceMock.getPaginatedMessagesByTimestamp).not.toHaveBeenCalled();
       expect(crudServiceMock.getPaginatedMessagesByCursor).toHaveBeenCalledWith(
@@ -672,7 +689,7 @@ describe('DiscussionService', () => {
         MOCK_ORGANIZER_PROFILE_ID,
       );
 
-      expect(result).toEqual(MOCK_MESSAGE_PAGE);
+      expect(result).toEqual(MOCK_MESSAGE_PAGE_BY_CURSOR);
       expect(crudServiceMock.getRoomReadStatus).not.toHaveBeenCalled();
       expect(crudServiceMock.getPaginatedMessagesByCursor).toHaveBeenCalledWith(
         MOCK_ROOM_ID,
