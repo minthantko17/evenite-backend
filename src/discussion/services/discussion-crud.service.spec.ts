@@ -77,8 +77,6 @@ const buildRawMessages = (count: number) =>
     }),
   );
 
-// mirrors DiscussionCrudService's private mapToReturnMessageDto, so expectations
-// are derived from the same raw fixture rather than hand-duplicated per test
 const mapRawToExpected = (raw: Record<string, any>): ReturnMessageDto => ({
   id: raw.id,
   content: raw.content,
@@ -157,6 +155,7 @@ describe('DiscussionCrudService', () => {
 
     it('UT-6-006-02: FromOrganizer + Announcement + CreateSucceeds → sender.role = ORGANIZER, isAnnouncement: true', async () => {
       const raw = buildRawMessage({
+        content: 'announcement text',
         senderParticipantId: null,
         senderOrganizerId: MOCK_ORGANIZER_PROFILE_ID,
         senderParticipant: null,
@@ -178,10 +177,16 @@ describe('DiscussionCrudService', () => {
       );
 
       expect(result).toEqual(mapRawToExpected(raw));
+      expect(prismaMock.message.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ content: 'announcement text' }),
+        }),
+      );
     });
 
     it('UT-6-006-03: participant sender with nickname present → sender.name = nickname (preferred over firstName)', async () => {
       const raw = buildRawMessage({
+        content: 'hi',
         senderParticipant: {
           id: MOCK_PARTICIPANT_PROFILE_ID,
           firstName: 'Jane',
@@ -201,10 +206,14 @@ describe('DiscussionCrudService', () => {
 
       expect(result).toEqual(mapRawToExpected(raw));
       expect(result.sender.name).toBe('JJ');
+      expect(prismaMock.message.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ content: 'hi' }) }),
+      );
     });
 
     it('UT-6-006-04: participant sender with nickname null/empty → sender.name = firstName (fallback)', async () => {
       const raw = buildRawMessage({
+        content: 'hi',
         senderParticipant: {
           id: MOCK_PARTICIPANT_PROFILE_ID,
           firstName: 'Jane',
@@ -224,10 +233,14 @@ describe('DiscussionCrudService', () => {
 
       expect(result).toEqual(mapRawToExpected(raw));
       expect(result.sender.name).toBe('Jane');
+      expect(prismaMock.message.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ content: 'hi' }) }),
+      );
     });
 
     it("UT-6-006-05: participant sender with both nickname and firstName empty → sender.name = ''", async () => {
       const raw = buildRawMessage({
+        content: 'hi',
         senderParticipant: {
           id: MOCK_PARTICIPANT_PROFILE_ID,
           firstName: '',
@@ -247,10 +260,14 @@ describe('DiscussionCrudService', () => {
 
       expect(result).toEqual(mapRawToExpected(raw));
       expect(result.sender.name).toBe('');
+      expect(prismaMock.message.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ content: 'hi' }) }),
+      );
     });
 
     it("UT-6-006-06: organizer sender with imageUrl null → sender.imageUrl = ''", async () => {
       const raw = buildRawMessage({
+        content: 'hi',
         senderParticipantId: null,
         senderOrganizerId: MOCK_ORGANIZER_PROFILE_ID,
         senderParticipant: null,
@@ -272,6 +289,9 @@ describe('DiscussionCrudService', () => {
 
       expect(result).toEqual(mapRawToExpected(raw));
       expect(result.sender.imageUrl).toBe('');
+      expect(prismaMock.message.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ content: 'hi' }) }),
+      );
     });
 
     it('UT-6-006-07: any sender combination + CreateThrows → throws SaveMessageException, logs error', async () => {
@@ -294,6 +314,7 @@ describe('DiscussionCrudService', () => {
 
     it("UT-6-006-08: organizer sender with name null → sender.name = ''", async () => {
       const raw = buildRawMessage({
+        content: 'hi',
         senderParticipantId: null,
         senderOrganizerId: MOCK_ORGANIZER_PROFILE_ID,
         senderParticipant: null,
@@ -315,10 +336,14 @@ describe('DiscussionCrudService', () => {
 
       expect(result).toEqual(mapRawToExpected(raw));
       expect(result.sender.name).toBe('');
+      expect(prismaMock.message.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ content: 'hi' }) }),
+      );
     });
 
     it("UT-6-006-09: participant sender with imageUrl null → sender.imageUrl = ''", async () => {
       const raw = buildRawMessage({
+        content: 'hi',
         senderParticipant: {
           id: MOCK_PARTICIPANT_PROFILE_ID,
           firstName: 'Jane',
@@ -338,6 +363,9 @@ describe('DiscussionCrudService', () => {
 
       expect(result).toEqual(mapRawToExpected(raw));
       expect(result.sender.imageUrl).toBe('');
+      expect(prismaMock.message.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ content: 'hi' }) }),
+      );
     });
   });
 
@@ -755,7 +783,7 @@ describe('DiscussionCrudService', () => {
 
   describe('upsertRoomReadStatus', () => {
     it('UT-6-010-01: RoleOrganizer → upserts keyed on roomId_readerOrganizerId, readerOrganizerId set, readerParticipantId null', async () => {
-      const lastReadAt = new Date('2026-08-01T00:00:00Z');
+      const lastReadAt = new Date('2026-08-01T01:15:00Z');
       prismaMock.roomReadStatus.upsert.mockResolvedValue({
         roomId: MOCK_ROOM_ID,
         lastReadAt,
@@ -787,7 +815,7 @@ describe('DiscussionCrudService', () => {
     });
 
     it('UT-6-010-02: RoleParticipant → upserts keyed on roomId_readerParticipantId, readerParticipantId set, readerOrganizerId null', async () => {
-      const lastReadAt = new Date('2026-08-01T00:00:00Z');
+      const lastReadAt = new Date('2026-08-01T04:45:00Z');
       prismaMock.roomReadStatus.upsert.mockResolvedValue({
         roomId: MOCK_ROOM_ID,
         lastReadAt,
@@ -838,7 +866,7 @@ describe('DiscussionCrudService', () => {
 
   describe('getRoomReadStatus', () => {
     it('UT-6-011-01: RoleOrganizer + Found → returns lastReadAt, queried by roomId_readerOrganizerId', async () => {
-      const lastReadAt = new Date('2026-08-01T00:00:00Z');
+      const lastReadAt = new Date('2026-08-01T02:20:00Z');
       prismaMock.roomReadStatus.findUnique.mockResolvedValue({
         lastReadAt,
       } as any);
@@ -875,7 +903,7 @@ describe('DiscussionCrudService', () => {
     });
 
     it('UT-6-011-03: RoleParticipant + Found → returns lastReadAt, queried by roomId_readerParticipantId', async () => {
-      const lastReadAt = new Date('2026-08-01T00:00:00Z');
+      const lastReadAt = new Date('2026-08-01T05:50:00Z');
       prismaMock.roomReadStatus.findUnique.mockResolvedValue({
         lastReadAt,
       } as any);
@@ -947,8 +975,9 @@ describe('DiscussionCrudService', () => {
     });
 
     it('UT-6-013-01: HasFilter + HasRegistrations → query includes status filter, returns extracted events', async () => {
+      const registration = buildRegistration();
       prismaMock.eventRegistration.findMany.mockResolvedValue([
-        buildRegistration(),
+        registration,
       ] as any);
 
       const result = await service.getParticipantEventsWithRoom(
@@ -956,7 +985,7 @@ describe('DiscussionCrudService', () => {
         [EventStatus.PUBLISHED, EventStatus.ONGOING],
       );
 
-      expect(result).toEqual([buildRegistration().event]);
+      expect(result).toEqual([registration.event]);
       expect(prismaMock.eventRegistration.findMany).toHaveBeenCalledWith({
         where: {
           participantId: MOCK_PARTICIPANT_PROFILE_ID,
@@ -968,15 +997,16 @@ describe('DiscussionCrudService', () => {
     });
 
     it('UT-6-013-02: NoFilter + HasRegistrations → query has no status filter, returns extracted events', async () => {
+      const registration = buildRegistration();
       prismaMock.eventRegistration.findMany.mockResolvedValue([
-        buildRegistration(),
+        registration,
       ] as any);
 
       const result = await service.getParticipantEventsWithRoom(
         MOCK_PARTICIPANT_PROFILE_ID,
       );
 
-      expect(result).toEqual([buildRegistration().event]);
+      expect(result).toEqual([registration.event]);
       expect(prismaMock.eventRegistration.findMany).toHaveBeenCalledWith({
         where: {
           participantId: MOCK_PARTICIPANT_PROFILE_ID,
@@ -1070,6 +1100,9 @@ describe('DiscussionCrudService', () => {
       const result = await service.findRoomByEventId(MOCK_EVENT_ID);
 
       expect(result).toEqual({ roomId: MOCK_ROOM_ID });
+      expect(prismaMock.discussionRoom.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { eventId: MOCK_EVENT_ID } }),
+      );
     });
 
     it('UT-6-015-02: no DiscussionRoom exists for this eventId → returns null', async () => {
