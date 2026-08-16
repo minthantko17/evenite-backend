@@ -1,0 +1,238 @@
+# Test Case Reference Format
+
+## Test Case Information
+
+TEST-CASE-ID: UT-6-017 / UT-6-018 / UT-6-019 / UT-6-020 / UT-6-021 / UT-6-026 / UT-6-027
+
+    sendMessage(
+      roomId: string,
+      dto: CreateMessageDto,
+      role: Role,
+      participantProfileId: string | null,
+      organizerProfileId: string | null,
+    ): Promise < ReturnMessageDto >
+
+    getMessages(
+      roomId: string,
+      query: GetMessagesQueryDto,
+      role: Role,
+      participantProfileId: string | null,
+      organizerProfileId: string | null,
+    ): Promise < ReturnMessagePageDto >
+
+    markRoomAsRead(
+      roomId: string,
+      role: Role,
+      participantProfileId: string | null,
+      organizerProfileId: string | null,
+    ): Promise < ReturnRoomReadStatusDto >
+
+    getCreatedDiscussionRooms(
+      organizerProfileId: string,
+      filter?: 'active' | 'archived',
+    ): Promise < ReturnDiscussionRoomListDto[] >
+
+    getJoinedDiscussionRooms(
+      participantProfileId: string,
+      filter?: 'active' | 'archived',
+    ): Promise < ReturnDiscussionRoomListDto[] >
+
+    authorizeRoomJoinAccess(
+      roomId: string,
+      role: Role,
+      participantProfileId: string | null,
+      organizerProfileId: string | null,
+    ): Promise < { message: string } >
+
+    findRoomByEventId(
+      eventId: string,
+    ): Promise < { roomId: string } | null >
+
+**Tester:** Min Thant Ko
+
+**Date:** 15-08-2026
+
+## Test Cases
+
+### sendMessage — UT-6-017
+
+| Test ID | Scenario | Input | Expected Result | Actual Result | Test Result |
+| --- | --- | --- | --- | --- | --- |
+| UT-6-017-01 | Room does not exist — throws immediately, skips all downstream validation | roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff'<br><br>dto: { content: 'hello' }<br><br>role: 'ORGANIZER'<br><br>participantProfileId: null<br><br>organizerProfileId: '084066b4-231a-4e1e-bb37-084d5ea66c8a'<br><br>Setup: validateRoomExists mocked to reject with RoomNotFoundException | Throws RoomNotFoundException with message "Discussion room not found."<br><br>validateRoomAccess.mock.calls.length: 0<br>validateRoomWritable.mock.calls.length: 0<br>validateMessageContent.mock.calls.length: 0<br>createMessage.mock.calls.length: 0 | Throws RoomNotFoundException with message "Discussion room not found."<br><br>validateRoomAccess.mock.calls.length: 0<br>validateRoomWritable.mock.calls.length: 0<br>validateMessageContent.mock.calls.length: 0<br>createMessage.mock.calls.length: 0 | **Pass** |
+| UT-6-017-02 | Caller is neither owner nor confirmed participant — access denied before writability/content checks | roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff'<br><br>dto: { content: 'hello' }<br><br>role: 'PARTICIPANT'<br><br>participantProfileId: 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44'<br><br>organizerProfileId: null<br><br>Setup: validateRoomAccess mocked to reject with RoomAccessDeniedException | Throws RoomAccessDeniedException with message "You do not have permission to access this discussion room."<br><br>validateRoomWritable.mock.calls.length: 0<br>validateMessageContent.mock.calls.length: 0<br>createMessage.mock.calls.length: 0 | Throws RoomAccessDeniedException with message "You do not have permission to access this discussion room."<br><br>validateRoomWritable.mock.calls.length: 0<br>validateMessageContent.mock.calls.length: 0<br>createMessage.mock.calls.length: 0 | **Pass** |
+| UT-6-017-03 | Room is not writable (concluded past grace period / cancelled) | roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff'<br><br>dto: { content: 'hello' }<br><br>role: 'ORGANIZER'<br><br>participantProfileId: null<br><br>organizerProfileId: '084066b4-231a-4e1e-bb37-084d5ea66c8a'<br><br>Setup: validateRoomWritable mocked to throw RoomReadOnlyException | Throws RoomReadOnlyException with message "This discussion room is read-only and no longer accepts new messages."<br><br>validateMessageContent.mock.calls.length: 0<br>createMessage.mock.calls.length: 0 | Throws RoomReadOnlyException with message "This discussion room is read-only and no longer accepts new messages."<br><br>validateMessageContent.mock.calls.length: 0<br>createMessage.mock.calls.length: 0 | **Pass** |
+| UT-6-017-04 | Content is empty/whitespace-only or exceeds 2000 characters | roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff'<br><br>dto: { content: '   ' }<br><br>role: 'ORGANIZER'<br><br>participantProfileId: null<br><br>organizerProfileId: '084066b4-231a-4e1e-bb37-084d5ea66c8a'<br><br>Setup: validateMessageContent mocked to throw MessageContentInvalidException('Message cannot be empty.') | Throws MessageContentInvalidException with message "Message cannot be empty."<br><br>validateAnnouncementPermission.mock.calls.length: 0<br>createMessage.mock.calls.length: 0 | Throws MessageContentInvalidException with message "Message cannot be empty."<br><br>validateAnnouncementPermission.mock.calls.length: 0<br>createMessage.mock.calls.length: 0 | **Pass** |
+| UT-6-017-05 | A PARTICIPANT attempts to send an announcement | roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff'<br><br>dto: { content: 'hello', isAnnouncement: true }<br><br>role: 'PARTICIPANT'<br><br>participantProfileId: 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44'<br><br>organizerProfileId: null<br><br>Setup: validateAnnouncementPermission mocked to throw AnnouncementNotAllowedException | Throws AnnouncementNotAllowedException with message "Only the organizer can send announcements."<br><br>createMessage.mock.calls.length: 0 | Throws AnnouncementNotAllowedException with message "Only the organizer can send announcements."<br><br>createMessage.mock.calls.length: 0 | **Pass** |
+| UT-6-017-06 | Creates a regular message for an ORGANIZER, setting senderOrganizerId and leaving senderParticipantId null | roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff'<br><br>dto: { content: 'hello' }<br><br>role: 'ORGANIZER'<br><br>participantProfileId: null<br><br>organizerProfileId: '084066b4-231a-4e1e-bb37-084d5ea66c8a'<br><br>Setup: default mocks (see Appendix A) | result equals MOCK_RETURN_MESSAGE<br><br>createMessage called with:<br>('e8946e7f-42a6-4586-9089-9267d0312bff', 'hello', false, null, '084066b4-231a-4e1e-bb37-084d5ea66c8a') | result equals MOCK_RETURN_MESSAGE<br><br>createMessage called with:<br>('e8946e7f-42a6-4586-9089-9267d0312bff', 'hello', false, null, '084066b4-231a-4e1e-bb37-084d5ea66c8a') | **Pass** |
+| UT-6-017-07 | Creates an announcement for an ORGANIZER when dto.isAnnouncement is true | roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff'<br><br>dto: { content: 'important update', isAnnouncement: true }<br><br>role: 'ORGANIZER'<br><br>participantProfileId: null<br><br>organizerProfileId: '084066b4-231a-4e1e-bb37-084d5ea66c8a'<br><br>Setup: validateAnnouncementPermission mocked to return true | validateAnnouncementPermission called with: (true, 'ORGANIZER')<br><br>createMessage called with:<br>('e8946e7f-42a6-4586-9089-9267d0312bff', 'important update', true, null, '084066b4-231a-4e1e-bb37-084d5ea66c8a') | validateAnnouncementPermission called with: (true, 'ORGANIZER')<br><br>createMessage called with:<br>('e8946e7f-42a6-4586-9089-9267d0312bff', 'important update', true, null, '084066b4-231a-4e1e-bb37-084d5ea66c8a') | **Pass** |
+| UT-6-017-08 | Confirmed PARTICIPANT sends a regular message | roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff'<br><br>dto: { content: 'hi there' }<br><br>role: 'PARTICIPANT'<br><br>participantProfileId: 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44'<br><br>organizerProfileId: null<br><br>Setup: default mocks (see Appendix A) | result equals MOCK_RETURN_MESSAGE<br><br>createMessage called with:<br>('e8946e7f-42a6-4586-9089-9267d0312bff', 'hi there', false, 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44', null) | result equals MOCK_RETURN_MESSAGE<br><br>createMessage called with:<br>('e8946e7f-42a6-4586-9089-9267d0312bff', 'hi there', false, 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44', null) | **Pass** |
+| UT-6-017-09 | Defaults isAnnouncement to false when dto.isAnnouncement is undefined | roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff'<br><br>dto: { content: 'no flag set' }<br><br>role: 'PARTICIPANT'<br><br>participantProfileId: 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44'<br><br>organizerProfileId: null<br><br>Setup: default mocks (see Appendix A) | validateAnnouncementPermission called with: (false, 'PARTICIPANT') | validateAnnouncementPermission called with: (false, 'PARTICIPANT') | **Pass** |
+| UT-6-017-10 | Trims surrounding whitespace from dto.content before persisting the message | roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff'<br><br>dto: { content: '  padded content  ' }<br><br>role: 'ORGANIZER'<br><br>participantProfileId: null<br><br>organizerProfileId: '084066b4-231a-4e1e-bb37-084d5ea66c8a'<br><br>Setup: default mocks (see Appendix A) | createMessage called with:<br>('e8946e7f-42a6-4586-9089-9267d0312bff', 'padded content', false, null, '084066b4-231a-4e1e-bb37-084d5ea66c8a') | createMessage called with:<br>('e8946e7f-42a6-4586-9089-9267d0312bff', 'padded content', false, null, '084066b4-231a-4e1e-bb37-084d5ea66c8a') | **Pass** |
+| UT-6-017-11 | Passes the resolved event and caller identity through the validation pipeline in order | roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff'<br><br>dto: { content: 'hello' }<br><br>role: 'PARTICIPANT'<br><br>participantProfileId: 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44'<br><br>organizerProfileId: null<br><br>Setup: default mocks (see Appendix A) | validateRoomExists called with: ('e8946e7f-42a6-4586-9089-9267d0312bff')<br><br>validateRoomAccess called with: (MOCK_EVENT, 'PARTICIPANT', 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44', null)<br><br>validateRoomWritable called with: (MOCK_EVENT)<br><br>validateMessageContent called with: ('hello') | validateRoomExists called with: ('e8946e7f-42a6-4586-9089-9267d0312bff')<br><br>validateRoomAccess called with: (MOCK_EVENT, 'PARTICIPANT', 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44', null)<br><br>validateRoomWritable called with: (MOCK_EVENT)<br><br>validateMessageContent called with: ('hello') | **Pass** |
+
+### getMessages — UT-6-018
+
+| Test ID | Scenario | Input | Expected Result | Actual Result | Test Result |
+| --- | --- | --- | --- | --- | --- |
+| UT-6-018-01 | Room does not exist | roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff'<br><br>query: {}<br><br>role: 'ORGANIZER'<br><br>participantProfileId: null<br><br>organizerProfileId: '084066b4-231a-4e1e-bb37-084d5ea66c8a'<br><br>Setup: validateRoomExists mocked to reject with RoomNotFoundException | Throws RoomNotFoundException with message "Discussion room not found."<br><br>validateRoomAccess.mock.calls.length: 0<br>getRoomReadStatus.mock.calls.length: 0<br>getPaginatedMessagesByCursor.mock.calls.length: 0 | Throws RoomNotFoundException with message "Discussion room not found."<br><br>validateRoomAccess.mock.calls.length: 0<br>getRoomReadStatus.mock.calls.length: 0<br>getPaginatedMessagesByCursor.mock.calls.length: 0 | **Pass** |
+| UT-6-018-02 | Caller is not authorized | roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff'<br><br>query: {}<br><br>role: 'PARTICIPANT'<br><br>participantProfileId: 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44'<br><br>organizerProfileId: null<br><br>Setup: validateRoomAccess mocked to reject with RoomAccessDeniedException | Throws RoomAccessDeniedException with message "You do not have permission to access this discussion room."<br><br>getRoomReadStatus.mock.calls.length: 0<br>getPaginatedMessagesByCursor.mock.calls.length: 0<br>getPaginatedMessagesByTimestamp.mock.calls.length: 0 | Throws RoomAccessDeniedException with message "You do not have permission to access this discussion room."<br><br>getRoomReadStatus.mock.calls.length: 0<br>getPaginatedMessagesByCursor.mock.calls.length: 0<br>getPaginatedMessagesByTimestamp.mock.calls.length: 0 | **Pass** |
+| UT-6-018-03 | Explicit cursor provided — calls getPaginatedMessagesByCursor and skips the read-status lookup | roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff'<br><br>query: { cursor: 'bb0d173c-621e-4065-8022-9b8b17eb9f7c', direction: 'after', limit: 10 }<br><br>role: 'ORGANIZER'<br><br>participantProfileId: null<br><br>organizerProfileId: '084066b4-231a-4e1e-bb37-084d5ea66c8a'<br><br>Setup: default mocks (see Appendix A) | result equals MOCK_MESSAGE_PAGE_BY_CURSOR<br><br>getRoomReadStatus.mock.calls.length: 0<br>getPaginatedMessagesByCursor called with:<br>('e8946e7f-42a6-4586-9089-9267d0312bff', 'bb0d173c-621e-4065-8022-9b8b17eb9f7c', 'after', 10, false) | result equals MOCK_MESSAGE_PAGE_BY_CURSOR<br><br>getRoomReadStatus.mock.calls.length: 0<br>getPaginatedMessagesByCursor called with:<br>('e8946e7f-42a6-4586-9089-9267d0312bff', 'bb0d173c-621e-4065-8022-9b8b17eb9f7c', 'after', 10, false) | **Pass** |
+| UT-6-018-04 | Explicit cursor with no direction — defaults direction to 'before' and pageSize to DEFAULT_MESSAGE_PAGE_SIZE (25) | roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff'<br><br>query: { cursor: 'bb0d173c-621e-4065-8022-9b8b17eb9f7c' }<br><br>role: 'ORGANIZER'<br><br>participantProfileId: null<br><br>organizerProfileId: '084066b4-231a-4e1e-bb37-084d5ea66c8a'<br><br>Setup: default mocks (see Appendix A) | result equals MOCK_MESSAGE_PAGE_BY_CURSOR<br><br>getPaginatedMessagesByTimestamp.mock.calls.length: 0<br>getPaginatedMessagesByCursor called with:<br>('e8946e7f-42a6-4586-9089-9267d0312bff', 'bb0d173c-621e-4065-8022-9b8b17eb9f7c', 'before', 25, false) | result equals MOCK_MESSAGE_PAGE_BY_CURSOR<br><br>getPaginatedMessagesByTimestamp.mock.calls.length: 0<br>getPaginatedMessagesByCursor called with:<br>('e8946e7f-42a6-4586-9089-9267d0312bff', 'bb0d173c-621e-4065-8022-9b8b17eb9f7c', 'before', 25, false) | **Pass** |
+| UT-6-018-05 | No cursor and an existing read status — fetches messages from the last-read timestamp | roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff'<br><br>query: { limit: 20 }<br><br>role: 'PARTICIPANT'<br><br>participantProfileId: 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44'<br><br>organizerProfileId: null<br><br>Setup: getRoomReadStatus mocked to resolve { lastReadAt: 2026-08-01T01:00:00.000Z } | result equals MOCK_MESSAGE_PAGE_BY_TIMESTAMP<br><br>getPaginatedMessagesByTimestamp called with:<br>('e8946e7f-42a6-4586-9089-9267d0312bff', 2026-08-01T01:00:00.000Z, 20)<br><br>getPaginatedMessagesByCursor.mock.calls.length: 0 | result equals MOCK_MESSAGE_PAGE_BY_TIMESTAMP<br><br>getPaginatedMessagesByTimestamp called with:<br>('e8946e7f-42a6-4586-9089-9267d0312bff', 2026-08-01T01:00:00.000Z, 20)<br><br>getPaginatedMessagesByCursor.mock.calls.length: 0 | **Pass** |
+| UT-6-018-06 | No cursor and no read status — falls through to the latest-page fetch | roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff'<br><br>query: { limit: 20 }<br><br>role: 'PARTICIPANT'<br><br>participantProfileId: 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44'<br><br>organizerProfileId: null<br><br>Setup: getRoomReadStatus mocked to resolve null | result equals MOCK_MESSAGE_PAGE_BY_CURSOR<br><br>getPaginatedMessagesByCursor called with:<br>('e8946e7f-42a6-4586-9089-9267d0312bff', undefined, 'before', 20, false)<br><br>getPaginatedMessagesByTimestamp.mock.calls.length: 0 | result equals MOCK_MESSAGE_PAGE_BY_CURSOR<br><br>getPaginatedMessagesByCursor called with:<br>('e8946e7f-42a6-4586-9089-9267d0312bff', undefined, 'before', 20, false)<br><br>getPaginatedMessagesByTimestamp.mock.calls.length: 0 | **Pass** |
+| UT-6-018-07 | Limit omitted + not an announcement — pageSize defaults to DEFAULT_MESSAGE_PAGE_SIZE (25) | roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff'<br><br>query: {}<br><br>role: 'PARTICIPANT'<br><br>participantProfileId: 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44'<br><br>organizerProfileId: null<br><br>Setup: getRoomReadStatus mocked to resolve null | result equals MOCK_MESSAGE_PAGE_BY_CURSOR<br><br>getPaginatedMessagesByCursor called with:<br>('e8946e7f-42a6-4586-9089-9267d0312bff', undefined, 'before', 25, false) | result equals MOCK_MESSAGE_PAGE_BY_CURSOR<br><br>getPaginatedMessagesByCursor called with:<br>('e8946e7f-42a6-4586-9089-9267d0312bff', undefined, 'before', 25, false) | **Pass** |
+| UT-6-018-08 | Limit omitted + is an announcement — pageSize defaults to DEFAULT_ANNOUNCEMENT_PAGE_SIZE (15) | roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff'<br><br>query: { isAnnouncement: true }<br><br>role: 'PARTICIPANT'<br><br>participantProfileId: 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44'<br><br>organizerProfileId: null<br><br>Setup: default mocks (see Appendix A) | result equals MOCK_MESSAGE_PAGE_BY_CURSOR<br><br>getPaginatedMessagesByCursor called with:<br>('e8946e7f-42a6-4586-9089-9267d0312bff', undefined, 'before', 15, true) | result equals MOCK_MESSAGE_PAGE_BY_CURSOR<br><br>getPaginatedMessagesByCursor called with:<br>('e8946e7f-42a6-4586-9089-9267d0312bff', undefined, 'before', 15, true) | **Pass** |
+| UT-6-018-09 | Announcement + no cursor — skips the read-status lookup entirely and calls getPaginatedMessagesByCursor | roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff'<br><br>query: { isAnnouncement: true, limit: 10 }<br><br>role: 'ORGANIZER'<br><br>participantProfileId: null<br><br>organizerProfileId: '084066b4-231a-4e1e-bb37-084d5ea66c8a'<br><br>Setup: default mocks (see Appendix A) | result equals MOCK_MESSAGE_PAGE_BY_CURSOR<br><br>getRoomReadStatus.mock.calls.length: 0<br>getPaginatedMessagesByTimestamp.mock.calls.length: 0<br>getPaginatedMessagesByCursor called with:<br>('e8946e7f-42a6-4586-9089-9267d0312bff', undefined, 'before', 10, true) | result equals MOCK_MESSAGE_PAGE_BY_CURSOR<br><br>getRoomReadStatus.mock.calls.length: 0<br>getPaginatedMessagesByTimestamp.mock.calls.length: 0<br>getPaginatedMessagesByCursor called with:<br>('e8946e7f-42a6-4586-9089-9267d0312bff', undefined, 'before', 10, true) | **Pass** |
+| UT-6-018-10 | Announcement + explicit cursor — calls getPaginatedMessagesByCursor with isAnnouncement=true, skips read-status lookup | roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff'<br><br>query: { cursor: 'bb0d173c-621e-4065-8022-9b8b17eb9f7c', direction: 'after', isAnnouncement: true, limit: 5 }<br><br>role: 'ORGANIZER'<br><br>participantProfileId: null<br><br>organizerProfileId: '084066b4-231a-4e1e-bb37-084d5ea66c8a'<br><br>Setup: default mocks (see Appendix A) | result equals MOCK_MESSAGE_PAGE_BY_CURSOR<br><br>getRoomReadStatus.mock.calls.length: 0<br>getPaginatedMessagesByCursor called with:<br>('e8946e7f-42a6-4586-9089-9267d0312bff', 'bb0d173c-621e-4065-8022-9b8b17eb9f7c', 'after', 5, true) | result equals MOCK_MESSAGE_PAGE_BY_CURSOR<br><br>getRoomReadStatus.mock.calls.length: 0<br>getPaginatedMessagesByCursor called with:<br>('e8946e7f-42a6-4586-9089-9267d0312bff', 'bb0d173c-621e-4065-8022-9b8b17eb9f7c', 'after', 5, true) | **Pass** |
+
+### markRoomAsRead — UT-6-019
+
+| Test ID | Scenario | Input | Expected Result | Actual Result | Test Result |
+| --- | --- | --- | --- | --- | --- |
+| UT-6-019-01 | Room does not exist | roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff'<br><br>role: 'ORGANIZER'<br><br>participantProfileId: null<br><br>organizerProfileId: '084066b4-231a-4e1e-bb37-084d5ea66c8a'<br><br>Setup: validateRoomExists mocked to reject with RoomNotFoundException | Throws RoomNotFoundException with message "Discussion room not found."<br><br>upsertRoomReadStatus.mock.calls.length: 0 | Throws RoomNotFoundException with message "Discussion room not found."<br><br>upsertRoomReadStatus.mock.calls.length: 0 | **Pass** |
+| UT-6-019-02 | Caller is not authorized | roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff'<br><br>role: 'PARTICIPANT'<br><br>participantProfileId: 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44'<br><br>organizerProfileId: null<br><br>Setup: validateRoomAccess mocked to reject with RoomAccessDeniedException | Throws RoomAccessDeniedException with message "You do not have permission to access this discussion room."<br><br>upsertRoomReadStatus.mock.calls.length: 0 | Throws RoomAccessDeniedException with message "You do not have permission to access this discussion room."<br><br>upsertRoomReadStatus.mock.calls.length: 0 | **Pass** |
+| UT-6-019-03 | ORGANIZER — upserts the read status keyed on organizerProfileId | roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff'<br><br>role: 'ORGANIZER'<br><br>participantProfileId: null<br><br>organizerProfileId: '084066b4-231a-4e1e-bb37-084d5ea66c8a'<br><br>Setup: default mocks (see Appendix A) | result equals { roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff', lastReadAt: 2026-08-01T01:00:00.000Z }<br><br>upsertRoomReadStatus called with:<br>('e8946e7f-42a6-4586-9089-9267d0312bff', 'ORGANIZER', null, '084066b4-231a-4e1e-bb37-084d5ea66c8a') | result equals { roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff', lastReadAt: 2026-08-01T01:00:00.000Z }<br><br>upsertRoomReadStatus called with:<br>('e8946e7f-42a6-4586-9089-9267d0312bff', 'ORGANIZER', null, '084066b4-231a-4e1e-bb37-084d5ea66c8a') | **Pass** |
+| UT-6-019-04 | PARTICIPANT — upserts the read status keyed on participantProfileId | roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff'<br><br>role: 'PARTICIPANT'<br><br>participantProfileId: 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44'<br><br>organizerProfileId: null<br><br>Setup: default mocks (see Appendix A) | result equals { roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff', lastReadAt: 2026-08-01T01:00:00.000Z }<br><br>upsertRoomReadStatus called with:<br>('e8946e7f-42a6-4586-9089-9267d0312bff', 'PARTICIPANT', 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44', null) | result equals { roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff', lastReadAt: 2026-08-01T01:00:00.000Z }<br><br>upsertRoomReadStatus called with:<br>('e8946e7f-42a6-4586-9089-9267d0312bff', 'PARTICIPANT', 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44', null) | **Pass** |
+
+### getCreatedDiscussionRooms — UT-6-020
+
+| Test ID | Scenario | Input | Expected Result | Actual Result | Test Result |
+| --- | --- | --- | --- | --- | --- |
+| UT-6-020-01 | filter='active' resolves to ACTIVE_ROOM_STATUSES | organizerProfileId: '084066b4-231a-4e1e-bb37-084d5ea66c8a'<br><br>filter: 'active'<br><br>Setup: default mocks (see Appendix A) | getOrganizerEventsWithRoom called with:<br>('084066b4-231a-4e1e-bb37-084d5ea66c8a', ACTIVE_ROOM_STATUSES) | getOrganizerEventsWithRoom called with:<br>('084066b4-231a-4e1e-bb37-084d5ea66c8a', ACTIVE_ROOM_STATUSES) | **Pass** |
+| UT-6-020-02 | filter='archived' resolves to ARCHIVED_ROOM_STATUSES | organizerProfileId: '084066b4-231a-4e1e-bb37-084d5ea66c8a'<br><br>filter: 'archived'<br><br>Setup: default mocks (see Appendix A) | getOrganizerEventsWithRoom called with:<br>('084066b4-231a-4e1e-bb37-084d5ea66c8a', ARCHIVED_ROOM_STATUSES) | getOrganizerEventsWithRoom called with:<br>('084066b4-231a-4e1e-bb37-084d5ea66c8a', ARCHIVED_ROOM_STATUSES) | **Pass** |
+| UT-6-020-03 | filter omitted resolves to undefined (no status filter) | organizerProfileId: '084066b4-231a-4e1e-bb37-084d5ea66c8a'<br><br>filter: undefined<br><br>Setup: default mocks (see Appendix A) | getOrganizerEventsWithRoom called with:<br>('084066b4-231a-4e1e-bb37-084d5ea66c8a', undefined) | getOrganizerEventsWithRoom called with:<br>('084066b4-231a-4e1e-bb37-084d5ea66c8a', undefined) | **Pass** |
+| UT-6-020-04 | Filters out events with no discussionRoom before mapping | organizerProfileId: '084066b4-231a-4e1e-bb37-084d5ea66c8a'<br><br>filter: undefined<br><br>Setup: getOrganizerEventsWithRoom mocked to resolve [MOCK_EVENT_WITH_ROOM, MOCK_EVENT_WITHOUT_ROOM] | result equals [Appendix B: MOCK_ROOM_LIST_DTO_DEFAULT]<br><br>getLatestMessageForRoom.mock.calls.length: 1 | result equals [Appendix B: MOCK_ROOM_LIST_DTO_DEFAULT]<br><br>getLatestMessageForRoom.mock.calls.length: 1 | **Pass** |
+| UT-6-020-05 | Returns [] without mapping when CRUD returns no events | organizerProfileId: '084066b4-231a-4e1e-bb37-084d5ea66c8a'<br><br>filter: undefined<br><br>Setup: getOrganizerEventsWithRoom mocked to resolve [] | result: []<br><br>getLatestMessageForRoom.mock.calls.length: 0 | result: []<br><br>getLatestMessageForRoom.mock.calls.length: 0 | **Pass** |
+| UT-6-020-06 | Composes the room DTO from lastMessage, readStatus-derived unreadCount, and writability | organizerProfileId: '084066b4-231a-4e1e-bb37-084d5ea66c8a'<br><br>filter: undefined<br><br>Setup: getOrganizerEventsWithRoom → [MOCK_EVENT_WITH_ROOM]; getLatestMessageForRoom → MOCK_RETURN_MESSAGE; getRoomReadStatus → { lastReadAt: 2026-08-01T01:00:00.000Z }; countUnreadMessages → 3; validateRoomWritable → writable | result equals [Appendix C: MOCK_ROOM_LIST_DTO_WITH_MESSAGE]<br><br>countUnreadMessages called with:<br>('e8946e7f-42a6-4586-9089-9267d0312bff', 2026-08-01T01:00:00.000Z) | result equals [Appendix C: MOCK_ROOM_LIST_DTO_WITH_MESSAGE]<br><br>countUnreadMessages called with:<br>('e8946e7f-42a6-4586-9089-9267d0312bff', 2026-08-01T01:00:00.000Z) | **Pass** |
+| UT-6-020-07 | lastMessage is null when the room has no messages | organizerProfileId: '084066b4-231a-4e1e-bb37-084d5ea66c8a'<br><br>filter: undefined<br><br>Setup: getOrganizerEventsWithRoom → [MOCK_EVENT_WITH_ROOM]; getLatestMessageForRoom → null | result equals [Appendix B: MOCK_ROOM_LIST_DTO_DEFAULT] | result equals [Appendix B: MOCK_ROOM_LIST_DTO_DEFAULT] | **Pass** |
+| UT-6-020-08 | Event bannerUrl falls back to an empty string when null | organizerProfileId: '084066b4-231a-4e1e-bb37-084d5ea66c8a'<br><br>filter: undefined<br><br>Setup: getOrganizerEventsWithRoom → [MOCK_EVENT_WITH_ROOM_NO_BANNER] | result[0].event.bannerUrl: '' | result[0].event.bannerUrl: '' | **Pass** |
+| UT-6-020-09 | Counts unread messages from the epoch when no read status exists | organizerProfileId: '084066b4-231a-4e1e-bb37-084d5ea66c8a'<br><br>filter: undefined<br><br>Setup: getOrganizerEventsWithRoom → [MOCK_EVENT_WITH_ROOM]; getRoomReadStatus → null | countUnreadMessages called with:<br>('e8946e7f-42a6-4586-9089-9267d0312bff', new Date(0)) | countUnreadMessages called with:<br>('e8946e7f-42a6-4586-9089-9267d0312bff', new Date(0)) | **Pass** |
+| UT-6-020-10 | isReadOnly is true when the room is not currently writable | organizerProfileId: '084066b4-231a-4e1e-bb37-084d5ea66c8a'<br><br>filter: undefined<br><br>Setup: getOrganizerEventsWithRoom → [MOCK_EVENT_WITH_ROOM]; validateRoomWritable mocked to throw RoomReadOnlyException | result[0].isReadOnly: true | result[0].isReadOnly: true | **Pass** |
+
+### getJoinedDiscussionRooms — UT-6-021
+
+| Test ID | Scenario | Input | Expected Result | Actual Result | Test Result |
+| --- | --- | --- | --- | --- | --- |
+| UT-6-021-01 | Delegates to getParticipantEventsWithRoom with the caller id and resolved status filter | participantProfileId: 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44'<br><br>filter: 'archived'<br><br>Setup: default mocks (see Appendix A) | getParticipantEventsWithRoom called with:<br>('bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44', ARCHIVED_ROOM_STATUSES) | getParticipantEventsWithRoom called with:<br>('bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44', ARCHIVED_ROOM_STATUSES) | **Pass** |
+| UT-6-021-02 | Maps rooms using the participant role and profile id, filtering out roomless events | participantProfileId: 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44'<br><br>filter: undefined<br><br>Setup: getParticipantEventsWithRoom → [MOCK_EVENT_WITH_ROOM, MOCK_EVENT_WITHOUT_ROOM]; getLatestMessageForRoom → MOCK_RETURN_MESSAGE | result equals [Appendix C: MOCK_ROOM_LIST_DTO_WITH_MESSAGE (unreadCount: 0)]<br><br>getRoomReadStatus called with:<br>('e8946e7f-42a6-4586-9089-9267d0312bff', 'PARTICIPANT', 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44', null) | result equals [Appendix C: MOCK_ROOM_LIST_DTO_WITH_MESSAGE (unreadCount: 0)]<br><br>getRoomReadStatus called with:<br>('e8946e7f-42a6-4586-9089-9267d0312bff', 'PARTICIPANT', 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44', null) | **Pass** |
+
+### authorizeRoomJoinAccess — UT-6-026
+
+| Test ID | Scenario | Input | Expected Result | Actual Result | Test Result |
+| --- | --- | --- | --- | --- | --- |
+| UT-6-026-01 | Bubbles RoomNotFoundException when the room does not exist | roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff'<br><br>role: 'ORGANIZER'<br><br>participantProfileId: null<br><br>organizerProfileId: '084066b4-231a-4e1e-bb37-084d5ea66c8a'<br><br>Setup: validateRoomExists mocked to reject with RoomNotFoundException | Throws RoomNotFoundException with message "Discussion room not found." | Throws RoomNotFoundException with message "Discussion room not found." | **Pass** |
+| UT-6-026-02 | Bubbles RoomAccessDeniedException when the caller is not authorized | roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff'<br><br>role: 'PARTICIPANT'<br><br>participantProfileId: 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44'<br><br>organizerProfileId: null<br><br>Setup: validateRoomAccess mocked to reject with RoomAccessDeniedException | Throws RoomAccessDeniedException with message "You do not have permission to access this discussion room." | Throws RoomAccessDeniedException with message "You do not have permission to access this discussion room." | **Pass** |
+| UT-6-026-03 | Returns the access-confirmation message with no other side effects when authorized | roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff'<br><br>role: 'PARTICIPANT'<br><br>participantProfileId: 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44'<br><br>organizerProfileId: null<br><br>Setup: validateRoomAccess mocked to resolve { message: 'Participant has access to this room.' } | result equals { message: 'Participant has access to this room.' }<br><br>validateRoomAccess called with:<br>(MOCK_EVENT, 'PARTICIPANT', 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44', null)<br><br>createMessage.mock.calls.length: 0 | result equals { message: 'Participant has access to this room.' }<br><br>validateRoomAccess called with:<br>(MOCK_EVENT, 'PARTICIPANT', 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44', null)<br><br>createMessage.mock.calls.length: 0 | **Pass** |
+
+### findRoomByEventId — UT-6-027
+
+| Test ID | Scenario | Input | Expected Result | Actual Result | Test Result |
+| --- | --- | --- | --- | --- | --- |
+| UT-6-027-01 | Returns { roomId } when a DiscussionRoom exists for the event | eventId: '1fa29edd-3a7d-4d2c-bf8f-8521eb4e76b8'<br><br>Setup: findRoomByEventId mocked to resolve { roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff' } | result equals { roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff' }<br><br>findRoomByEventId called with:<br>('1fa29edd-3a7d-4d2c-bf8f-8521eb4e76b8') | result equals { roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff' }<br><br>findRoomByEventId called with:<br>('1fa29edd-3a7d-4d2c-bf8f-8521eb4e76b8') | **Pass** |
+| UT-6-027-02 | Returns null when no DiscussionRoom exists for the event | eventId: '5b53e2f2-95f3-411e-a00c-717acaed502e'<br><br>Setup: findRoomByEventId mocked to resolve null | result: null | result: null | **Pass** |
+
+## General Guidelines
+
+* **Test ID:** Use a unique identifier for each test case.
+* **Scenario:** Clearly describe what is being tested and the relevant condition.
+* **Input:** List all parameters, mock values, fixtures, and required setup.
+* **Expected Result:** Describe the behavior or output that should occur.
+* **Actual Result:** Record the behavior or output observed during execution.
+* **Test Result:** Use `Pass`, `Fail`, or another agreed status.
+* Keep descriptions concise and consistent across test cases.
+* For optional dependencies, explicitly state whether the dependency is **provided** or **not provided**.
+* Keep the **Expected Result** and **Actual Result** structurally comparable so differences are easy to identify.
+
+## Appendix
+
+### Appendix A: Default Mock Setup (beforeEach)
+
+Applied before every test unless overridden within the test itself.
+
+```
+validationServiceMock.validateRoomExists.mockResolvedValue({
+  roomId: MOCK_ROOM_ID, // 'e8946e7f-42a6-4586-9089-9267d0312bff'
+  event: MOCK_EVENT,
+});
+validationServiceMock.validateRoomAccess.mockResolvedValue({
+  message: 'Organizer has access to this room.',
+});
+validationServiceMock.validateRoomWritable.mockReturnValue({
+  message: 'Discussion room is writable.',
+});
+validationServiceMock.validateMessageContent.mockImplementation(
+  (content) => content,
+);
+validationServiceMock.validateAnnouncementPermission.mockReturnValue(false);
+crudServiceMock.createMessage.mockResolvedValue(MOCK_RETURN_MESSAGE);
+crudServiceMock.getPaginatedMessagesByCursor.mockResolvedValue(MOCK_MESSAGE_PAGE_BY_CURSOR);
+crudServiceMock.getPaginatedMessagesByTimestamp.mockResolvedValue(MOCK_MESSAGE_PAGE_BY_TIMESTAMP);
+crudServiceMock.getRoomReadStatus.mockResolvedValue(null);
+crudServiceMock.upsertRoomReadStatus.mockResolvedValue(MOCK_ROOM_READ_STATUS_DTO);
+crudServiceMock.getOrganizerEventsWithRoom.mockResolvedValue([]);
+crudServiceMock.getParticipantEventsWithRoom.mockResolvedValue([]);
+crudServiceMock.getLatestMessageForRoom.mockResolvedValue(null);
+crudServiceMock.countUnreadMessages.mockResolvedValue(0);
+crudServiceMock.findRoomByEventId.mockResolvedValue(null);
+```
+
+**MOCK_EVENT:**
+```
+{
+  id: '1fa29edd-3a7d-4d2c-bf8f-8521eb4e76b8',
+  organizerId: '084066b4-231a-4e1e-bb37-084d5ea66c8a',
+  status: 'PUBLISHED',
+  startAt: 2026-08-01T00:00:00.000Z,
+  endAt: 2026-08-01T02:00:00.000Z,
+}
+```
+
+**MOCK_RETURN_MESSAGE:**
+```
+{
+  id: 'e9697c17-fc38-4625-aaeb-a4f43cce4e09',
+  content: 'hello world',
+  isAnnouncement: false,
+  sender: {
+    id: 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44',
+    role: 'PARTICIPANT',
+    name: 'Jane Doe',
+    imageUrl: '',
+  },
+  createdAt: 2026-08-01T00:00:00.000Z,
+}
+```
+
+### Appendix B: MOCK_ROOM_LIST_DTO_DEFAULT
+
+```
+{
+  roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff',
+  event: {
+    id: '1fa29edd-3a7d-4d2c-bf8f-8521eb4e76b8',
+    title: { en: 'Orientation', th: 'ปฐมนิเทศ' },
+    bannerUrl: 'banner.png',
+    status: 'PUBLISHED',
+  },
+  lastMessage: null,
+  unreadCount: 0,
+  isReadOnly: false,
+}
+```
+
+### Appendix C: MOCK_ROOM_LIST_DTO_WITH_MESSAGE
+
+```
+{
+  roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff',
+  event: {
+    id: '1fa29edd-3a7d-4d2c-bf8f-8521eb4e76b8',
+    title: { en: 'Orientation', th: 'ปฐมนิเทศ' },
+    bannerUrl: 'banner.png',
+    status: 'PUBLISHED',
+  },
+  lastMessage: MOCK_RETURN_MESSAGE, // see Appendix A
+  unreadCount: 3, // 0 in UT-6-020-07 / UT-6-021-02
+  isReadOnly: false,
+}
+```
