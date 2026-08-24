@@ -140,11 +140,13 @@ export class DiscussionService {
     );
   }
 
-  async markRoomAsRead(
+  // update read position to last read message
+  async updateLastReadMessage(
     roomId: string,
     role: Role,
     participantProfileId: string | null,
     organizerProfileId: string | null,
+    lastReadMessageId: string | undefined,
   ): Promise<ReturnRoomReadStatusDto> {
     const { event } =
       await this.discussionValidationService.validateRoomExists(roomId);
@@ -155,11 +157,12 @@ export class DiscussionService {
       organizerProfileId,
     );
 
-    return this.discussionCrudService.upsertRoomReadStatus(
+    return this.discussionCrudService.upsertLastReadMessage(
       roomId,
       role,
       participantProfileId,
       organizerProfileId,
+      lastReadMessageId,
     );
   }
 

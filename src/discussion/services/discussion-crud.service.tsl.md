@@ -133,7 +133,7 @@ Parameter room message count:
 
 ---
 
-### `upsertRoomReadStatus(roomId, role, participantProfileId, organizerProfileId)`
+### `upsertLastReadMessage(roomId, role, participantProfileId, organizerProfileId)`
 
 ```
 Parameter role:

@@ -4,6 +4,7 @@ import {
   Patch,
   Param,
   Query,
+  Body,
   ParseUUIDPipe,
   UseGuards,
   Req,
@@ -11,6 +12,7 @@ import {
 import type { Request } from 'express';
 import { DiscussionService } from './discussion.service';
 import { GetMessagesQueryDto } from './dto/get-messages-query.dto';
+import { MarkRoomAsReadDto } from './dto/mark-room-as-read.dto';
 import { ReturnMessagePageDto } from './dto/return-message-page.dto';
 import { ReturnMessageDto } from './dto/return-message.dto';
 import { ReturnDiscussionRoomListDto } from './dto/return-discussion-room-list.dto';
@@ -86,14 +88,16 @@ export class DiscussionController {
   @Patch(':roomId/read')
   async markAsRead(
     @Param('roomId', ParseUUIDPipe) roomId: string,
+    @Body() dto: MarkRoomAsReadDto,
     @Req() req: Request,
   ): Promise<ReturnRoomReadStatusDto> {
     const user = req.user as JwtAccessPayload;
-    return this.discussionService.markRoomAsRead(
+    return this.discussionService.updateLastReadMessage(
       roomId,
       user.currentRole!,
       user.currentRole === Role.PARTICIPANT ? user.participantProfileId! : null,
       user.currentRole === Role.ORGANIZER ? user.organizerProfileId! : null,
+      dto.lastReadMessageId,
     );
   }
 }

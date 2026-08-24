@@ -679,21 +679,19 @@ describe('DiscussionCrudService', () => {
     });
   });
 
-  describe('upsertRoomReadStatus', () => {
-    it('UT-6-010-01: RoleOrganizer + room has messages → upserts keyed on roomId_readerOrganizerId, readerOrganizerId set, readerParticipantId null, lastReadMessageId set to latest message id', async () => {
-      prismaMock.message.findFirst.mockResolvedValue(
-        buildRawMessage({ id: MOCK_MESSAGE_ID }) as any,
-      );
+  describe('upsertLastReadMessage', () => {
+    it('UT-6-010-01: RoleOrganizer + lastReadMessageId provided → upserts keyed on roomId_readerOrganizerId, readerOrganizerId set, readerParticipantId null, lastReadMessageId set to provided id', async () => {
       prismaMock.roomReadStatus.upsert.mockResolvedValue({
         roomId: MOCK_ROOM_ID,
         lastReadMessageId: MOCK_MESSAGE_ID,
       } as any);
 
-      const result = await service.upsertRoomReadStatus(
+      const result = await service.upsertLastReadMessage(
         MOCK_ROOM_ID,
         Role.ORGANIZER,
         null,
         MOCK_ORGANIZER_PROFILE_ID,
+        MOCK_MESSAGE_ID,
       );
 
       expect(result).toEqual({
@@ -717,20 +715,18 @@ describe('DiscussionCrudService', () => {
       });
     });
 
-    it('UT-6-010-02: RoleParticipant + room has messages → upserts keyed on roomId_readerParticipantId, readerParticipantId set, readerOrganizerId null, lastReadMessageId set to latest message id', async () => {
-      prismaMock.message.findFirst.mockResolvedValue(
-        buildRawMessage({ id: MOCK_MESSAGE_ID }) as any,
-      );
+    it('UT-6-010-02: RoleParticipant + lastReadMessageId provided → upserts keyed on roomId_readerParticipantId, readerParticipantId set, readerOrganizerId null, lastReadMessageId set to provided id', async () => {
       prismaMock.roomReadStatus.upsert.mockResolvedValue({
         roomId: MOCK_ROOM_ID,
         lastReadMessageId: MOCK_MESSAGE_ID,
       } as any);
 
-      const result = await service.upsertRoomReadStatus(
+      const result = await service.upsertLastReadMessage(
         MOCK_ROOM_ID,
         Role.PARTICIPANT,
         MOCK_PARTICIPANT_PROFILE_ID,
         null,
+        MOCK_MESSAGE_ID,
       );
 
       expect(result).toEqual({
@@ -754,18 +750,44 @@ describe('DiscussionCrudService', () => {
       });
     });
 
-    it('UT-6-010-04: room has no messages → lastReadMessageId stored as null', async () => {
-      prismaMock.message.findFirst.mockResolvedValue(null);
+    it('UT-6-010-04: lastReadMessageId provided + existing row → update branch overwrites the stored lastReadMessageId with the provided id', async () => {
+      const newMessageId = 'e9697c17-fc38-4625-aaeb-a4f43cce4e10';
+      prismaMock.roomReadStatus.upsert.mockResolvedValue({
+        roomId: MOCK_ROOM_ID,
+        lastReadMessageId: newMessageId,
+      } as any);
+
+      const result = await service.upsertLastReadMessage(
+        MOCK_ROOM_ID,
+        Role.PARTICIPANT,
+        MOCK_PARTICIPANT_PROFILE_ID,
+        null,
+        newMessageId,
+      );
+
+      expect(result).toEqual({
+        roomId: MOCK_ROOM_ID,
+        lastReadMessageId: newMessageId,
+      });
+      expect(prismaMock.roomReadStatus.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          update: { lastReadMessageId: newMessageId },
+        }),
+      );
+    });
+
+    it('UT-6-010-05: lastReadMessageId omitted + no existing row → create branch stores lastReadMessageId as null', async () => {
       prismaMock.roomReadStatus.upsert.mockResolvedValue({
         roomId: MOCK_ROOM_ID,
         lastReadMessageId: null,
       } as any);
 
-      const result = await service.upsertRoomReadStatus(
+      const result = await service.upsertLastReadMessage(
         MOCK_ROOM_ID,
         Role.PARTICIPANT,
         MOCK_PARTICIPANT_PROFILE_ID,
         null,
+        undefined,
       );
 
       expect(result).toEqual({
@@ -775,21 +797,44 @@ describe('DiscussionCrudService', () => {
       expect(prismaMock.roomReadStatus.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
           create: expect.objectContaining({ lastReadMessageId: null }),
-          update: expect.objectContaining({ lastReadMessageId: null }),
+          update: {},
         }),
       );
     });
 
+    it('UT-6-010-06: lastReadMessageId omitted + existing row → update branch leaves the existing lastReadMessageId untouched', async () => {
+      prismaMock.roomReadStatus.upsert.mockResolvedValue({
+        roomId: MOCK_ROOM_ID,
+        lastReadMessageId: MOCK_MESSAGE_ID,
+      } as any);
+
+      const result = await service.upsertLastReadMessage(
+        MOCK_ROOM_ID,
+        Role.ORGANIZER,
+        null,
+        MOCK_ORGANIZER_PROFILE_ID,
+        undefined,
+      );
+
+      expect(result).toEqual({
+        roomId: MOCK_ROOM_ID,
+        lastReadMessageId: MOCK_MESSAGE_ID,
+      });
+      expect(prismaMock.roomReadStatus.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({ update: {} }),
+      );
+    });
+
     it('UT-6-010-03: any role/row combination + UpsertThrows → throws SaveRoomReadStatusException, logs error', async () => {
-      prismaMock.message.findFirst.mockResolvedValue(null);
       prismaMock.roomReadStatus.upsert.mockRejectedValue(new Error('DB down'));
 
       const attempt = () =>
-        service.upsertRoomReadStatus(
+        service.upsertLastReadMessage(
           MOCK_ROOM_ID,
           Role.ORGANIZER,
           null,
           MOCK_ORGANIZER_PROFILE_ID,
+          undefined,
         );
 
       await expect(attempt()).rejects.toThrow(SaveRoomReadStatusException);

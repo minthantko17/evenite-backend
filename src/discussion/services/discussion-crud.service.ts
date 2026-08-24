@@ -141,11 +141,12 @@ export class DiscussionCrudService {
   }
 
   // update last read message
-  async upsertRoomReadStatus(
+  async upsertLastReadMessage(
     roomId: string,
     role: Role,
     participantProfileId: string | null,
     organizerProfileId: string | null,
+    lastReadMessageId: string | undefined,
   ): Promise<ReturnRoomReadStatusDto> {
     const where =
       role === Role.ORGANIZER
@@ -163,13 +164,6 @@ export class DiscussionCrudService {
           };
 
     try {
-      const latestMessage = await this.prisma.message.findFirst({
-        where: { roomId },
-        orderBy: { createdAt: 'desc' },
-        select: { id: true },
-      });
-      const lastReadMessageId = latestMessage?.id ?? null;
-
       const result = await this.prisma.roomReadStatus.upsert({
         where,
         create: {
@@ -178,9 +172,11 @@ export class DiscussionCrudService {
             role === Role.PARTICIPANT ? participantProfileId : null,
           readerOrganizerId:
             role === Role.ORGANIZER ? organizerProfileId : null,
-          lastReadMessageId,
+          lastReadMessageId: lastReadMessageId ?? null,
         },
-        update: { lastReadMessageId },
+        update: {
+          ...(lastReadMessageId !== undefined && { lastReadMessageId }),
+        },
       });
       return {
         roomId: result.roomId,
