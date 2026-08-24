@@ -101,14 +101,16 @@ export class DiscussionService {
         organizerProfileId,
       );
 
-      if (readStatus) {
-        return this.discussionCrudService.getPaginatedMessagesByTimestamp(
+      if (readStatus?.lastReadMessageId) {
+        return this.discussionCrudService.getPaginatedMessagesByCursor(
           roomId,
-          readStatus.lastReadAt,
+          readStatus.lastReadMessageId,
+          'after',
           pageSize,
+          false,
         );
       }
-      // if no readStatus, fall through to plain latest-page fetch below
+      // if no readStatus, or the room had no messages at last read, fall through to plain latest-page fetch below
     }
 
     return this.discussionCrudService.getPaginatedMessagesByCursor(

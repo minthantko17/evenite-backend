@@ -642,126 +642,6 @@ describe('DiscussionCrudService', () => {
     });
   });
 
-  describe('getPaginatedMessagesByTimestamp', () => {
-    const lastReadAt = new Date('2026-08-01T00:05:00Z');
-
-    it('UT-6-008-01: AnchorFound + NoMoreNewer → hasMoreOlder=true (always), hasMoreNewer=false', async () => {
-      prismaMock.message.findFirst.mockResolvedValue(
-        buildRawMessage({ createdAt: lastReadAt }) as any,
-      );
-      const raws = buildRawMessages(3);
-      prismaMock.message.findMany.mockResolvedValue(raws as any);
-
-      const result = await service.getPaginatedMessagesByTimestamp(
-        MOCK_ROOM_ID,
-        lastReadAt,
-        10,
-      );
-
-      expect(result).toEqual({
-        messages: raws.map(mapRawToExpected),
-        hasMoreOlder: true,
-        hasMoreNewer: false,
-        oldestCursor: mockMessageId(0),
-        newestCursor: mockMessageId(2),
-      });
-      expect(prismaMock.message.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { roomId: MOCK_ROOM_ID, createdAt: { gte: lastReadAt } },
-        }),
-      );
-    });
-
-    it('UT-6-008-02: AnchorFound + MoreNewer → returns take messages starting at anchor, hasMoreNewer=true', async () => {
-      prismaMock.message.findFirst.mockResolvedValue(
-        buildRawMessage({ createdAt: lastReadAt }) as any,
-      );
-      const raws = buildRawMessages(11);
-      prismaMock.message.findMany.mockResolvedValue(raws as any);
-
-      const result = await service.getPaginatedMessagesByTimestamp(
-        MOCK_ROOM_ID,
-        lastReadAt,
-        10,
-      );
-
-      const page = raws.slice(0, 10);
-      expect(result).toEqual({
-        messages: page.map(mapRawToExpected),
-        hasMoreOlder: true,
-        hasMoreNewer: true,
-        oldestCursor: mockMessageId(0),
-        newestCursor: mockMessageId(9),
-      });
-    });
-
-    it('UT-6-008-03: NoAnchor + room has messages → anchorTime=epoch, returns from the very beginning of the room', async () => {
-      prismaMock.message.findFirst.mockResolvedValue(null);
-      const raws = buildRawMessages(3);
-      prismaMock.message.findMany.mockResolvedValue(raws as any);
-
-      const result = await service.getPaginatedMessagesByTimestamp(
-        MOCK_ROOM_ID,
-        lastReadAt,
-        10,
-      );
-
-      expect(result).toEqual({
-        messages: raws.map(mapRawToExpected),
-        hasMoreOlder: true,
-        hasMoreNewer: false,
-        oldestCursor: mockMessageId(0),
-        newestCursor: mockMessageId(2),
-      });
-      expect(prismaMock.message.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { roomId: MOCK_ROOM_ID, createdAt: { gte: new Date(0) } },
-        }),
-      );
-    });
-
-    it('UT-6-008-04: NoAnchor + room empty → EmptyResult, messages=[], cursors=null, hasMoreOlder=true', async () => {
-      prismaMock.message.findFirst.mockResolvedValue(null);
-      prismaMock.message.findMany.mockResolvedValue([] as any);
-
-      const result = await service.getPaginatedMessagesByTimestamp(
-        MOCK_ROOM_ID,
-        lastReadAt,
-        10,
-      );
-
-      expect(result).toEqual({
-        messages: [],
-        hasMoreOlder: true,
-        hasMoreNewer: false,
-        oldestCursor: null,
-        newestCursor: null,
-      });
-    });
-
-    it('UT-6-008-05: ClampedLimit (> MAX_MESSAGE_PAGE_SIZE) → take = MAX_MESSAGE_PAGE_SIZE', async () => {
-      prismaMock.message.findFirst.mockResolvedValue(null);
-      prismaMock.message.findMany.mockResolvedValue([] as any);
-
-      const result = await service.getPaginatedMessagesByTimestamp(
-        MOCK_ROOM_ID,
-        lastReadAt,
-        999,
-      );
-
-      expect(result).toEqual({
-        messages: [],
-        hasMoreOlder: true,
-        hasMoreNewer: false,
-        oldestCursor: null,
-        newestCursor: null,
-      });
-      expect(prismaMock.message.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ take: MAX_MESSAGE_PAGE_SIZE + 1 }),
-      );
-    });
-  });
-
   describe('getLatestMessageForRoom', () => {
     it('UT-6-009-01: room has at least one message → returns mapped latest ReturnMessageDto', async () => {
       const raw = buildRawMessage();
@@ -782,11 +662,15 @@ describe('DiscussionCrudService', () => {
   });
 
   describe('upsertRoomReadStatus', () => {
-    it('UT-6-010-01: RoleOrganizer → upserts keyed on roomId_readerOrganizerId, readerOrganizerId set, readerParticipantId null', async () => {
+    it('UT-6-010-01: RoleOrganizer + room has messages → upserts keyed on roomId_readerOrganizerId, readerOrganizerId set, readerParticipantId null, lastReadMessageId set to latest message id', async () => {
       const lastReadAt = new Date('2026-08-01T01:15:00Z');
+      prismaMock.message.findFirst.mockResolvedValue(
+        buildRawMessage({ id: MOCK_MESSAGE_ID }) as any,
+      );
       prismaMock.roomReadStatus.upsert.mockResolvedValue({
         roomId: MOCK_ROOM_ID,
         lastReadAt,
+        lastReadMessageId: MOCK_MESSAGE_ID,
       } as any);
 
       const result = await service.upsertRoomReadStatus(
@@ -796,7 +680,11 @@ describe('DiscussionCrudService', () => {
         MOCK_ORGANIZER_PROFILE_ID,
       );
 
-      expect(result).toEqual({ roomId: MOCK_ROOM_ID, lastReadAt });
+      expect(result).toEqual({
+        roomId: MOCK_ROOM_ID,
+        lastReadAt,
+        lastReadMessageId: MOCK_MESSAGE_ID,
+      });
       expect(prismaMock.roomReadStatus.upsert).toHaveBeenCalledWith({
         where: {
           roomId_readerOrganizerId: {
@@ -809,16 +697,21 @@ describe('DiscussionCrudService', () => {
           readerParticipantId: null,
           readerOrganizerId: MOCK_ORGANIZER_PROFILE_ID,
           lastReadAt: expect.any(Date),
+          lastReadMessageId: MOCK_MESSAGE_ID,
         },
-        update: { lastReadAt: expect.any(Date) },
+        update: { lastReadAt: expect.any(Date), lastReadMessageId: MOCK_MESSAGE_ID },
       });
     });
 
-    it('UT-6-010-02: RoleParticipant → upserts keyed on roomId_readerParticipantId, readerParticipantId set, readerOrganizerId null', async () => {
+    it('UT-6-010-02: RoleParticipant + room has messages → upserts keyed on roomId_readerParticipantId, readerParticipantId set, readerOrganizerId null, lastReadMessageId set to latest message id', async () => {
       const lastReadAt = new Date('2026-08-01T04:45:00Z');
+      prismaMock.message.findFirst.mockResolvedValue(
+        buildRawMessage({ id: MOCK_MESSAGE_ID }) as any,
+      );
       prismaMock.roomReadStatus.upsert.mockResolvedValue({
         roomId: MOCK_ROOM_ID,
         lastReadAt,
+        lastReadMessageId: MOCK_MESSAGE_ID,
       } as any);
 
       const result = await service.upsertRoomReadStatus(
@@ -828,7 +721,11 @@ describe('DiscussionCrudService', () => {
         null,
       );
 
-      expect(result).toEqual({ roomId: MOCK_ROOM_ID, lastReadAt });
+      expect(result).toEqual({
+        roomId: MOCK_ROOM_ID,
+        lastReadAt,
+        lastReadMessageId: MOCK_MESSAGE_ID,
+      });
       expect(prismaMock.roomReadStatus.upsert).toHaveBeenCalledWith({
         where: {
           roomId_readerParticipantId: {
@@ -841,12 +738,43 @@ describe('DiscussionCrudService', () => {
           readerParticipantId: MOCK_PARTICIPANT_PROFILE_ID,
           readerOrganizerId: null,
           lastReadAt: expect.any(Date),
+          lastReadMessageId: MOCK_MESSAGE_ID,
         },
-        update: { lastReadAt: expect.any(Date) },
+        update: { lastReadAt: expect.any(Date), lastReadMessageId: MOCK_MESSAGE_ID },
       });
     });
 
+    it('UT-6-010-04: room has no messages → lastReadMessageId stored as null', async () => {
+      const lastReadAt = new Date('2026-08-01T06:00:00Z');
+      prismaMock.message.findFirst.mockResolvedValue(null);
+      prismaMock.roomReadStatus.upsert.mockResolvedValue({
+        roomId: MOCK_ROOM_ID,
+        lastReadAt,
+        lastReadMessageId: null,
+      } as any);
+
+      const result = await service.upsertRoomReadStatus(
+        MOCK_ROOM_ID,
+        Role.PARTICIPANT,
+        MOCK_PARTICIPANT_PROFILE_ID,
+        null,
+      );
+
+      expect(result).toEqual({
+        roomId: MOCK_ROOM_ID,
+        lastReadAt,
+        lastReadMessageId: null,
+      });
+      expect(prismaMock.roomReadStatus.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({ lastReadMessageId: null }),
+          update: expect.objectContaining({ lastReadMessageId: null }),
+        }),
+      );
+    });
+
     it('UT-6-010-03: any role/row combination + UpsertThrows → throws SaveRoomReadStatusException, logs error', async () => {
+      prismaMock.message.findFirst.mockResolvedValue(null);
       prismaMock.roomReadStatus.upsert.mockRejectedValue(new Error('DB down'));
 
       const attempt = () =>
@@ -865,10 +793,11 @@ describe('DiscussionCrudService', () => {
   });
 
   describe('getRoomReadStatus', () => {
-    it('UT-6-011-01: RoleOrganizer + Found → returns lastReadAt, queried by roomId_readerOrganizerId', async () => {
+    it('UT-6-011-01: RoleOrganizer + Found → returns lastReadAt and lastReadMessageId, queried by roomId_readerOrganizerId', async () => {
       const lastReadAt = new Date('2026-08-01T02:20:00Z');
       prismaMock.roomReadStatus.findUnique.mockResolvedValue({
         lastReadAt,
+        lastReadMessageId: MOCK_MESSAGE_ID,
       } as any);
 
       const result = await service.getRoomReadStatus(
@@ -878,7 +807,7 @@ describe('DiscussionCrudService', () => {
         MOCK_ORGANIZER_PROFILE_ID,
       );
 
-      expect(result).toEqual({ lastReadAt });
+      expect(result).toEqual({ lastReadAt, lastReadMessageId: MOCK_MESSAGE_ID });
       expect(prismaMock.roomReadStatus.findUnique).toHaveBeenCalledWith({
         where: {
           roomId_readerOrganizerId: {
@@ -902,10 +831,11 @@ describe('DiscussionCrudService', () => {
       expect(result).toBeNull();
     });
 
-    it('UT-6-011-03: RoleParticipant + Found → returns lastReadAt, queried by roomId_readerParticipantId', async () => {
+    it('UT-6-011-03: RoleParticipant + Found → returns lastReadAt and lastReadMessageId, queried by roomId_readerParticipantId', async () => {
       const lastReadAt = new Date('2026-08-01T05:50:00Z');
       prismaMock.roomReadStatus.findUnique.mockResolvedValue({
         lastReadAt,
+        lastReadMessageId: MOCK_MESSAGE_ID,
       } as any);
 
       const result = await service.getRoomReadStatus(
@@ -915,7 +845,7 @@ describe('DiscussionCrudService', () => {
         null,
       );
 
-      expect(result).toEqual({ lastReadAt });
+      expect(result).toEqual({ lastReadAt, lastReadMessageId: MOCK_MESSAGE_ID });
       expect(prismaMock.roomReadStatus.findUnique).toHaveBeenCalledWith({
         where: {
           roomId_readerParticipantId: {

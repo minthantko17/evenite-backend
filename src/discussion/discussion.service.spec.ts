@@ -84,6 +84,7 @@ function buildRoomReadStatusDto(
   return {
     roomId: MOCK_ROOM_ID,
     lastReadAt: new Date('2026-08-01T01:00:00Z'),
+    lastReadMessageId: null,
     ...overrides,
   };
 }
@@ -133,14 +134,6 @@ const MOCK_MESSAGE_PAGE_BY_CURSOR: ReturnMessagePageDto = {
   newestCursor: 'cursor-page-newest',
 };
 
-const MOCK_MESSAGE_PAGE_BY_TIMESTAMP: ReturnMessagePageDto = {
-  messages: [buildReturnMessage({ id: 'timestamp-page-message-id' })],
-  hasMoreOlder: true,
-  hasMoreNewer: true,
-  oldestCursor: 'timestamp-page-oldest',
-  newestCursor: 'timestamp-page-newest',
-};
-
 const MOCK_EVENT: Event = buildEvent();
 const MOCK_EVENT_WITH_ROOM = buildEventWithRoom();
 const MOCK_EVENT_WITHOUT_ROOM = buildEventWithRoom({
@@ -179,9 +172,6 @@ describe('DiscussionService', () => {
     crudServiceMock.createMessage.mockResolvedValue(buildReturnMessage());
     crudServiceMock.getPaginatedMessagesByCursor.mockResolvedValue(
       MOCK_MESSAGE_PAGE_BY_CURSOR,
-    );
-    crudServiceMock.getPaginatedMessagesByTimestamp.mockResolvedValue(
-      MOCK_MESSAGE_PAGE_BY_TIMESTAMP,
     );
     crudServiceMock.getRoomReadStatus.mockResolvedValue(null);
     crudServiceMock.upsertRoomReadStatus.mockResolvedValue(
@@ -585,7 +575,6 @@ describe('DiscussionService', () => {
 
       expect(crudServiceMock.getRoomReadStatus).not.toHaveBeenCalled();
       expect(crudServiceMock.getPaginatedMessagesByCursor).not.toHaveBeenCalled();
-      expect(crudServiceMock.getPaginatedMessagesByTimestamp).not.toHaveBeenCalled();
     });
 
     it('UT-6-018-03: with an explicit cursor, calls getPaginatedMessagesByCursor and skips the read-status lookup', async () => {
@@ -626,7 +615,6 @@ describe('DiscussionService', () => {
       );
 
       expect(result).toEqual(MOCK_MESSAGE_PAGE_BY_CURSOR);
-      expect(crudServiceMock.getPaginatedMessagesByTimestamp).not.toHaveBeenCalled();
       expect(crudServiceMock.getPaginatedMessagesByCursor).toHaveBeenCalledWith(
         MOCK_ROOM_ID,
         MOCK_CURSOR_ID,
@@ -636,8 +624,11 @@ describe('DiscussionService', () => {
       );
     });
 
-    it('UT-6-018-05: with no cursor and an existing read status, fetches messages from the last-read timestamp', async () => {
-      const readStatus = { lastReadAt: new Date('2026-08-01T01:00:00Z') };
+    it('UT-6-018-05: with no cursor and an existing read status with a lastReadMessageId, resumes via getPaginatedMessagesByCursor(after)', async () => {
+      const readStatus = {
+        lastReadAt: new Date('2026-08-01T01:00:00Z'),
+        lastReadMessageId: MOCK_CURSOR_ID,
+      };
       crudServiceMock.getRoomReadStatus.mockResolvedValue(readStatus);
       const query: GetMessagesQueryDto = { limit: 20 };
 
@@ -649,13 +640,40 @@ describe('DiscussionService', () => {
         null,
       );
 
-      expect(result).toEqual(MOCK_MESSAGE_PAGE_BY_TIMESTAMP);
-      expect(crudServiceMock.getPaginatedMessagesByTimestamp).toHaveBeenCalledWith(
+      expect(result).toEqual(MOCK_MESSAGE_PAGE_BY_CURSOR);
+      expect(crudServiceMock.getPaginatedMessagesByCursor).toHaveBeenCalledWith(
         MOCK_ROOM_ID,
-        readStatus.lastReadAt,
+        MOCK_CURSOR_ID,
+        'after',
         20,
+        false,
       );
-      expect(crudServiceMock.getPaginatedMessagesByCursor).not.toHaveBeenCalled();
+    });
+
+    it('UT-6-018-05b: with no cursor and a read status whose lastReadMessageId is null (room was empty at last read), falls through to the latest-page fetch', async () => {
+      const readStatus = {
+        lastReadAt: new Date('2026-08-01T01:00:00Z'),
+        lastReadMessageId: null,
+      };
+      crudServiceMock.getRoomReadStatus.mockResolvedValue(readStatus);
+      const query: GetMessagesQueryDto = { limit: 20 };
+
+      const result = await service.getMessages(
+        MOCK_ROOM_ID,
+        query,
+        Role.PARTICIPANT,
+        MOCK_PARTICIPANT_PROFILE_ID,
+        null,
+      );
+
+      expect(result).toEqual(MOCK_MESSAGE_PAGE_BY_CURSOR);
+      expect(crudServiceMock.getPaginatedMessagesByCursor).toHaveBeenCalledWith(
+        MOCK_ROOM_ID,
+        undefined,
+        'before',
+        20,
+        false,
+      );
     });
 
     it('UT-6-018-06: with no cursor and no read status, falls through to the latest-page fetch', async () => {
@@ -678,7 +696,6 @@ describe('DiscussionService', () => {
         20,
         false,
       );
-      expect(crudServiceMock.getPaginatedMessagesByTimestamp).not.toHaveBeenCalled();
     });
 
     it('UT-6-018-07: limit omitted + NotAnnouncement → pageSize defaults to DEFAULT_MESSAGE_PAGE_SIZE (25)', async () => {
@@ -737,7 +754,6 @@ describe('DiscussionService', () => {
 
       expect(result).toEqual(MOCK_MESSAGE_PAGE_BY_CURSOR);
       expect(crudServiceMock.getRoomReadStatus).not.toHaveBeenCalled();
-      expect(crudServiceMock.getPaginatedMessagesByTimestamp).not.toHaveBeenCalled();
       expect(crudServiceMock.getPaginatedMessagesByCursor).toHaveBeenCalledWith(
         MOCK_ROOM_ID,
         undefined,
@@ -937,7 +953,10 @@ describe('DiscussionService', () => {
         id: 'created-rooms-latest-message-id',
         sender: buildSender(Role.PARTICIPANT),
       });
-      const readStatus = { lastReadAt: new Date('2026-08-02T09:00:00Z') };
+      const readStatus = {
+        lastReadAt: new Date('2026-08-02T09:00:00Z'),
+        lastReadMessageId: 'created-rooms-latest-message-id',
+      };
       crudServiceMock.getOrganizerEventsWithRoom.mockResolvedValue([
         MOCK_EVENT_WITH_ROOM,
       ]);
