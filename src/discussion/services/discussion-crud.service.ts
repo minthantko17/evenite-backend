@@ -13,9 +13,6 @@ import { SaveRoomReadStatusException } from '../exceptions/save-room-read-status
 import type { BilingualField } from '../../event/dto/bilingual-field.dto';
 import { EventWithDiscussionRoom } from '../types/discussion.types';
 
-const MAX_MESSAGE_PAGE_SIZE = 25;
-const MAX_ANNOUNCEMENT_PAGE_SIZE = 15;
-
 @Injectable()
 export class DiscussionCrudService {
   private readonly logger = new Logger(DiscussionCrudService.name);
@@ -63,24 +60,16 @@ export class DiscussionCrudService {
     cursor: string | undefined,
     direction: 'before' | 'after',
     limit: number,
-    isAnnouncement: boolean = false,
   ): Promise<ReturnMessagePageDto> {
-    const take = Math.min(
-      limit,
-      isAnnouncement ? MAX_ANNOUNCEMENT_PAGE_SIZE : MAX_MESSAGE_PAGE_SIZE,
-    );
     const isBefore = direction === 'before';
 
     const messages = await this.prisma.message.findMany({
-      where: {
-        roomId,
-        ...(isAnnouncement && { isAnnouncement: true }),
-      },
+      where: { roomId },
       orderBy: isBefore
         ? [{ createdAt: 'desc' }, { id: 'desc' }]
         : [{ createdAt: 'asc' }, { id: 'asc' }],
       ...(cursor && { cursor: { id: cursor }, skip: 1 }),
-      take: take + 1, // fetch extra one to check if there's more
+      take: limit + 1, // fetch extra one to check if there's more
       include: {
         senderParticipant: {
           select: { id: true, firstName: true, nickname: true, imageUrl: true },
@@ -89,9 +78,9 @@ export class DiscussionCrudService {
       },
     });
 
-    const hasMoreMessageInQueriedDirection = messages.length > take;
+    const hasMoreMessageInQueriedDirection = messages.length > limit;
     const page = hasMoreMessageInQueriedDirection
-      ? messages.slice(0, take)
+      ? messages.slice(0, limit)
       : messages;
     const orderedPage = isBefore ? [...page].reverse() : page;
     const mapped = orderedPage.map((m) => this.mapToReturnMessageDto(m));
@@ -115,27 +104,15 @@ export class DiscussionCrudService {
     };
   }
 
-  async getPaginatedMessagesByTimestamp(
+  // retrieve only fixed number of latest announcements, no pagination
+  async getLatestAnnouncements(
     roomId: string,
-    lastReadAt: Date,
     limit: number,
-  ): Promise<ReturnMessagePageDto> {
-    const take = Math.min(limit, MAX_MESSAGE_PAGE_SIZE);
-
-    // find the actual last-read message
-    const anchorMessage = await this.prisma.message.findFirst({
-      where: { roomId, createdAt: { lte: lastReadAt } },
-      orderBy: { createdAt: 'desc' },
-      select: { createdAt: true },
-    });
-
-    // if no message exists at or before lastReadAt (e.g. room empty), just return everything from the beginning
-    const anchorTime = anchorMessage?.createdAt ?? new Date(0);
-
+  ): Promise<ReturnMessageDto[]> {
     const messages = await this.prisma.message.findMany({
-      where: { roomId, createdAt: { gte: anchorTime } },
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-      take: take + 1,
+      where: { roomId, isAnnouncement: true },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: limit,
       include: {
         senderParticipant: {
           select: { id: true, firstName: true, nickname: true, imageUrl: true },
@@ -144,17 +121,7 @@ export class DiscussionCrudService {
       },
     });
 
-    const hasMoreNewer = messages.length > take;
-    const page = hasMoreNewer ? messages.slice(0, take) : messages;
-    const mapped = page.map((m) => this.mapToReturnMessageDto(m));
-
-    return {
-      messages: mapped,
-      hasMoreOlder: true,
-      hasMoreNewer,
-      oldestCursor: page.length > 0 ? page[0].id : null,
-      newestCursor: page.length > 0 ? page[page.length - 1].id : null,
-    };
+    return messages.reverse().map((m) => this.mapToReturnMessageDto(m));
   }
 
   async getLatestMessageForRoom(
@@ -173,7 +140,7 @@ export class DiscussionCrudService {
     return message ? this.mapToReturnMessageDto(message) : null;
   }
 
-  // update last read time
+  // update last read message
   async upsertRoomReadStatus(
     roomId: string,
     role: Role,
@@ -196,6 +163,13 @@ export class DiscussionCrudService {
           };
 
     try {
+      const latestMessage = await this.prisma.message.findFirst({
+        where: { roomId },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true },
+      });
+      const lastReadMessageId = latestMessage?.id ?? null;
+
       const result = await this.prisma.roomReadStatus.upsert({
         where,
         create: {
@@ -204,24 +178,27 @@ export class DiscussionCrudService {
             role === Role.PARTICIPANT ? participantProfileId : null,
           readerOrganizerId:
             role === Role.ORGANIZER ? organizerProfileId : null,
-          lastReadAt: new Date(),
+          lastReadMessageId,
         },
-        update: { lastReadAt: new Date() },
+        update: { lastReadMessageId },
       });
-      return { roomId: result.roomId, lastReadAt: result.lastReadAt };
+      return {
+        roomId: result.roomId,
+        lastReadMessageId: result.lastReadMessageId,
+      };
     } catch (error) {
       this.logger.error('Failed to update room read status', error);
       throw new SaveRoomReadStatusException();
     }
   }
 
-  // to know last read time for room
+  // to know last read message for room
   async getRoomReadStatus(
     roomId: string,
     role: Role,
     participantProfileId: string | null,
     organizerProfileId: string | null,
-  ): Promise<{ lastReadAt: Date } | null> {
+  ): Promise<{ lastReadMessageId: string | null } | null> {
     const where =
       role === Role.ORGANIZER
         ? {
@@ -238,13 +215,34 @@ export class DiscussionCrudService {
           };
 
     const result = await this.prisma.roomReadStatus.findUnique({ where });
-    return result ? { lastReadAt: result.lastReadAt } : null;
+    return result
+      ? { lastReadMessageId: result.lastReadMessageId }
+      : null;
   }
 
-  async countUnreadMessages(roomId: string, sinceDate: Date): Promise<number> {
+  async countUnreadMessages(
+    roomId: string,
+    lastReadMessageId: string | null,
+  ): Promise<number> {
+    const sinceDate = await this.resolveLastReadCreatedAt(lastReadMessageId);
     return this.prisma.message.count({
       where: { roomId, createdAt: { gt: sinceDate } },
     });
+  }
+
+  private async resolveLastReadCreatedAt(
+    lastReadMessageId: string | null,
+  ): Promise<Date> {
+    if (!lastReadMessageId) {
+      return new Date(0);
+    }
+    const lastReadMessage = await this.prisma.message.findUnique({
+      where: { id: lastReadMessageId },
+      select: { createdAt: true },
+    });
+    // if the referenced message was since deleted, fall back to epoch so we
+    // never under-count and hide genuinely new messages from the user
+    return lastReadMessage?.createdAt ?? new Date(0);
   }
 
   // get room list (Chat List)

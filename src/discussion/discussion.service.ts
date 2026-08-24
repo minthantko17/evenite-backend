@@ -13,7 +13,8 @@ import { EventWithDiscussionRoom } from './types/discussion.types';
 import { BilingualField } from '../event/dto/bilingual-field.dto';
 
 const DEFAULT_MESSAGE_PAGE_SIZE = 25;
-const DEFAULT_ANNOUNCEMENT_PAGE_SIZE = 15;
+const MAX_MESSAGE_PAGE_SIZE = 25;
+const MAX_ANNOUNCEMENT_COUNT = 15;
 
 @Injectable()
 export class DiscussionService {
@@ -83,17 +84,14 @@ export class DiscussionService {
       organizerProfileId,
     );
 
-    const isAnnouncement = query.isAnnouncement === true;
-    const pageSize =
-      query.limit ??
-      (isAnnouncement
-        ? DEFAULT_ANNOUNCEMENT_PAGE_SIZE
-        : DEFAULT_MESSAGE_PAGE_SIZE);
+    const pageSize = Math.min(
+      query.limit ?? DEFAULT_MESSAGE_PAGE_SIZE,
+      MAX_MESSAGE_PAGE_SIZE,
+    );
 
-    // If no cursor, find last read. If also no last read, skip this block
-    // if announcement, last read retieval should be skipped
-    // since announcements are not tracked with read status, announcements will only be retrieved from the latest one
-    if (!query.cursor && !isAnnouncement) {
+    // If no cursor, resume from the last read message. 
+    // If never read (or the room was empty at last read), fall through to the plain latest-page fetch
+    if (!query.cursor) {
       const readStatus = await this.discussionCrudService.getRoomReadStatus(
         roomId,
         role,
@@ -101,14 +99,14 @@ export class DiscussionService {
         organizerProfileId,
       );
 
-      if (readStatus) {
-        return this.discussionCrudService.getPaginatedMessagesByTimestamp(
+      if (readStatus?.lastReadMessageId) {
+        return this.discussionCrudService.getPaginatedMessagesByCursor(
           roomId,
-          readStatus.lastReadAt,
+          readStatus.lastReadMessageId,
+          'after',
           pageSize,
         );
       }
-      // if no readStatus, fall through to plain latest-page fetch below
     }
 
     return this.discussionCrudService.getPaginatedMessagesByCursor(
@@ -116,7 +114,29 @@ export class DiscussionService {
       query.cursor,
       query.direction ?? 'before',
       pageSize,
-      isAnnouncement,
+    );
+  }
+
+  // announcements are never paginated, always return the latest
+  // MAX_ANNOUNCEMENT_COUNT, no scroll-back
+  async getAnnouncements(
+    roomId: string,
+    role: Role,
+    participantProfileId: string | null,
+    organizerProfileId: string | null,
+  ): Promise<ReturnMessageDto[]> {
+    const { event } =
+      await this.discussionValidationService.validateRoomExists(roomId);
+    await this.discussionValidationService.validateRoomAccess(
+      event,
+      role,
+      participantProfileId,
+      organizerProfileId,
+    );
+
+    return this.discussionCrudService.getLatestAnnouncements(
+      roomId,
+      MAX_ANNOUNCEMENT_COUNT,
     );
   }
 
@@ -240,7 +260,7 @@ export class DiscussionService {
     const lastMessage: ReturnMessageDto | null =
       await this.discussionCrudService.getLatestMessageForRoom(roomId);
 
-    const readStatus: { lastReadAt: Date } | null =
+    const readStatus: { lastReadMessageId: string | null } | null =
       await this.discussionCrudService.getRoomReadStatus(
         roomId,
         role,
@@ -251,7 +271,7 @@ export class DiscussionService {
     const unreadCount: number =
       await this.discussionCrudService.countUnreadMessages(
         roomId,
-        readStatus?.lastReadAt ?? new Date(0),
+        readStatus?.lastReadMessageId ?? null,
       );
 
     const isReadOnly: boolean = this.checkIsReadOnly(event);

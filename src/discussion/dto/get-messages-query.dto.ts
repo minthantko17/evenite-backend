@@ -1,5 +1,5 @@
-import { IsOptional, IsString, IsIn, IsInt, Min, Max, IsBoolean } from 'class-validator';
-import { Transform, Type } from 'class-transformer';
+import { IsOptional, IsString, IsIn, IsInt, Min, Max } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class GetMessagesQueryDto {
   @IsOptional()
@@ -16,9 +16,4 @@ export class GetMessagesQueryDto {
   @Min(1)
   @Max(100)
   limit?: number;
-
-  @IsOptional()
-  @Transform(({ value }) => value === undefined ? false : value === 'true')
-  @IsBoolean()
-  isAnnouncement?: boolean = false;
 }
