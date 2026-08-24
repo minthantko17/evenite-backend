@@ -788,6 +788,7 @@ describe('DiscussionService', () => {
           Role.ORGANIZER,
           null,
           MOCK_ORGANIZER_PROFILE_ID,
+          undefined,
         ),
       ).rejects.toThrow(RoomNotFoundException);
       await expect(
@@ -796,6 +797,7 @@ describe('DiscussionService', () => {
           Role.ORGANIZER,
           null,
           MOCK_ORGANIZER_PROFILE_ID,
+          undefined,
         ),
       ).rejects.toThrow('Discussion room not found.');
 
@@ -813,6 +815,7 @@ describe('DiscussionService', () => {
           Role.PARTICIPANT,
           MOCK_PARTICIPANT_PROFILE_ID,
           null,
+          undefined,
         ),
       ).rejects.toThrow(RoomAccessDeniedException);
       await expect(
@@ -821,6 +824,7 @@ describe('DiscussionService', () => {
           Role.PARTICIPANT,
           MOCK_PARTICIPANT_PROFILE_ID,
           null,
+          undefined,
         ),
       ).rejects.toThrow(
         'You do not have permission to access this discussion room.',
@@ -829,7 +833,7 @@ describe('DiscussionService', () => {
       expect(crudServiceMock.upsertRoomReadStatus).not.toHaveBeenCalled();
     });
 
-    it('UT-6-019-03: for an ORGANIZER, upserts the read status keyed on organizerProfileId', async () => {
+    it('UT-6-019-03: for an ORGANIZER, upserts the read status keyed on organizerProfileId, passing lastReadMessageId through', async () => {
       // distinct message id from the PARTICIPANT case below, so a swapped-args
       // regression (e.g. organizerId passed into the participant slot) would
       // surface as a result mismatch, not just pass because both share one dto
@@ -843,6 +847,7 @@ describe('DiscussionService', () => {
         Role.ORGANIZER,
         null,
         MOCK_ORGANIZER_PROFILE_ID,
+        'mark-as-read-organizer-message-id',
       );
 
       expect(result).toEqual(expectedStatus);
@@ -851,10 +856,11 @@ describe('DiscussionService', () => {
         Role.ORGANIZER,
         null,
         MOCK_ORGANIZER_PROFILE_ID,
+        'mark-as-read-organizer-message-id',
       );
     });
 
-    it('UT-6-019-04: for a PARTICIPANT, upserts the read status keyed on participantProfileId', async () => {
+    it('UT-6-019-04: for a PARTICIPANT, upserts the read status keyed on participantProfileId, passing lastReadMessageId through', async () => {
       const expectedStatus = buildRoomReadStatusDto({
         lastReadMessageId: 'mark-as-read-participant-message-id',
       });
@@ -865,6 +871,7 @@ describe('DiscussionService', () => {
         Role.PARTICIPANT,
         MOCK_PARTICIPANT_PROFILE_ID,
         null,
+        'mark-as-read-participant-message-id',
       );
 
       expect(result).toEqual(expectedStatus);
@@ -873,6 +880,31 @@ describe('DiscussionService', () => {
         Role.PARTICIPANT,
         MOCK_PARTICIPANT_PROFILE_ID,
         null,
+        'mark-as-read-participant-message-id',
+      );
+    });
+
+    it('UT-6-019-05: lastReadMessageId omitted → passes undefined through to upsertRoomReadStatus', async () => {
+      const expectedStatus = buildRoomReadStatusDto({
+        lastReadMessageId: null,
+      });
+      crudServiceMock.upsertRoomReadStatus.mockResolvedValue(expectedStatus);
+
+      const result = await service.markRoomAsRead(
+        MOCK_ROOM_ID,
+        Role.PARTICIPANT,
+        MOCK_PARTICIPANT_PROFILE_ID,
+        null,
+        undefined,
+      );
+
+      expect(result).toEqual(expectedStatus);
+      expect(crudServiceMock.upsertRoomReadStatus).toHaveBeenCalledWith(
+        MOCK_ROOM_ID,
+        Role.PARTICIPANT,
+        MOCK_PARTICIPANT_PROFILE_ID,
+        null,
+        undefined,
       );
     });
   });
