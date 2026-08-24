@@ -141,7 +141,7 @@ export class DiscussionService {
   }
 
   // update read position to last read message
-  async markRoomAsRead(
+  async updateLastReadMessage(
     roomId: string,
     role: Role,
     participantProfileId: string | null,
@@ -157,7 +157,7 @@ export class DiscussionService {
       organizerProfileId,
     );
 
-    return this.discussionCrudService.upsertRoomReadStatus(
+    return this.discussionCrudService.upsertLastReadMessage(
       roomId,
       role,
       participantProfileId,

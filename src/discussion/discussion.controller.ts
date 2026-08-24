@@ -92,7 +92,7 @@ export class DiscussionController {
     @Req() req: Request,
   ): Promise<ReturnRoomReadStatusDto> {
     const user = req.user as JwtAccessPayload;
-    return this.discussionService.markRoomAsRead(
+    return this.discussionService.updateLastReadMessage(
       roomId,
       user.currentRole!,
       user.currentRole === Role.PARTICIPANT ? user.participantProfileId! : null,

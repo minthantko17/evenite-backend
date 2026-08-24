@@ -679,14 +679,14 @@ describe('DiscussionCrudService', () => {
     });
   });
 
-  describe('upsertRoomReadStatus', () => {
+  describe('upsertLastReadMessage', () => {
     it('UT-6-010-01: RoleOrganizer + lastReadMessageId provided → upserts keyed on roomId_readerOrganizerId, readerOrganizerId set, readerParticipantId null, lastReadMessageId set to provided id', async () => {
       prismaMock.roomReadStatus.upsert.mockResolvedValue({
         roomId: MOCK_ROOM_ID,
         lastReadMessageId: MOCK_MESSAGE_ID,
       } as any);
 
-      const result = await service.upsertRoomReadStatus(
+      const result = await service.upsertLastReadMessage(
         MOCK_ROOM_ID,
         Role.ORGANIZER,
         null,
@@ -721,7 +721,7 @@ describe('DiscussionCrudService', () => {
         lastReadMessageId: MOCK_MESSAGE_ID,
       } as any);
 
-      const result = await service.upsertRoomReadStatus(
+      const result = await service.upsertLastReadMessage(
         MOCK_ROOM_ID,
         Role.PARTICIPANT,
         MOCK_PARTICIPANT_PROFILE_ID,
@@ -757,7 +757,7 @@ describe('DiscussionCrudService', () => {
         lastReadMessageId: newMessageId,
       } as any);
 
-      const result = await service.upsertRoomReadStatus(
+      const result = await service.upsertLastReadMessage(
         MOCK_ROOM_ID,
         Role.PARTICIPANT,
         MOCK_PARTICIPANT_PROFILE_ID,
@@ -782,7 +782,7 @@ describe('DiscussionCrudService', () => {
         lastReadMessageId: null,
       } as any);
 
-      const result = await service.upsertRoomReadStatus(
+      const result = await service.upsertLastReadMessage(
         MOCK_ROOM_ID,
         Role.PARTICIPANT,
         MOCK_PARTICIPANT_PROFILE_ID,
@@ -808,7 +808,7 @@ describe('DiscussionCrudService', () => {
         lastReadMessageId: MOCK_MESSAGE_ID,
       } as any);
 
-      const result = await service.upsertRoomReadStatus(
+      const result = await service.upsertLastReadMessage(
         MOCK_ROOM_ID,
         Role.ORGANIZER,
         null,
@@ -829,7 +829,7 @@ describe('DiscussionCrudService', () => {
       prismaMock.roomReadStatus.upsert.mockRejectedValue(new Error('DB down'));
 
       const attempt = () =>
-        service.upsertRoomReadStatus(
+        service.upsertLastReadMessage(
           MOCK_ROOM_ID,
           Role.ORGANIZER,
           null,

@@ -104,7 +104,7 @@ Resulting call-path branches (for test-case construction):
 Note: getPaginatedMessagesByTimestamp is NEVER called when isAnnouncement=true — announcements are always paginated via getPaginatedMessagesByCursor's isAnnouncement filter, never via last-read-timestamp tracking (announcements aren't covered by RoomReadStatus).
 
 
-// markRoomAsRead
+// updateLastReadMessage
 
 Parameter roomId:
   room existence:
@@ -122,8 +122,8 @@ Parameter role:
     role is PARTICIPANT.      [if Authorized]
 
 Resulting call-path branches:
-  Authorized, ORGANIZER      → upsertRoomReadStatus keyed on readerOrganizerId    [single]
-  Authorized, PARTICIPANT    → upsertRoomReadStatus keyed on readerParticipantId  [single]
+  Authorized, ORGANIZER      → upsertLastReadMessage keyed on readerOrganizerId    [single]
+  Authorized, PARTICIPANT    → upsertLastReadMessage keyed on readerParticipantId  [single]
 
 
 // getCreatedDiscussionRooms / getJoinedDiscussionRooms

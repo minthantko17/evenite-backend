@@ -30,7 +30,7 @@ TEST-CASE-ID: UT-6-006 / UT-6-007 / UT-6-008 / UT-6-009 / UT-6-010 / UT-6-011 / 
       roomId: string,
     ): Promise < ReturnMessageDto | null >
 
-    upsertRoomReadStatus(
+    upsertLastReadMessage(
       roomId: string,
       role: Role,
       participantProfileId: string | null,
@@ -124,7 +124,7 @@ Most tests in `getPaginatedMessagesByCursor` / `getPaginatedMessagesByTimestamp`
 | UT-6-009-01 | room has at least one message → returns mapped latest ReturnMessageDto | roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff'<br>Setup: `message.findFirst` resolves `{ id: 'e9697c17-fc38-4625-aaeb-a4f43cce4e09', roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff', content: 'hello world', isAnnouncement: false, createdAt: 2026-08-01T00:00:00.000Z, senderParticipantId: 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44', senderOrganizerId: null, senderParticipant: { id: 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44', firstName: 'Jane', nickname: 'JJ', imageUrl: 'jane.png' }, senderOrganizer: null }` | result equals `{ id: 'e9697c17-fc38-4625-aaeb-a4f43cce4e09', content: 'hello world', isAnnouncement: false, sender: { id: 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44', role: 'PARTICIPANT', name: 'JJ', imageUrl: 'jane.png' }, createdAt: 2026-08-01T00:00:00.000Z }` | result equals `{ id: 'e9697c17-fc38-4625-aaeb-a4f43cce4e09', content: 'hello world', isAnnouncement: false, sender: { id: 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44', role: 'PARTICIPANT', name: 'JJ', imageUrl: 'jane.png' }, createdAt: 2026-08-01T00:00:00.000Z }` | **Pass** |
 | UT-6-009-02 | room has zero messages → returns null | roomId: 'e8946e7f-42a6-4586-9089-9267d0312bff'<br>Setup: `message.findFirst` resolves `null` | result: null | result: null | **Pass** |
 
-### upsertRoomReadStatus — UT-6-010
+### upsertLastReadMessage — UT-6-010
 
 | Test ID | Scenario | Input | Expected Result | Actual Result | Test Result |
 | --- | --- | --- | --- | --- | --- |
@@ -217,7 +217,7 @@ buildRawMessage(overrides = {}) => ({
 Two concrete bugs of this shape were found and fixed here:
 
 1. **`createMessage` UT-6-006-02 through 09.** The service was called with `content: 'announcement text'` or `content: 'hi'`, but the mocked Prisma return (`raw`) kept the fixture's default `content: 'hello world'` since it was never overridden. `expect(result).toEqual(mapRawToExpected(raw))` passed regardless, because `mapRawToExpected` reads `raw.content`, not the dto's content — the assertion was really checking "does the service return whatever Prisma gave it back," not "does the service forward the correct content to Prisma." Fixed by (a) setting `raw.content` to match the actual dto content in every affected test, and (b) adding `expect(prismaMock.message.create).toHaveBeenCalledWith(... data: expect.objectContaining({ content: '<actual dto content>' }) ...)` to every test that checks a `result`, which is the assertion that actually ties input to output. Verified by temporarily hardcoding `content: 'BROKEN'` in the service — all 8 affected tests failed as expected, then the change was reverted.
-2. **`upsertRoomReadStatus` UT-6-010-01/02 and `getRoomReadStatus` UT-6-011-01/03.** The ORGANIZER and PARTICIPANT cases both mocked the same literal `lastReadAt` value, so a bug that swapped `organizerProfileId`/`participantProfileId` between call arguments could still produce a `result` that happened to equal the mock. Fixed by giving each role its own distinct timestamp; the `toHaveBeenCalledWith` assertions on the `where`/`create` clauses remain the primary correctness check.
+2. **`upsertLastReadMessage` UT-6-010-01/02 and `getRoomReadStatus` UT-6-011-01/03.** The ORGANIZER and PARTICIPANT cases both mocked the same literal `lastReadAt` value, so a bug that swapped `organizerProfileId`/`participantProfileId` between call arguments could still produce a `result` that happened to equal the mock. Fixed by giving each role its own distinct timestamp; the `toHaveBeenCalledWith` assertions on the `where`/`create` clauses remain the primary correctness check.
 
 ### Appendix C: Pagination fixture generator (for reproducibility)
 

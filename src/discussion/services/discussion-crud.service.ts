@@ -141,7 +141,7 @@ export class DiscussionCrudService {
   }
 
   // update last read message
-  async upsertRoomReadStatus(
+  async upsertLastReadMessage(
     roomId: string,
     role: Role,
     participantProfileId: string | null,
