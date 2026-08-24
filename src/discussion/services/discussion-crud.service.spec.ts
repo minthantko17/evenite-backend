@@ -663,13 +663,11 @@ describe('DiscussionCrudService', () => {
 
   describe('upsertRoomReadStatus', () => {
     it('UT-6-010-01: RoleOrganizer + room has messages → upserts keyed on roomId_readerOrganizerId, readerOrganizerId set, readerParticipantId null, lastReadMessageId set to latest message id', async () => {
-      const lastReadAt = new Date('2026-08-01T01:15:00Z');
       prismaMock.message.findFirst.mockResolvedValue(
         buildRawMessage({ id: MOCK_MESSAGE_ID }) as any,
       );
       prismaMock.roomReadStatus.upsert.mockResolvedValue({
         roomId: MOCK_ROOM_ID,
-        lastReadAt,
         lastReadMessageId: MOCK_MESSAGE_ID,
       } as any);
 
@@ -682,7 +680,6 @@ describe('DiscussionCrudService', () => {
 
       expect(result).toEqual({
         roomId: MOCK_ROOM_ID,
-        lastReadAt,
         lastReadMessageId: MOCK_MESSAGE_ID,
       });
       expect(prismaMock.roomReadStatus.upsert).toHaveBeenCalledWith({
@@ -696,21 +693,18 @@ describe('DiscussionCrudService', () => {
           roomId: MOCK_ROOM_ID,
           readerParticipantId: null,
           readerOrganizerId: MOCK_ORGANIZER_PROFILE_ID,
-          lastReadAt: expect.any(Date),
           lastReadMessageId: MOCK_MESSAGE_ID,
         },
-        update: { lastReadAt: expect.any(Date), lastReadMessageId: MOCK_MESSAGE_ID },
+        update: { lastReadMessageId: MOCK_MESSAGE_ID },
       });
     });
 
     it('UT-6-010-02: RoleParticipant + room has messages → upserts keyed on roomId_readerParticipantId, readerParticipantId set, readerOrganizerId null, lastReadMessageId set to latest message id', async () => {
-      const lastReadAt = new Date('2026-08-01T04:45:00Z');
       prismaMock.message.findFirst.mockResolvedValue(
         buildRawMessage({ id: MOCK_MESSAGE_ID }) as any,
       );
       prismaMock.roomReadStatus.upsert.mockResolvedValue({
         roomId: MOCK_ROOM_ID,
-        lastReadAt,
         lastReadMessageId: MOCK_MESSAGE_ID,
       } as any);
 
@@ -723,7 +717,6 @@ describe('DiscussionCrudService', () => {
 
       expect(result).toEqual({
         roomId: MOCK_ROOM_ID,
-        lastReadAt,
         lastReadMessageId: MOCK_MESSAGE_ID,
       });
       expect(prismaMock.roomReadStatus.upsert).toHaveBeenCalledWith({
@@ -737,19 +730,16 @@ describe('DiscussionCrudService', () => {
           roomId: MOCK_ROOM_ID,
           readerParticipantId: MOCK_PARTICIPANT_PROFILE_ID,
           readerOrganizerId: null,
-          lastReadAt: expect.any(Date),
           lastReadMessageId: MOCK_MESSAGE_ID,
         },
-        update: { lastReadAt: expect.any(Date), lastReadMessageId: MOCK_MESSAGE_ID },
+        update: { lastReadMessageId: MOCK_MESSAGE_ID },
       });
     });
 
     it('UT-6-010-04: room has no messages → lastReadMessageId stored as null', async () => {
-      const lastReadAt = new Date('2026-08-01T06:00:00Z');
       prismaMock.message.findFirst.mockResolvedValue(null);
       prismaMock.roomReadStatus.upsert.mockResolvedValue({
         roomId: MOCK_ROOM_ID,
-        lastReadAt,
         lastReadMessageId: null,
       } as any);
 
@@ -762,7 +752,6 @@ describe('DiscussionCrudService', () => {
 
       expect(result).toEqual({
         roomId: MOCK_ROOM_ID,
-        lastReadAt,
         lastReadMessageId: null,
       });
       expect(prismaMock.roomReadStatus.upsert).toHaveBeenCalledWith(
@@ -793,10 +782,8 @@ describe('DiscussionCrudService', () => {
   });
 
   describe('getRoomReadStatus', () => {
-    it('UT-6-011-01: RoleOrganizer + Found → returns lastReadAt and lastReadMessageId, queried by roomId_readerOrganizerId', async () => {
-      const lastReadAt = new Date('2026-08-01T02:20:00Z');
+    it('UT-6-011-01: RoleOrganizer + Found → returns lastReadMessageId, queried by roomId_readerOrganizerId', async () => {
       prismaMock.roomReadStatus.findUnique.mockResolvedValue({
-        lastReadAt,
         lastReadMessageId: MOCK_MESSAGE_ID,
       } as any);
 
@@ -807,7 +794,7 @@ describe('DiscussionCrudService', () => {
         MOCK_ORGANIZER_PROFILE_ID,
       );
 
-      expect(result).toEqual({ lastReadAt, lastReadMessageId: MOCK_MESSAGE_ID });
+      expect(result).toEqual({ lastReadMessageId: MOCK_MESSAGE_ID });
       expect(prismaMock.roomReadStatus.findUnique).toHaveBeenCalledWith({
         where: {
           roomId_readerOrganizerId: {
@@ -831,10 +818,8 @@ describe('DiscussionCrudService', () => {
       expect(result).toBeNull();
     });
 
-    it('UT-6-011-03: RoleParticipant + Found → returns lastReadAt and lastReadMessageId, queried by roomId_readerParticipantId', async () => {
-      const lastReadAt = new Date('2026-08-01T05:50:00Z');
+    it('UT-6-011-03: RoleParticipant + Found → returns lastReadMessageId, queried by roomId_readerParticipantId', async () => {
       prismaMock.roomReadStatus.findUnique.mockResolvedValue({
-        lastReadAt,
         lastReadMessageId: MOCK_MESSAGE_ID,
       } as any);
 
@@ -845,7 +830,7 @@ describe('DiscussionCrudService', () => {
         null,
       );
 
-      expect(result).toEqual({ lastReadAt, lastReadMessageId: MOCK_MESSAGE_ID });
+      expect(result).toEqual({ lastReadMessageId: MOCK_MESSAGE_ID });
       expect(prismaMock.roomReadStatus.findUnique).toHaveBeenCalledWith({
         where: {
           roomId_readerParticipantId: {

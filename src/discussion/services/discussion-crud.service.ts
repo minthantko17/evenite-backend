@@ -131,7 +131,7 @@ export class DiscussionCrudService {
     return message ? this.mapToReturnMessageDto(message) : null;
   }
 
-  // update last read time
+  // update last read message
   async upsertRoomReadStatus(
     roomId: string,
     role: Role,
@@ -169,14 +169,12 @@ export class DiscussionCrudService {
             role === Role.PARTICIPANT ? participantProfileId : null,
           readerOrganizerId:
             role === Role.ORGANIZER ? organizerProfileId : null,
-          lastReadAt: new Date(),
           lastReadMessageId,
         },
-        update: { lastReadAt: new Date(), lastReadMessageId },
+        update: { lastReadMessageId },
       });
       return {
         roomId: result.roomId,
-        lastReadAt: result.lastReadAt,
         lastReadMessageId: result.lastReadMessageId,
       };
     } catch (error) {
@@ -185,13 +183,13 @@ export class DiscussionCrudService {
     }
   }
 
-  // to know last read time for room
+  // to know last read message for room
   async getRoomReadStatus(
     roomId: string,
     role: Role,
     participantProfileId: string | null,
     organizerProfileId: string | null,
-  ): Promise<{ lastReadAt: Date; lastReadMessageId: string | null } | null> {
+  ): Promise<{ lastReadMessageId: string | null } | null> {
     const where =
       role === Role.ORGANIZER
         ? {
@@ -209,10 +207,7 @@ export class DiscussionCrudService {
 
     const result = await this.prisma.roomReadStatus.findUnique({ where });
     return result
-      ? {
-          lastReadAt: result.lastReadAt,
-          lastReadMessageId: result.lastReadMessageId,
-        }
+      ? { lastReadMessageId: result.lastReadMessageId }
       : null;
   }
 

@@ -83,7 +83,6 @@ function buildRoomReadStatusDto(
 ): ReturnRoomReadStatusDto {
   return {
     roomId: MOCK_ROOM_ID,
-    lastReadAt: new Date('2026-08-01T01:00:00Z'),
     lastReadMessageId: null,
     ...overrides,
   };
@@ -626,7 +625,6 @@ describe('DiscussionService', () => {
 
     it('UT-6-018-05: with no cursor and an existing read status with a lastReadMessageId, resumes via getPaginatedMessagesByCursor(after)', async () => {
       const readStatus = {
-        lastReadAt: new Date('2026-08-01T01:00:00Z'),
         lastReadMessageId: MOCK_CURSOR_ID,
       };
       crudServiceMock.getRoomReadStatus.mockResolvedValue(readStatus);
@@ -652,7 +650,6 @@ describe('DiscussionService', () => {
 
     it('UT-6-018-05b: with no cursor and a read status whose lastReadMessageId is null (room was empty at last read), falls through to the latest-page fetch', async () => {
       const readStatus = {
-        lastReadAt: new Date('2026-08-01T01:00:00Z'),
         lastReadMessageId: null,
       };
       crudServiceMock.getRoomReadStatus.mockResolvedValue(readStatus);
@@ -845,11 +842,11 @@ describe('DiscussionService', () => {
     });
 
     it('UT-6-019-03: for an ORGANIZER, upserts the read status keyed on organizerProfileId', async () => {
-      // distinct timestamp from the PARTICIPANT case below, so a swapped-args
+      // distinct message id from the PARTICIPANT case below, so a swapped-args
       // regression (e.g. organizerId passed into the participant slot) would
       // surface as a result mismatch, not just pass because both share one dto
       const expectedStatus = buildRoomReadStatusDto({
-        lastReadAt: new Date('2026-08-01T01:00:00Z'),
+        lastReadMessageId: 'mark-as-read-organizer-message-id',
       });
       crudServiceMock.upsertRoomReadStatus.mockResolvedValue(expectedStatus);
 
@@ -871,7 +868,7 @@ describe('DiscussionService', () => {
 
     it('UT-6-019-04: for a PARTICIPANT, upserts the read status keyed on participantProfileId', async () => {
       const expectedStatus = buildRoomReadStatusDto({
-        lastReadAt: new Date('2026-08-01T03:30:00Z'),
+        lastReadMessageId: 'mark-as-read-participant-message-id',
       });
       crudServiceMock.upsertRoomReadStatus.mockResolvedValue(expectedStatus);
 
@@ -954,7 +951,6 @@ describe('DiscussionService', () => {
         sender: buildSender(Role.PARTICIPANT),
       });
       const readStatus = {
-        lastReadAt: new Date('2026-08-02T09:00:00Z'),
         lastReadMessageId: 'created-rooms-latest-message-id',
       };
       crudServiceMock.getOrganizerEventsWithRoom.mockResolvedValue([

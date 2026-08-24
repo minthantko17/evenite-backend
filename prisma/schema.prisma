@@ -284,9 +284,8 @@ model Message {
 }
 
 model RoomReadStatus {
-  id                String   @id @default(uuid())
+  id                String  @id @default(uuid())
   roomId            String
-  lastReadAt        DateTime @default(now())
   lastReadMessageId String?
 
   readerParticipantId String?
