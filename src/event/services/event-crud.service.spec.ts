@@ -56,6 +56,7 @@ const mockEvent = {
   startAt: new Date('2026-07-01T02:00:00.000Z'),
   endAt: new Date('2026-07-01T08:00:00.000Z'),
   seatLimit: 500,
+  seatsTaken: 0,
   hasCatering: true,
   isCateringFree: true,
   cateringDescription: {
@@ -74,6 +75,7 @@ const mockEvent = {
   createdAt: new Date('2026-07-01T00:00:00.000Z'),
   updatedAt: new Date('2026-07-01T00:00:00.000Z'),
   publishedAt: new Date('2026-07-01T00:00:00.000Z'),
+  roomId: null,
   forms: [],
 };
 
@@ -96,6 +98,7 @@ const mockEvent2 = {
   startAt: new Date('2026-11-07T02:00:00.000Z'),
   endAt: new Date('2026-11-07T05:00:00.000Z'),
   seatLimit: 30,
+  seatsTaken: 0,
   hasCatering: false,
   isCateringFree: false,
   cateringDescription: { en: '', th: '' },
@@ -114,6 +117,7 @@ const mockEvent2 = {
   createdAt: new Date('2026-10-01T00:00:00.000Z'),
   updatedAt: new Date('2026-10-01T00:00:00.000Z'),
   publishedAt: null,
+  roomId: null,
   forms: [{ id: 'form-uuid-1', type: 'REGISTRATION' }],
 };
 
@@ -269,20 +273,13 @@ const mockMarathonDbEvent = {
   organizerId: 'mock-org-uuid-1234',
   universityId: 'mock-university-uuid-1234',
   ...mockMarathonEventDto,
+  seatsTaken: 0,
+  roomId: null,
   status: EventStatus.PUBLISHED,
   publishedAt: new Date('2026-11-01T00:00:00.000Z'),
   createdAt: new Date('2026-10-01T00:00:00.000Z'),
   updatedAt: new Date('2026-10-01T00:00:00.000Z'),
   forms: [{ id: 'mock-form-uuid-1', type: 'REGISTRATION' }],
-};
-
-const mockMarathonRegistration = {
-  id: 'mock-registration-uuid-1234',
-  participantId: 'mock-participant-uuid-1234',
-  eventId: 'marathon-event-uuid-1234',
-  createdAt: new Date('2026-11-15T00:00:00.000Z'),
-  updatedAt: new Date('2026-11-15T00:00:00.000Z'),
-  event: mockMarathonDbEvent,
 };
 
 describe('EventCrudService - sanitizeEventData', () => {
@@ -515,6 +512,7 @@ describe('EventCrudService - saveEvent', () => {
         remarks: dto.remarks,
         bannerUrl: dto.bannerUrl,
         status: EventStatus.DRAFT,
+        discussionRoom: { create: {} },
       },
     });
     expect(mockPrisma.event.update).not.toHaveBeenCalled();
@@ -758,7 +756,10 @@ describe('EventCrudService - getEvents', () => {
     expect(mockPrisma.event.findMany).toHaveBeenCalledWith({
       where: { universityId },
       orderBy: { createdAt: 'desc' },
-      include: { forms: { select: { id: true, type: true } } },
+      include: {
+        forms: { select: { id: true, type: true } },
+        discussionRoom: { select: { id: true } },
+      },
     });
     expect(mockPrisma.event.findMany).toHaveBeenCalledTimes(1);
   });
@@ -778,7 +779,10 @@ describe('EventCrudService - getEvents', () => {
     expect(mockPrisma.event.findMany).toHaveBeenCalledWith({
       where: { universityId, status },
       orderBy: { createdAt: 'desc' },
-      include: { forms: { select: { id: true, type: true } } },
+      include: {
+        forms: { select: { id: true, type: true } },
+        discussionRoom: { select: { id: true } },
+      },
     });
   });
 
@@ -797,7 +801,10 @@ describe('EventCrudService - getEvents', () => {
     expect(mockPrisma.event.findMany).toHaveBeenCalledWith({
       where: { universityId, status },
       orderBy: { createdAt: 'desc' },
-      include: { forms: { select: { id: true, type: true } } },
+      include: {
+        forms: { select: { id: true, type: true } },
+        discussionRoom: { select: { id: true } },
+      },
     });
   });
 
@@ -836,7 +843,10 @@ describe('EventCrudService - getEvents', () => {
     expect(mockPrisma.event.findMany).toHaveBeenCalledWith({
       where: { universityId, status: { in: status } },
       orderBy: { createdAt: 'desc' },
-      include: { forms: { select: { id: true, type: true } } },
+      include: {
+        forms: { select: { id: true, type: true } },
+        discussionRoom: { select: { id: true } },
+      },
     });
   });
 });
@@ -870,7 +880,10 @@ describe('EventCrudService - getEventById', () => {
     expect(result).toEqual(mockEvent);
     expect(mockPrisma.event.findUnique).toHaveBeenCalledWith({
       where: { id: eventId },
-      include: { forms: { select: { id: true, type: true } } },
+      include: {
+        forms: { select: { id: true, type: true } },
+        discussionRoom: { select: { id: true } },
+      },
     });
     expect(mockPrisma.event.findUnique).toHaveBeenCalledTimes(1);
   });
@@ -897,7 +910,10 @@ describe('EventCrudService - getEventById', () => {
     await expect(result).rejects.toThrow('Event not found.');
     expect(mockPrisma.event.findUnique).toHaveBeenCalledWith({
       where: { id: eventId },
-      include: { forms: { select: { id: true, type: true } } },
+      include: {
+        forms: { select: { id: true, type: true } },
+        discussionRoom: { select: { id: true } },
+      },
     });
   });
 });
@@ -940,7 +956,10 @@ describe('EventCrudService - getEventsByOrganizerId', () => {
     expect(mockPrisma.event.findMany).toHaveBeenCalledWith({
       where: { organizerId: organizerProfileId, universityId },
       orderBy: { createdAt: 'desc' },
-      include: { forms: { select: { id: true, type: true } } },
+      include: {
+        forms: { select: { id: true, type: true } },
+        discussionRoom: { select: { id: true } },
+      },
     });
     expect(mockPrisma.event.findMany).toHaveBeenCalledTimes(1);
   });
@@ -965,7 +984,10 @@ describe('EventCrudService - getEventsByOrganizerId', () => {
     expect(mockPrisma.event.findMany).toHaveBeenCalledWith({
       where: { organizerId: organizerProfileId, universityId, status },
       orderBy: { createdAt: 'desc' },
-      include: { forms: { select: { id: true, type: true } } },
+      include: {
+        forms: { select: { id: true, type: true } },
+        discussionRoom: { select: { id: true } },
+      },
     });
   });
 
@@ -986,100 +1008,6 @@ describe('EventCrudService - getEventsByOrganizerId', () => {
     // Assert
     expect(result).toEqual([]);
     expect(mockPrisma.event.findMany).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe('EventCrudService - getRegisteredEventsByParticipantId', () => {
-  let service: EventCrudService;
-
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        EventCrudService,
-        { provide: PrismaService, useValue: mockPrisma },
-        { provide: EventStorageService, useValue: mockStorageService },
-        { provide: EventDataUtils, useValue: mockUtils },
-      ],
-    }).compile();
-
-    service = module.get<EventCrudService>(EventCrudService);
-    jest.clearAllMocks();
-  });
-
-  it('UT-2-021-01: should return registrations with nested event data when no status filter provided', async () => {
-    const participantProfileId = 'mock-participant-uuid-1234';
-    const universityId = 'mock-university-uuid-1234';
-    mockPrisma.eventRegistration.findMany.mockResolvedValueOnce([
-      mockMarathonRegistration,
-    ]);
-
-    const result = await service.getRegisteredEventsByParticipantId(
-      participantProfileId,
-      universityId,
-    );
-    // console.log('[UT-2-021-01] Input participantProfileId:', participantProfileId, '| universityId:', universityId);
-    // console.log('[UT-2-021-01] Expected result:', [mockMarathonRegistration]);
-    // console.log('[UT-2-021-01] Actual result:', result);
-
-    expect(result).toEqual([mockMarathonRegistration]);
-    expect(mockPrisma.eventRegistration.findMany).toHaveBeenCalledWith({
-      where: {
-        participantId: participantProfileId,
-        event: { universityId },
-      },
-      include: { event: true },
-      orderBy: { createdAt: 'desc' },
-    });
-    expect(mockPrisma.eventRegistration.findMany).toHaveBeenCalledTimes(1);
-  });
-
-  it('UT-2-021-02: should filter by event status when status provided', async () => {
-    const participantProfileId = 'mock-participant-uuid-1234';
-    const universityId = 'mock-university-uuid-1234';
-    const status = EventStatus.PUBLISHED;
-    mockPrisma.eventRegistration.findMany.mockResolvedValueOnce([
-      mockMarathonRegistration,
-    ]);
-
-    const result = await service.getRegisteredEventsByParticipantId(
-      participantProfileId,
-      universityId,
-      status,
-    );
-    // console.log('[UT-2-021-02] Input participantProfileId:', participantProfileId, '| status:', status);
-    // console.log('[UT-2-021-02] Input universityId:', universityId);
-    // console.log('[UT-2-021-02] Expected where.event.status:', status);
-    // console.log('[UT-2-021-02] Expected result: ', [mockMarathonRegistration]);
-    // console.log('[UT-2-021-02] Actual result: ', result);
-
-    expect(result).toEqual([mockMarathonRegistration]);
-    expect(mockPrisma.eventRegistration.findMany).toHaveBeenCalledWith({
-      where: {
-        participantId: participantProfileId,
-        event: { universityId, status },
-      },
-      include: { event: true },
-      orderBy: { createdAt: 'desc' },
-    });
-  });
-
-  it('UT-2-021-03: should return empty array when participant has no registrations', async () => {
-    const participantProfileId = 'mock-participant-uuid-no-events';
-    const universityId = 'mock-university-uuid-1234';
-    mockPrisma.eventRegistration.findMany.mockResolvedValueOnce([]);
-
-    const result = await service.getRegisteredEventsByParticipantId(
-      participantProfileId,
-      universityId,
-    );
-    // console.log('[UT-2-021-03] Input participantProfileId:', participantProfileId);
-    // console.log('[UT-2-021-03] Input universityId:', universityId);
-    // console.log('[UT-2-021-03] Expected result:', []);
-    // console.log('[UT-2-021-03] Actual result:', result);
-
-    // Assert
-    expect(result).toEqual([]);
-    expect(mockPrisma.eventRegistration.findMany).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -1183,6 +1111,7 @@ describe('EventCrudService - mapToEventResponseDto', () => {
       startAt: rawEvent.startAt,
       endAt: rawEvent.endAt,
       seatLimit: rawEvent.seatLimit,
+      seatsTaken: rawEvent.seatsTaken,
       hasCatering: rawEvent.hasCatering,
       isCateringFree: rawEvent.isCateringFree,
       cateringDescription: rawEvent.cateringDescription,
@@ -1198,6 +1127,7 @@ describe('EventCrudService - mapToEventResponseDto', () => {
       publishedAt: rawEvent.publishedAt,
       createdAt: rawEvent.createdAt,
       updatedAt: rawEvent.updatedAt,
+      roomId: rawEvent.roomId,
       forms: [{ id: 'mock-form-uuid-1', type: 'REGISTRATION' }],
     };
 
