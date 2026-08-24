@@ -13,7 +13,8 @@ import { EventWithDiscussionRoom } from './types/discussion.types';
 import { BilingualField } from '../event/dto/bilingual-field.dto';
 
 const DEFAULT_MESSAGE_PAGE_SIZE = 25;
-const DEFAULT_ANNOUNCEMENT_PAGE_SIZE = 15;
+const MAX_MESSAGE_PAGE_SIZE = 25;
+const MAX_ANNOUNCEMENT_COUNT = 15;
 
 @Injectable()
 export class DiscussionService {
@@ -83,7 +84,10 @@ export class DiscussionService {
       organizerProfileId,
     );
 
-    const pageSize = query.limit ?? DEFAULT_MESSAGE_PAGE_SIZE;
+    const pageSize = Math.min(
+      query.limit ?? DEFAULT_MESSAGE_PAGE_SIZE,
+      MAX_MESSAGE_PAGE_SIZE,
+    );
 
     // If no cursor, resume from the last read message. 
     // If never read (or the room was empty at last read), fall through to the plain latest-page fetch
@@ -101,7 +105,6 @@ export class DiscussionService {
           readStatus.lastReadMessageId,
           'after',
           pageSize,
-          false,
         );
       }
     }
@@ -111,19 +114,17 @@ export class DiscussionService {
       query.cursor,
       query.direction ?? 'before',
       pageSize,
-      false,
     );
   }
 
-  // called from REST — announcements are not tracked via read status, so this
-  // is always a plain cursor page over isAnnouncement=true messages
+  // announcements are never paginated, always return the latest
+  // MAX_ANNOUNCEMENT_COUNT, no scroll-back
   async getAnnouncements(
     roomId: string,
-    query: GetMessagesQueryDto,
     role: Role,
     participantProfileId: string | null,
     organizerProfileId: string | null,
-  ): Promise<ReturnMessagePageDto> {
+  ): Promise<ReturnMessageDto[]> {
     const { event } =
       await this.discussionValidationService.validateRoomExists(roomId);
     await this.discussionValidationService.validateRoomAccess(
@@ -133,14 +134,9 @@ export class DiscussionService {
       organizerProfileId,
     );
 
-    const pageSize = query.limit ?? DEFAULT_ANNOUNCEMENT_PAGE_SIZE;
-
-    return this.discussionCrudService.getPaginatedMessagesByCursor(
+    return this.discussionCrudService.getLatestAnnouncements(
       roomId,
-      query.cursor,
-      query.direction ?? 'before',
-      pageSize,
-      true,
+      MAX_ANNOUNCEMENT_COUNT,
     );
   }
 

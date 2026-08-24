@@ -181,6 +181,7 @@ describe('DiscussionService', () => {
     crudServiceMock.getLatestMessageForRoom.mockResolvedValue(null);
     crudServiceMock.countUnreadMessages.mockResolvedValue(0);
     crudServiceMock.findRoomByEventId.mockResolvedValue(null);
+    crudServiceMock.getLatestAnnouncements.mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -598,7 +599,6 @@ describe('DiscussionService', () => {
         MOCK_CURSOR_ID,
         'after',
         10,
-        false,
       );
     });
 
@@ -619,7 +619,6 @@ describe('DiscussionService', () => {
         MOCK_CURSOR_ID,
         'before',
         25,
-        false,
       );
     });
 
@@ -644,7 +643,6 @@ describe('DiscussionService', () => {
         MOCK_CURSOR_ID,
         'after',
         20,
-        false,
       );
     });
 
@@ -669,7 +667,6 @@ describe('DiscussionService', () => {
         undefined,
         'before',
         20,
-        false,
       );
     });
 
@@ -691,7 +688,6 @@ describe('DiscussionService', () => {
         undefined,
         'before',
         20,
-        false,
       );
     });
 
@@ -713,7 +709,6 @@ describe('DiscussionService', () => {
         undefined,
         'before',
         25,
-        false,
       );
     });
   });
@@ -723,12 +718,10 @@ describe('DiscussionService', () => {
       validationServiceMock.validateRoomExists.mockRejectedValue(
         new RoomNotFoundException(),
       );
-      const query: GetMessagesQueryDto = {};
 
       await expect(
         service.getAnnouncements(
           MOCK_ROOM_ID,
-          query,
           Role.ORGANIZER,
           null,
           MOCK_ORGANIZER_PROFILE_ID,
@@ -736,95 +729,50 @@ describe('DiscussionService', () => {
       ).rejects.toThrow(RoomNotFoundException);
 
       expect(validationServiceMock.validateRoomAccess).not.toHaveBeenCalled();
-      expect(crudServiceMock.getPaginatedMessagesByCursor).not.toHaveBeenCalled();
+      expect(
+        crudServiceMock.getLatestAnnouncements,
+      ).not.toHaveBeenCalled();
     });
 
     it('UT-6-018a-02: throws RoomAccessDeniedException when caller is not authorized', async () => {
       validationServiceMock.validateRoomAccess.mockRejectedValue(
         new RoomAccessDeniedException(),
       );
-      const query: GetMessagesQueryDto = {};
 
       await expect(
         service.getAnnouncements(
           MOCK_ROOM_ID,
-          query,
           Role.PARTICIPANT,
           MOCK_PARTICIPANT_PROFILE_ID,
           null,
         ),
       ).rejects.toThrow(RoomAccessDeniedException);
 
-      expect(crudServiceMock.getPaginatedMessagesByCursor).not.toHaveBeenCalled();
+      expect(
+        crudServiceMock.getLatestAnnouncements,
+      ).not.toHaveBeenCalled();
     });
 
-    it('UT-6-018a-03: never consults read status — calls getPaginatedMessagesByCursor with isAnnouncement=true directly', async () => {
-      const query: GetMessagesQueryDto = { limit: 10 };
+    it('UT-6-018a-03: delegates straight to DiscussionCrudService.getLatestAnnouncements(roomId, MAX_ANNOUNCEMENT_COUNT)', async () => {
+      const announcements = [
+        buildReturnMessage({ id: 'announcement-1', isAnnouncement: true }),
+      ];
+      crudServiceMock.getLatestAnnouncements.mockResolvedValue(
+        announcements,
+      );
 
       const result = await service.getAnnouncements(
         MOCK_ROOM_ID,
-        query,
         Role.ORGANIZER,
         null,
         MOCK_ORGANIZER_PROFILE_ID,
       );
 
-      expect(result).toEqual(MOCK_MESSAGE_PAGE_BY_CURSOR);
+      expect(result).toEqual(announcements);
       expect(crudServiceMock.getRoomReadStatus).not.toHaveBeenCalled();
-      expect(crudServiceMock.getPaginatedMessagesByCursor).toHaveBeenCalledWith(
-        MOCK_ROOM_ID,
-        undefined,
-        'before',
-        10,
-        true,
-      );
-    });
-
-    it('UT-6-018a-04: limit omitted → pageSize defaults to DEFAULT_ANNOUNCEMENT_PAGE_SIZE (15)', async () => {
-      const query: GetMessagesQueryDto = {};
-
-      const result = await service.getAnnouncements(
-        MOCK_ROOM_ID,
-        query,
-        Role.PARTICIPANT,
-        MOCK_PARTICIPANT_PROFILE_ID,
-        null,
-      );
-
-      expect(result).toEqual(MOCK_MESSAGE_PAGE_BY_CURSOR);
-      expect(crudServiceMock.getPaginatedMessagesByCursor).toHaveBeenCalledWith(
-        MOCK_ROOM_ID,
-        undefined,
-        'before',
-        15,
-        true,
-      );
-    });
-
-    it('UT-6-018a-05: with an explicit cursor, forwards cursor/direction and isAnnouncement=true', async () => {
-      const query: GetMessagesQueryDto = {
-        cursor: MOCK_CURSOR_ID,
-        direction: 'after',
-        limit: 5,
-      };
-
-      const result = await service.getAnnouncements(
-        MOCK_ROOM_ID,
-        query,
-        Role.ORGANIZER,
-        null,
-        MOCK_ORGANIZER_PROFILE_ID,
-      );
-
-      expect(result).toEqual(MOCK_MESSAGE_PAGE_BY_CURSOR);
-      expect(crudServiceMock.getRoomReadStatus).not.toHaveBeenCalled();
-      expect(crudServiceMock.getPaginatedMessagesByCursor).toHaveBeenCalledWith(
-        MOCK_ROOM_ID,
-        MOCK_CURSOR_ID,
-        'after',
-        5,
-        true,
-      );
+      expect(
+        crudServiceMock.getLatestAnnouncements,
+      ).toHaveBeenCalledWith(MOCK_ROOM_ID, 15);
     });
   });
 

@@ -13,9 +13,6 @@ import { SaveRoomReadStatusException } from '../exceptions/save-room-read-status
 import type { BilingualField } from '../../event/dto/bilingual-field.dto';
 import { EventWithDiscussionRoom } from '../types/discussion.types';
 
-const MAX_MESSAGE_PAGE_SIZE = 25;
-const MAX_ANNOUNCEMENT_PAGE_SIZE = 15;
-
 @Injectable()
 export class DiscussionCrudService {
   private readonly logger = new Logger(DiscussionCrudService.name);
@@ -63,24 +60,16 @@ export class DiscussionCrudService {
     cursor: string | undefined,
     direction: 'before' | 'after',
     limit: number,
-    isAnnouncement: boolean = false,
   ): Promise<ReturnMessagePageDto> {
-    const take = Math.min(
-      limit,
-      isAnnouncement ? MAX_ANNOUNCEMENT_PAGE_SIZE : MAX_MESSAGE_PAGE_SIZE,
-    );
     const isBefore = direction === 'before';
 
     const messages = await this.prisma.message.findMany({
-      where: {
-        roomId,
-        ...(isAnnouncement && { isAnnouncement: true }),
-      },
+      where: { roomId },
       orderBy: isBefore
         ? [{ createdAt: 'desc' }, { id: 'desc' }]
         : [{ createdAt: 'asc' }, { id: 'asc' }],
       ...(cursor && { cursor: { id: cursor }, skip: 1 }),
-      take: take + 1, // fetch extra one to check if there's more
+      take: limit + 1, // fetch extra one to check if there's more
       include: {
         senderParticipant: {
           select: { id: true, firstName: true, nickname: true, imageUrl: true },
@@ -89,9 +78,9 @@ export class DiscussionCrudService {
       },
     });
 
-    const hasMoreMessageInQueriedDirection = messages.length > take;
+    const hasMoreMessageInQueriedDirection = messages.length > limit;
     const page = hasMoreMessageInQueriedDirection
-      ? messages.slice(0, take)
+      ? messages.slice(0, limit)
       : messages;
     const orderedPage = isBefore ? [...page].reverse() : page;
     const mapped = orderedPage.map((m) => this.mapToReturnMessageDto(m));
@@ -113,6 +102,26 @@ export class DiscussionCrudService {
       oldestCursor,
       newestCursor,
     };
+  }
+
+  // retrieve only fixed number of latest announcements, no pagination
+  async getLatestAnnouncements(
+    roomId: string,
+    limit: number,
+  ): Promise<ReturnMessageDto[]> {
+    const messages = await this.prisma.message.findMany({
+      where: { roomId, isAnnouncement: true },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: limit,
+      include: {
+        senderParticipant: {
+          select: { id: true, firstName: true, nickname: true, imageUrl: true },
+        },
+        senderOrganizer: { select: { id: true, name: true, imageUrl: true } },
+      },
+    });
+
+    return messages.reverse().map((m) => this.mapToReturnMessageDto(m));
   }
 
   async getLatestMessageForRoom(

@@ -49,7 +49,6 @@ const MOCK_MESSAGE_IDS = [
 const mockMessageId = (n: number) => MOCK_MESSAGE_IDS[n];
 
 const MAX_MESSAGE_PAGE_SIZE = 25;
-const MAX_ANNOUNCEMENT_PAGE_SIZE = 15;
 
 const buildRawMessage = (overrides: Record<string, any> = {}) => ({
   id: MOCK_MESSAGE_ID,
@@ -574,7 +573,7 @@ describe('DiscussionCrudService', () => {
       });
     });
 
-    it('UT-6-007-11: NotAnnouncement, CustomLimit (<= MAX_MESSAGE_PAGE_SIZE) → take = provided limit', async () => {
+    it('UT-6-007-11: take = limit + 1, for a limit under the service-layer max', async () => {
       prismaMock.message.findMany.mockResolvedValue([] as any);
 
       await service.getPaginatedMessagesByCursor(MOCK_ROOM_ID, undefined, 'before', 5);
@@ -584,17 +583,17 @@ describe('DiscussionCrudService', () => {
       );
     });
 
-    it('UT-6-007-12: NotAnnouncement, ClampedLimit (> MAX_MESSAGE_PAGE_SIZE) → take = MAX_MESSAGE_PAGE_SIZE', async () => {
+    it('UT-6-007-12: limit is trusted as-is — no clamping in this method (that is the service layer\'s job)', async () => {
       prismaMock.message.findMany.mockResolvedValue([] as any);
 
       await service.getPaginatedMessagesByCursor(MOCK_ROOM_ID, undefined, 'before', 999);
 
       expect(prismaMock.message.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ take: MAX_MESSAGE_PAGE_SIZE + 1 }),
+        expect.objectContaining({ take: 1000 }),
       );
     });
 
-    it('UT-6-007-13: NotAnnouncement (defaulted, param omitted) → where has no isAnnouncement key', async () => {
+    it('UT-6-007-13: where filters only by roomId (no isAnnouncement concept in this method anymore)', async () => {
       prismaMock.message.findMany.mockResolvedValue([] as any);
 
       await service.getPaginatedMessagesByCursor(MOCK_ROOM_ID, undefined, 'before', 10);
@@ -602,42 +601,61 @@ describe('DiscussionCrudService', () => {
       const callArgs = prismaMock.message.findMany.mock.calls[0][0];
       expect(callArgs?.where).toEqual({ roomId: MOCK_ROOM_ID });
     });
+  });
 
-    it('UT-6-007-14: Announcement=true, CustomLimit (<= MAX_ANNOUNCEMENT_PAGE_SIZE) → where includes isAnnouncement: true, take = limit', async () => {
-      prismaMock.message.findMany.mockResolvedValue([] as any);
-
-      await service.getPaginatedMessagesByCursor(
-        MOCK_ROOM_ID,
-        undefined,
-        'before',
-        10,
-        true,
-      );
-
-      expect(prismaMock.message.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { roomId: MOCK_ROOM_ID, isAnnouncement: true },
-          take: 11,
+  describe('getLatestAnnouncements', () => {
+    it('queries only isAnnouncement=true messages for the room, ordered newest-first then reversed to chronological order, take = limit as given', async () => {
+      const raws = [
+        buildRawMessage({
+          id: mockMessageId(0),
+          isAnnouncement: true,
+          createdAt: new Date('2026-08-01T00:02:00Z'),
         }),
-      );
+        buildRawMessage({
+          id: mockMessageId(1),
+          isAnnouncement: true,
+          createdAt: new Date('2026-08-01T00:01:00Z'),
+        }),
+        buildRawMessage({
+          id: mockMessageId(2),
+          isAnnouncement: true,
+          createdAt: new Date('2026-08-01T00:00:00Z'),
+        }),
+      ];
+      const expected = [...raws].reverse().map(mapRawToExpected);
+      prismaMock.message.findMany.mockResolvedValue([...raws] as any);
+
+      const result = await service.getLatestAnnouncements(MOCK_ROOM_ID, 15);
+
+      expect(result).toEqual(expected);
+      expect(prismaMock.message.findMany).toHaveBeenCalledWith({
+        where: { roomId: MOCK_ROOM_ID, isAnnouncement: true },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: 15,
+        include: {
+          senderParticipant: {
+            select: { id: true, firstName: true, nickname: true, imageUrl: true },
+          },
+          senderOrganizer: { select: { id: true, name: true, imageUrl: true } },
+        },
+      });
     });
 
-    it('UT-6-007-15: Announcement=true, ClampedLimit (> MAX_ANNOUNCEMENT_PAGE_SIZE) → take = MAX_ANNOUNCEMENT_PAGE_SIZE (15, not 25)', async () => {
+    it('room has no announcements → returns an empty array', async () => {
       prismaMock.message.findMany.mockResolvedValue([] as any);
 
-      await service.getPaginatedMessagesByCursor(
-        MOCK_ROOM_ID,
-        undefined,
-        'before',
-        20,
-        true,
-      );
+      const result = await service.getLatestAnnouncements(MOCK_ROOM_ID, 15);
+
+      expect(result).toEqual([]);
+    });
+
+    it('limit is trusted as-is — no clamping in this method (that is the service layer\'s job)', async () => {
+      prismaMock.message.findMany.mockResolvedValue([] as any);
+
+      await service.getLatestAnnouncements(MOCK_ROOM_ID, 999);
 
       expect(prismaMock.message.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { roomId: MOCK_ROOM_ID, isAnnouncement: true },
-          take: MAX_ANNOUNCEMENT_PAGE_SIZE + 1,
-        }),
+        expect.objectContaining({ take: 999 }),
       );
     });
   });
