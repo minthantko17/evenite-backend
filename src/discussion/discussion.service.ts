@@ -12,6 +12,9 @@ import { ACTIVE_ROOM_STATUSES, ARCHIVED_ROOM_STATUSES } from './constants/discus
 import { EventWithDiscussionRoom } from './types/discussion.types';
 import { BilingualField } from '../event/dto/bilingual-field.dto';
 
+const DEFAULT_MESSAGE_PAGE_SIZE = 25;
+const DEFAULT_ANNOUNCEMENT_PAGE_SIZE = 15;
+
 @Injectable()
 export class DiscussionService {
   private readonly logger = new Logger(DiscussionService.name);
@@ -70,6 +73,7 @@ export class DiscussionService {
     participantProfileId: string | null,
     organizerProfileId: string | null,
   ): Promise<ReturnMessagePageDto> {
+    // validation
     const { event } =
       await this.discussionValidationService.validateRoomExists(roomId);
     await this.discussionValidationService.validateRoomAccess(
@@ -79,7 +83,17 @@ export class DiscussionService {
       organizerProfileId,
     );
 
-    if (!query.cursor) {
+    const isAnnouncement = query.isAnnouncement === true;
+    const pageSize =
+      query.limit ??
+      (isAnnouncement
+        ? DEFAULT_ANNOUNCEMENT_PAGE_SIZE
+        : DEFAULT_MESSAGE_PAGE_SIZE);
+
+    // If no cursor, find last read. If also no last read, skip this block
+    // if announcement, last read retieval should be skipped
+    // since announcements are not tracked with read status, announcements will only be retrieved from the latest one
+    if (!query.cursor && !isAnnouncement) {
       const readStatus = await this.discussionCrudService.getRoomReadStatus(
         roomId,
         role,
@@ -91,7 +105,7 @@ export class DiscussionService {
         return this.discussionCrudService.getPaginatedMessagesByTimestamp(
           roomId,
           readStatus.lastReadAt,
-          query.limit,
+          pageSize,
         );
       }
       // if no readStatus, fall through to plain latest-page fetch below
@@ -101,7 +115,8 @@ export class DiscussionService {
       roomId,
       query.cursor,
       query.direction ?? 'before',
-      query.limit,
+      pageSize,
+      isAnnouncement,
     );
   }
 

@@ -13,8 +13,8 @@ import { SaveRoomReadStatusException } from '../exceptions/save-room-read-status
 import type { BilingualField } from '../../event/dto/bilingual-field.dto';
 import { EventWithDiscussionRoom } from '../types/discussion.types';
 
-const DEFAULT_PAGE_SIZE = 25;
-const MAX_PAGE_SIZE = 25;
+const MAX_MESSAGE_PAGE_SIZE = 25;
+const MAX_ANNOUNCEMENT_PAGE_SIZE = 15;
 
 @Injectable()
 export class DiscussionCrudService {
@@ -40,7 +40,12 @@ export class DiscussionCrudService {
         },
         include: {
           senderParticipant: {
-            select: { id: true, firstName: true, nickname: true, imageUrl: true },
+            select: {
+              id: true,
+              firstName: true,
+              nickname: true,
+              imageUrl: true,
+            },
           },
           senderOrganizer: { select: { id: true, name: true, imageUrl: true } },
         },
@@ -57,13 +62,20 @@ export class DiscussionCrudService {
     roomId: string,
     cursor: string | undefined,
     direction: 'before' | 'after',
-    limit: number | undefined,
+    limit: number,
+    isAnnouncement: boolean = false,
   ): Promise<ReturnMessagePageDto> {
-    const take = Math.min(limit ?? DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
+    const take = Math.min(
+      limit,
+      isAnnouncement ? MAX_ANNOUNCEMENT_PAGE_SIZE : MAX_MESSAGE_PAGE_SIZE,
+    );
     const isBefore = direction === 'before';
 
     const messages = await this.prisma.message.findMany({
-      where: { roomId },
+      where: {
+        roomId,
+        ...(isAnnouncement && { isAnnouncement: true }),
+      },
       orderBy: isBefore
         ? [{ createdAt: 'desc' }, { id: 'desc' }]
         : [{ createdAt: 'asc' }, { id: 'asc' }],
@@ -106,9 +118,9 @@ export class DiscussionCrudService {
   async getPaginatedMessagesByTimestamp(
     roomId: string,
     lastReadAt: Date,
-    limit: number | undefined,
+    limit: number,
   ): Promise<ReturnMessagePageDto> {
-    const take = Math.min(limit ?? DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
+    const take = Math.min(limit, MAX_MESSAGE_PAGE_SIZE);
 
     // find the actual last-read message
     const anchorMessage = await this.prisma.message.findFirst({

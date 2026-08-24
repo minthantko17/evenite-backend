@@ -68,6 +68,22 @@ export class DiscussionController {
     );
   }
 
+  @Get(':roomId/announcements')
+  async getAnnouncements(
+    @Param('roomId', ParseUUIDPipe) roomId: string,
+    @Query() query: GetMessagesQueryDto,
+    @Req() req: Request,
+  ): Promise<ReturnMessagePageDto> {
+    const user = req.user as JwtAccessPayload;
+    return this.discussionService.getMessages(
+      roomId,
+      { ...query, isAnnouncement: true },
+      user.currentRole!,
+      user.currentRole === Role.PARTICIPANT ? user.participantProfileId! : null,
+      user.currentRole === Role.ORGANIZER ? user.organizerProfileId! : null,
+    );
+  }
+
   @Patch(':roomId/read')
   async markAsRead(
     @Param('roomId', ParseUUIDPipe) roomId: string,

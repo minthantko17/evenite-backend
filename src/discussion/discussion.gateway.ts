@@ -151,25 +151,39 @@ export class DiscussionGateway
     eventId: string;
     participantProfileId: string;
   }): Promise<void> {
-    const room = await this.discussionService.findRoomByEventId(
-      payload.eventId,
-    );
-    if (!room) return;
+    try {
+      const room = await this.discussionService.findRoomByEventId(
+        payload.eventId,
+      );
+      if (!room){
+        this.logger.warn(
+          `No discussion room found for event ${payload.eventId}. Cannot disconnect participant ${payload.participantProfileId}.`,
+        );
+        return;
+      }
 
-    await this.forceDisconnectParticipant(
-      room.roomId,
-      payload.participantProfileId,
-    );
-    this.logger.log(
-      `Participant ${payload.participantProfileId} disconnected from room ${room.roomId} due to registration cancellation.`,
-    );
+      const disconnectResult = await this.forceDisconnectParticipant(
+        room.roomId,
+        payload.participantProfileId,
+      );
+      this.logger.log(
+        disconnectResult.message,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to handle registration cancellation for participant ${payload.participantProfileId} in event ${payload.eventId}: ${error}`,
+      );
+    }
   }
 
   private async forceDisconnectParticipant(
     roomId: string,
     participantProfileId: string,
-  ): Promise<void> {
+  ): Promise<{message: string}> {
     const socketsInRoom = await this.server.in(roomId).fetchSockets();
+    if(socketsInRoom.length === 0) {
+      return { message: `No room sockets found.` };
+    }
 
     for (const remoteSocket of socketsInRoom) {
       if (
@@ -177,8 +191,10 @@ export class DiscussionGateway
       ) {
         remoteSocket.emit('room:kicked', { roomId });
         remoteSocket.leave(roomId);
+        return { message: `Participant ${participantProfileId} disconnected from room ${roomId}` };
       }
     }
+    return { message: `No participant with profile ID ${participantProfileId} found in room ${roomId}` };
   }
 
   private resolveErrorCode(error: unknown): DiscussionErrorCode {

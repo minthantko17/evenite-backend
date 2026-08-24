@@ -23,7 +23,8 @@ const MOCK_ORGANIZER_PROFILE_ID = '084066b4-231a-4e1e-bb37-084d5ea66c8a';
 const MOCK_PARTICIPANT_PROFILE_ID = 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44';
 const MOCK_OTHER_PARTICIPANT_PROFILE_ID = '14e145a2-ed46-4b38-8b5b-ab3a64a9ccea';
 const MOCK_USER_ID = '45e6a118-94a3-4e22-8c4d-00068fdbc9f2';
-const MOCK_MESSAGE_ID = 'e9697c17-fc38-4625-aaeb-a4f43cce4e09';
+const MOCK_PARTICIPANT_MESSAGE_ID = 'e9697c17-fc38-4625-aaeb-a4f43cce4e09';
+const MOCK_ORGANIZER_MESSAGE_ID = 'f1c2d3e4-5678-90ab-cdef-1234567890ab';
 
 const buildPayload = (
   overrides: Partial<JwtAccessPayload> = {},
@@ -51,14 +52,27 @@ const createMockSocket = (overrides: Record<string, any> = {}): Socket =>
     ...overrides,
   }) as unknown as Socket;
 
-const MOCK_RETURN_MESSAGE: ReturnMessageDto = {
-  id: MOCK_MESSAGE_ID,
+const MOCK_PARTICIPANT_RETURN_MESSAGE: ReturnMessageDto = {
+  id: MOCK_PARTICIPANT_MESSAGE_ID,
   content: 'hello',
   isAnnouncement: false,
   sender: {
     id: MOCK_PARTICIPANT_PROFILE_ID,
     role: Role.PARTICIPANT,
     name: 'Jane',
+    imageUrl: '',
+  },
+  createdAt: new Date('2026-08-01T00:00:00Z'),
+};
+
+const MOCK_ORGANIZER_RETURN_MESSAGE: ReturnMessageDto = {
+  id: MOCK_ORGANIZER_MESSAGE_ID,
+  content: 'hello',
+  isAnnouncement: false,
+  sender: {
+    id: MOCK_ORGANIZER_PROFILE_ID,
+    role: Role.ORGANIZER,
+    name: 'John',
     imageUrl: '',
   },
   createdAt: new Date('2026-08-01T00:00:00Z'),
@@ -78,6 +92,7 @@ describe('DiscussionGateway', () => {
   beforeAll(() => {
     jest.spyOn(Logger.prototype, 'log').mockImplementation(() => {});
     jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
   });
 
   beforeEach(async () => {
@@ -350,7 +365,7 @@ describe('DiscussionGateway', () => {
         organizerProfileId: MOCK_ORGANIZER_PROFILE_ID,
       });
       const client = createMockSocket({ data: { user: payload } });
-      discussionServiceMock.sendMessage.mockResolvedValue(MOCK_RETURN_MESSAGE);
+      discussionServiceMock.sendMessage.mockResolvedValue(MOCK_ORGANIZER_RETURN_MESSAGE);
 
       await gateway.handleSendMessage(client, { roomId: MOCK_ROOM_ID, dto });
 
@@ -364,7 +379,7 @@ describe('DiscussionGateway', () => {
       expect(toMock).toHaveBeenCalledWith(MOCK_ROOM_ID);
       expect(roomEmitMock).toHaveBeenCalledWith(
         'message:new',
-        MOCK_RETURN_MESSAGE,
+        MOCK_ORGANIZER_RETURN_MESSAGE,
       );
     });
 
@@ -375,7 +390,7 @@ describe('DiscussionGateway', () => {
         organizerProfileId: null,
       });
       const client = createMockSocket({ data: { user: payload } });
-      discussionServiceMock.sendMessage.mockResolvedValue(MOCK_RETURN_MESSAGE);
+      discussionServiceMock.sendMessage.mockResolvedValue(MOCK_PARTICIPANT_RETURN_MESSAGE);
 
       await gateway.handleSendMessage(client, { roomId: MOCK_ROOM_ID, dto });
 
@@ -388,7 +403,7 @@ describe('DiscussionGateway', () => {
       );
       expect(roomEmitMock).toHaveBeenCalledWith(
         'message:new',
-        MOCK_RETURN_MESSAGE,
+        MOCK_PARTICIPANT_RETURN_MESSAGE,
       );
     });
 
@@ -428,7 +443,7 @@ describe('DiscussionGateway', () => {
       expect(inMock).toHaveBeenCalledWith(MOCK_ROOM_ID);
     });
 
-    it('UT-6-032-02: RoomNotFound → forceDisconnectParticipant NOT called, returns silently', async () => {
+    it('UT-6-032-02: RoomNotFound → forceDisconnectParticipant NOT called', async () => {
       discussionServiceMock.findRoomByEventId.mockResolvedValue(null);
 
       await gateway.handleRegistrationCancelled({
@@ -438,18 +453,34 @@ describe('DiscussionGateway', () => {
 
       expect(inMock).not.toHaveBeenCalled();
     });
+
+    it('UT-6-032-03: findRoomByEventId throws → error is caught, does not propagate', async () => {
+      discussionServiceMock.findRoomByEventId.mockRejectedValue(
+        new Error('db unavailable'),
+      );
+
+      await expect(
+        gateway.handleRegistrationCancelled({
+          eventId: MOCK_EVENT_ID,
+          participantProfileId: MOCK_PARTICIPANT_PROFILE_ID,
+        }),
+      ).resolves.toBeUndefined();
+
+      expect(inMock).not.toHaveBeenCalled();
+    });
   });
 
   describe('forceDisconnectParticipant (private)', () => {
     it('UT-6-033-01: NoSockets → no emit, no leave calls at all', async () => {
       fetchSocketsMock.mockResolvedValue([]);
 
-      await (gateway as any).forceDisconnectParticipant(
+      const result = await (gateway as any).forceDisconnectParticipant(
         MOCK_ROOM_ID,
         MOCK_PARTICIPANT_PROFILE_ID,
       );
 
       expect(inMock).toHaveBeenCalledWith(MOCK_ROOM_ID);
+      expect(result).toEqual({ message: `No room sockets found.` });
     });
 
     it('UT-6-033-02: single socket, Matches → emits room:kicked and leaves', async () => {
@@ -460,7 +491,7 @@ describe('DiscussionGateway', () => {
       };
       fetchSocketsMock.mockResolvedValue([remoteSocket]);
 
-      await (gateway as any).forceDisconnectParticipant(
+      const result = await (gateway as any).forceDisconnectParticipant(
         MOCK_ROOM_ID,
         MOCK_PARTICIPANT_PROFILE_ID,
       );
@@ -469,6 +500,9 @@ describe('DiscussionGateway', () => {
         roomId: MOCK_ROOM_ID,
       });
       expect(remoteSocket.leave).toHaveBeenCalledWith(MOCK_ROOM_ID);
+      expect(result).toEqual({
+        message: `Participant ${MOCK_PARTICIPANT_PROFILE_ID} disconnected from room ${MOCK_ROOM_ID}`,
+      });
     });
 
     it('UT-6-033-03: single socket, NoMatch → neither emit nor leave called', async () => {
@@ -479,13 +513,16 @@ describe('DiscussionGateway', () => {
       };
       fetchSocketsMock.mockResolvedValue([remoteSocket]);
 
-      await (gateway as any).forceDisconnectParticipant(
+      const result = await (gateway as any).forceDisconnectParticipant(
         MOCK_ROOM_ID,
         MOCK_PARTICIPANT_PROFILE_ID,
       );
 
       expect(remoteSocket.emit).not.toHaveBeenCalled();
       expect(remoteSocket.leave).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        message: `No participant with profile ID ${MOCK_PARTICIPANT_PROFILE_ID} found in room ${MOCK_ROOM_ID}`,
+      });
     });
 
     it('UT-6-033-04: multiple sockets, mixed match → only matching sockets receive emit+leave', async () => {
@@ -501,7 +538,7 @@ describe('DiscussionGateway', () => {
       };
       fetchSocketsMock.mockResolvedValue([matchingSocket, otherSocket]);
 
-      await (gateway as any).forceDisconnectParticipant(
+      const result = await (gateway as any).forceDisconnectParticipant(
         MOCK_ROOM_ID,
         MOCK_PARTICIPANT_PROFILE_ID,
       );
@@ -512,6 +549,9 @@ describe('DiscussionGateway', () => {
       expect(matchingSocket.leave).toHaveBeenCalledWith(MOCK_ROOM_ID);
       expect(otherSocket.emit).not.toHaveBeenCalled();
       expect(otherSocket.leave).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        message: `Participant ${MOCK_PARTICIPANT_PROFILE_ID} disconnected from room ${MOCK_ROOM_ID}`,
+      });
     });
   });
 

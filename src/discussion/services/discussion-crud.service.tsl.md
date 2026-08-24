@@ -37,7 +37,7 @@ Resulting test frames:
 
 ---
 
-### `getPaginatedMessagesByCursor(roomId, cursor, direction, limit)`
+### `getPaginatedMessagesByCursor(roomId, cursor, direction, limit, isAnnouncement = false)`
 
 ```
 Parameter direction:
@@ -50,11 +50,15 @@ Parameter cursor:
     cursor provided (valid existing message id).        [property HasCursor]
     cursor undefined.                                     [property NoCursor]
 
-Parameter limit:
+Parameter isAnnouncement:
   value:
-    undefined.                       [property DefaultLimit] → take = DEFAULT_PAGE_SIZE
-    provided, <= MAX_PAGE_SIZE.      [property CustomLimit]
-    provided, > MAX_PAGE_SIZE.       [property ClampedLimit] → take = MAX_PAGE_SIZE
+    false (default, or explicitly passed).      [property NotAnnouncement] → where clause has no isAnnouncement filter; take capped at MAX_MESSAGE_PAGE_SIZE (25)
+    true.                                        [property Announcement] → where clause adds { isAnnouncement: true }; take capped at MAX_ANNOUNCEMENT_PAGE_SIZE (15)
+
+Parameter limit (caller-supplied, always a number — no longer optional at this layer):
+  value:
+    provided, <= applicable max (25 if NotAnnouncement, 15 if Announcement).      [property CustomLimit]
+    provided, > applicable max.       [property ClampedLimit] → take = the applicable max
 
 Parameter row count returned by Prisma (relative to take):
   count:
@@ -65,7 +69,7 @@ Parameter row count == 0 (empty result):
   emptiness:
     page has 0 rows after slicing.        [property EmptyPage] → oldestCursor/newestCursor fall back to input cursor
 
-Resulting test frames (cross-product of direction × cursor × page-fullness):
+Resulting test frames (cross-product of direction × cursor × page-fullness — isAnnouncement held at its default False for this cross-product, since it doesn't interact with ordering/paging math, only with the where-clause and the max-size ceiling):
   Before + HasCursor + MorePages       → hasMoreOlder=true, hasMoreNewer=true, page reversed to ascending
   Before + HasCursor + NoMorePages     → hasMoreOlder=false, hasMoreNewer=true
   Before + NoCursor + MorePages        → hasMoreOlder=true, hasMoreNewer=false (initial "latest page" load)
@@ -76,7 +80,10 @@ Resulting test frames (cross-product of direction × cursor × page-fullness):
   After + NoCursor + NoMorePages       → hasMoreOlder=false, hasMoreNewer=false
   Before + HasCursor + EmptyPage       → oldestCursor = newestCursor = input cursor (fallback)   [single]
   After + HasCursor + EmptyPage        → oldestCursor = newestCursor = input cursor (fallback)   [single]
-  DefaultLimit / CustomLimit / ClampedLimit  → verify `take` value used in the Prisma call matches expectation, independent of direction/cursor
+  CustomLimit / ClampedLimit (NotAnnouncement)  → verify `take` value used in the Prisma call matches expectation, capped at 25, independent of direction/cursor
+  NotAnnouncement (explicit or defaulted)  → prisma.message.findMany `where` has no isAnnouncement key   [single]
+  Announcement, CustomLimit (<=15)         → `where` includes { isAnnouncement: true }, take = limit    [single]
+  Announcement, ClampedLimit (>15)         → `where` includes { isAnnouncement: true }, take = 15 (MAX_ANNOUNCEMENT_PAGE_SIZE, not 25)   [single]
 ```
 
 ---
@@ -84,6 +91,11 @@ Resulting test frames (cross-product of direction × cursor × page-fullness):
 ### `getPaginatedMessagesByTimestamp(roomId, lastReadAt, limit)`
 
 ```
+Parameter limit (caller-supplied, always a number — no longer optional at this layer; this method is never invoked for announcements, so there's no isAnnouncement parameter here):
+  value:
+    provided, <= MAX_MESSAGE_PAGE_SIZE (25).     [property CustomLimit]
+    provided, > MAX_MESSAGE_PAGE_SIZE.           [property ClampedLimit] → take = MAX_MESSAGE_PAGE_SIZE
+
 Parameter anchorMessage lookup (message at-or-before lastReadAt):
   existence:
     a message exists with createdAt <= lastReadAt.        [property AnchorFound] → anchorTime = that message's createdAt
@@ -103,6 +115,7 @@ Resulting test frames:
   AnchorFound + MoreNewer        → returns take messages starting at anchor, hasMoreNewer=true
   NoAnchor + room has messages   → anchorTime=epoch, returns from the very beginning of the room
   NoAnchor + room empty          → EmptyResult, messages=[], cursors=null, hasMoreOlder=true (note: potentially misleading when room is genuinely empty — worth flagging as a known quirk, not yet addressed)
+  ClampedLimit                   → take = MAX_MESSAGE_PAGE_SIZE regardless of a larger requested limit   [single]
 ```
 
 ---
