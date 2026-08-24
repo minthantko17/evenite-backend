@@ -75,9 +75,9 @@ export class DiscussionController {
     @Req() req: Request,
   ): Promise<ReturnMessagePageDto> {
     const user = req.user as JwtAccessPayload;
-    return this.discussionService.getMessages(
+    return this.discussionService.getAnnouncements(
       roomId,
-      { ...query, isAnnouncement: true },
+      query,
       user.currentRole!,
       user.currentRole === Role.PARTICIPANT ? user.participantProfileId! : null,
       user.currentRole === Role.ORGANIZER ? user.organizerProfileId! : null,

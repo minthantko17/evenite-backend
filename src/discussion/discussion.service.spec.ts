@@ -695,7 +695,7 @@ describe('DiscussionService', () => {
       );
     });
 
-    it('UT-6-018-07: limit omitted + NotAnnouncement → pageSize defaults to DEFAULT_MESSAGE_PAGE_SIZE (25)', async () => {
+    it('UT-6-018-07: limit omitted → pageSize defaults to DEFAULT_MESSAGE_PAGE_SIZE (25)', async () => {
       crudServiceMock.getRoomReadStatus.mockResolvedValue(null);
       const query: GetMessagesQueryDto = {};
 
@@ -716,32 +716,52 @@ describe('DiscussionService', () => {
         false,
       );
     });
+  });
 
-    it('UT-6-018-08: limit omitted + Announcement → pageSize defaults to DEFAULT_ANNOUNCEMENT_PAGE_SIZE (15)', async () => {
-      const query: GetMessagesQueryDto = { isAnnouncement: true };
-
-      const result = await service.getMessages(
-        MOCK_ROOM_ID,
-        query,
-        Role.PARTICIPANT,
-        MOCK_PARTICIPANT_PROFILE_ID,
-        null,
+  describe('getAnnouncements', () => {
+    it('UT-6-018a-01: throws RoomNotFoundException when room does not exist', async () => {
+      validationServiceMock.validateRoomExists.mockRejectedValue(
+        new RoomNotFoundException(),
       );
+      const query: GetMessagesQueryDto = {};
 
-      expect(result).toEqual(MOCK_MESSAGE_PAGE_BY_CURSOR);
-      expect(crudServiceMock.getPaginatedMessagesByCursor).toHaveBeenCalledWith(
-        MOCK_ROOM_ID,
-        undefined,
-        'before',
-        15,
-        true,
-      );
+      await expect(
+        service.getAnnouncements(
+          MOCK_ROOM_ID,
+          query,
+          Role.ORGANIZER,
+          null,
+          MOCK_ORGANIZER_PROFILE_ID,
+        ),
+      ).rejects.toThrow(RoomNotFoundException);
+
+      expect(validationServiceMock.validateRoomAccess).not.toHaveBeenCalled();
+      expect(crudServiceMock.getPaginatedMessagesByCursor).not.toHaveBeenCalled();
     });
 
-    it('UT-6-018-09: Announcement + NoCursor → skips the read-status lookup entirely (regardless of whether a read status exists) and calls getPaginatedMessagesByCursor', async () => {
-      const query: GetMessagesQueryDto = { isAnnouncement: true, limit: 10 };
+    it('UT-6-018a-02: throws RoomAccessDeniedException when caller is not authorized', async () => {
+      validationServiceMock.validateRoomAccess.mockRejectedValue(
+        new RoomAccessDeniedException(),
+      );
+      const query: GetMessagesQueryDto = {};
 
-      const result = await service.getMessages(
+      await expect(
+        service.getAnnouncements(
+          MOCK_ROOM_ID,
+          query,
+          Role.PARTICIPANT,
+          MOCK_PARTICIPANT_PROFILE_ID,
+          null,
+        ),
+      ).rejects.toThrow(RoomAccessDeniedException);
+
+      expect(crudServiceMock.getPaginatedMessagesByCursor).not.toHaveBeenCalled();
+    });
+
+    it('UT-6-018a-03: never consults read status — calls getPaginatedMessagesByCursor with isAnnouncement=true directly', async () => {
+      const query: GetMessagesQueryDto = { limit: 10 };
+
+      const result = await service.getAnnouncements(
         MOCK_ROOM_ID,
         query,
         Role.ORGANIZER,
@@ -760,15 +780,35 @@ describe('DiscussionService', () => {
       );
     });
 
-    it('UT-6-018-10: Announcement + ExplicitCursor → calls getPaginatedMessagesByCursor with isAnnouncement=true, skips read-status lookup', async () => {
+    it('UT-6-018a-04: limit omitted → pageSize defaults to DEFAULT_ANNOUNCEMENT_PAGE_SIZE (15)', async () => {
+      const query: GetMessagesQueryDto = {};
+
+      const result = await service.getAnnouncements(
+        MOCK_ROOM_ID,
+        query,
+        Role.PARTICIPANT,
+        MOCK_PARTICIPANT_PROFILE_ID,
+        null,
+      );
+
+      expect(result).toEqual(MOCK_MESSAGE_PAGE_BY_CURSOR);
+      expect(crudServiceMock.getPaginatedMessagesByCursor).toHaveBeenCalledWith(
+        MOCK_ROOM_ID,
+        undefined,
+        'before',
+        15,
+        true,
+      );
+    });
+
+    it('UT-6-018a-05: with an explicit cursor, forwards cursor/direction and isAnnouncement=true', async () => {
       const query: GetMessagesQueryDto = {
         cursor: MOCK_CURSOR_ID,
         direction: 'after',
-        isAnnouncement: true,
         limit: 5,
       };
 
-      const result = await service.getMessages(
+      const result = await service.getAnnouncements(
         MOCK_ROOM_ID,
         query,
         Role.ORGANIZER,

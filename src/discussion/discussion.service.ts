@@ -83,17 +83,11 @@ export class DiscussionService {
       organizerProfileId,
     );
 
-    const isAnnouncement = query.isAnnouncement === true;
-    const pageSize =
-      query.limit ??
-      (isAnnouncement
-        ? DEFAULT_ANNOUNCEMENT_PAGE_SIZE
-        : DEFAULT_MESSAGE_PAGE_SIZE);
+    const pageSize = query.limit ?? DEFAULT_MESSAGE_PAGE_SIZE;
 
-    // If no cursor, find last read. If also no last read, skip this block
-    // if announcement, last read retieval should be skipped
-    // since announcements are not tracked with read status, announcements will only be retrieved from the latest one
-    if (!query.cursor && !isAnnouncement) {
+    // If no cursor, resume from the last read message. 
+    // If never read (or the room was empty at last read), fall through to the plain latest-page fetch
+    if (!query.cursor) {
       const readStatus = await this.discussionCrudService.getRoomReadStatus(
         roomId,
         role,
@@ -110,7 +104,6 @@ export class DiscussionService {
           false,
         );
       }
-      // if no readStatus, or the room had no messages at last read, fall through to plain latest-page fetch below
     }
 
     return this.discussionCrudService.getPaginatedMessagesByCursor(
@@ -118,7 +111,36 @@ export class DiscussionService {
       query.cursor,
       query.direction ?? 'before',
       pageSize,
-      isAnnouncement,
+      false,
+    );
+  }
+
+  // called from REST — announcements are not tracked via read status, so this
+  // is always a plain cursor page over isAnnouncement=true messages
+  async getAnnouncements(
+    roomId: string,
+    query: GetMessagesQueryDto,
+    role: Role,
+    participantProfileId: string | null,
+    organizerProfileId: string | null,
+  ): Promise<ReturnMessagePageDto> {
+    const { event } =
+      await this.discussionValidationService.validateRoomExists(roomId);
+    await this.discussionValidationService.validateRoomAccess(
+      event,
+      role,
+      participantProfileId,
+      organizerProfileId,
+    );
+
+    const pageSize = query.limit ?? DEFAULT_ANNOUNCEMENT_PAGE_SIZE;
+
+    return this.discussionCrudService.getPaginatedMessagesByCursor(
+      roomId,
+      query.cursor,
+      query.direction ?? 'before',
+      pageSize,
+      true,
     );
   }
 
