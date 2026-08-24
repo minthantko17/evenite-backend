@@ -987,7 +987,7 @@ describe('DiscussionService', () => {
       );
       expect(crudServiceMock.countUnreadMessages).toHaveBeenCalledWith(
         MOCK_ROOM_ID,
-        readStatus.lastReadAt,
+        readStatus.lastReadMessageId,
       );
     });
 
@@ -1018,7 +1018,7 @@ describe('DiscussionService', () => {
       ]);
     });
 
-    it('UT-6-020-09: counts unread messages from the epoch when no read status exists', async () => {
+    it('UT-6-020-09: counts unread messages with a null lastReadMessageId when no read status exists', async () => {
       crudServiceMock.getOrganizerEventsWithRoom.mockResolvedValue([
         MOCK_EVENT_WITH_ROOM,
       ]);
@@ -1028,7 +1028,7 @@ describe('DiscussionService', () => {
 
       expect(crudServiceMock.countUnreadMessages).toHaveBeenCalledWith(
         MOCK_ROOM_ID,
-        new Date(0),
+        null,
       );
     });
 

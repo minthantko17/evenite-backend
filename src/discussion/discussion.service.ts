@@ -242,7 +242,7 @@ export class DiscussionService {
     const lastMessage: ReturnMessageDto | null =
       await this.discussionCrudService.getLatestMessageForRoom(roomId);
 
-    const readStatus: { lastReadAt: Date } | null =
+    const readStatus: { lastReadMessageId: string | null } | null =
       await this.discussionCrudService.getRoomReadStatus(
         roomId,
         role,
@@ -253,7 +253,7 @@ export class DiscussionService {
     const unreadCount: number =
       await this.discussionCrudService.countUnreadMessages(
         roomId,
-        readStatus?.lastReadAt ?? new Date(0),
+        readStatus?.lastReadMessageId ?? null,
       );
 
     const isReadOnly: boolean = this.checkIsReadOnly(event);

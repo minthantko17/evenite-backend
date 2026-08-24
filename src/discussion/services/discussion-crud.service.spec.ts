@@ -871,26 +871,53 @@ describe('DiscussionCrudService', () => {
   });
 
   describe('countUnreadMessages', () => {
-    it('UT-6-012-01: count > 0 → returns that number', async () => {
+    it('UT-6-012-01: lastReadMessageId present + message still exists → counts messages created after that message\'s own createdAt', async () => {
+      const lastReadCreatedAt = new Date('2026-08-01T00:00:00Z');
+      prismaMock.message.findUnique.mockResolvedValue(
+        buildRawMessage({ id: MOCK_MESSAGE_ID, createdAt: lastReadCreatedAt }) as any,
+      );
       prismaMock.message.count.mockResolvedValue(4);
 
       const result = await service.countUnreadMessages(
         MOCK_ROOM_ID,
-        new Date('2026-08-01T00:00:00Z'),
+        MOCK_MESSAGE_ID,
       );
 
       expect(result).toBe(4);
+      expect(prismaMock.message.findUnique).toHaveBeenCalledWith({
+        where: { id: MOCK_MESSAGE_ID },
+        select: { createdAt: true },
+      });
+      expect(prismaMock.message.count).toHaveBeenCalledWith({
+        where: { roomId: MOCK_ROOM_ID, createdAt: { gt: lastReadCreatedAt } },
+      });
     });
 
-    it('UT-6-012-02: count == 0 → returns 0', async () => {
+    it('UT-6-012-02: lastReadMessageId is null → skips the message lookup, counts from epoch', async () => {
       prismaMock.message.count.mockResolvedValue(0);
+
+      const result = await service.countUnreadMessages(MOCK_ROOM_ID, null);
+
+      expect(result).toBe(0);
+      expect(prismaMock.message.findUnique).not.toHaveBeenCalled();
+      expect(prismaMock.message.count).toHaveBeenCalledWith({
+        where: { roomId: MOCK_ROOM_ID, createdAt: { gt: new Date(0) } },
+      });
+    });
+
+    it('UT-6-012-03: lastReadMessageId points to a since-deleted message → falls back to epoch so nothing is hidden as read', async () => {
+      prismaMock.message.findUnique.mockResolvedValue(null);
+      prismaMock.message.count.mockResolvedValue(7);
 
       const result = await service.countUnreadMessages(
         MOCK_ROOM_ID,
-        new Date('2026-08-01T00:00:00Z'),
+        MOCK_MESSAGE_ID,
       );
 
-      expect(result).toBe(0);
+      expect(result).toBe(7);
+      expect(prismaMock.message.count).toHaveBeenCalledWith({
+        where: { roomId: MOCK_ROOM_ID, createdAt: { gt: new Date(0) } },
+      });
     });
   });
 

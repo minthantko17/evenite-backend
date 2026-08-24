@@ -216,10 +216,29 @@ export class DiscussionCrudService {
       : null;
   }
 
-  async countUnreadMessages(roomId: string, sinceDate: Date): Promise<number> {
+  async countUnreadMessages(
+    roomId: string,
+    lastReadMessageId: string | null,
+  ): Promise<number> {
+    const sinceDate = await this.resolveLastReadCreatedAt(lastReadMessageId);
     return this.prisma.message.count({
       where: { roomId, createdAt: { gt: sinceDate } },
     });
+  }
+
+  private async resolveLastReadCreatedAt(
+    lastReadMessageId: string | null,
+  ): Promise<Date> {
+    if (!lastReadMessageId) {
+      return new Date(0);
+    }
+    const lastReadMessage = await this.prisma.message.findUnique({
+      where: { id: lastReadMessageId },
+      select: { createdAt: true },
+    });
+    // if the referenced message was since deleted, fall back to epoch so we
+    // never under-count and hide genuinely new messages from the user
+    return lastReadMessage?.createdAt ?? new Date(0);
   }
 
   // get room list (Chat List)
