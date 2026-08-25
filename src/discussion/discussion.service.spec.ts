@@ -6,6 +6,7 @@ import { DiscussionService } from './discussion.service';
 import { DiscussionValidationService } from './services/discussion-validation.service';
 import { DiscussionCrudService } from './services/discussion-crud.service';
 import { CreateMessageDto } from './dto/create-message.dto';
+import { CreateAnnouncementDto } from './dto/create-announcement.dto';
 import { GetMessagesQueryDto } from './dto/get-messages-query.dto';
 import { ReturnMessageDto } from './dto/return-message.dto';
 import { ReturnMessagePageDto } from './dto/return-message-page.dto';
@@ -173,7 +174,6 @@ describe('DiscussionService', () => {
     validationServiceMock.validateMessageContent.mockImplementation(
       (content: string) => content,
     );
-    validationServiceMock.validateAnnouncementPermission.mockReturnValue(false);
     crudServiceMock.createMessage.mockResolvedValue(buildReturnMessage());
     crudServiceMock.getPaginatedMessagesByCursor.mockResolvedValue(
       MOCK_MESSAGE_PAGE_BY_CURSOR,
@@ -335,39 +335,6 @@ describe('DiscussionService', () => {
         ),
       ).rejects.toThrow('Message cannot be empty.');
 
-      expect(
-        validationServiceMock.validateAnnouncementPermission,
-      ).not.toHaveBeenCalled();
-      expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
-    });
-
-    it('UT-6-017-05: throws AnnouncementNotAllowedException when a PARTICIPANT attempts to send an announcement', async () => {
-      validationServiceMock.validateAnnouncementPermission.mockImplementation(
-        () => {
-          throw new AnnouncementNotAllowedException();
-        },
-      );
-      const dto: CreateMessageDto = { content: 'hello', isAnnouncement: true };
-
-      await expect(
-        service.sendMessage(
-          MOCK_ROOM_ID,
-          dto,
-          Role.PARTICIPANT,
-          MOCK_PARTICIPANT_PROFILE_ID,
-          null,
-        ),
-      ).rejects.toThrow(AnnouncementNotAllowedException);
-      await expect(
-        service.sendMessage(
-          MOCK_ROOM_ID,
-          dto,
-          Role.PARTICIPANT,
-          MOCK_PARTICIPANT_PROFILE_ID,
-          null,
-        ),
-      ).rejects.toThrow('Only the organizer can send announcements.');
-
       expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
     });
 
@@ -398,43 +365,6 @@ describe('DiscussionService', () => {
       );
     });
 
-    it('UT-6-017-07: creates an announcement for an ORGANIZER when dto.isAnnouncement is true', async () => {
-      validationServiceMock.validateAnnouncementPermission.mockReturnValue(
-        true,
-      );
-      const expectedMessage = buildReturnMessage({
-        id: MOCK_ANNOUNCEMENT_MESSAGE_ID,
-        content: 'important update',
-        isAnnouncement: true,
-        sender: buildSender(Role.ORGANIZER),
-      });
-      crudServiceMock.createMessage.mockResolvedValue(expectedMessage);
-      const dto: CreateMessageDto = {
-        content: 'important update',
-        isAnnouncement: true,
-      };
-
-      const result = await service.sendMessage(
-        MOCK_ROOM_ID,
-        dto,
-        Role.ORGANIZER,
-        null,
-        MOCK_ORGANIZER_PROFILE_ID,
-      );
-
-      expect(result).toEqual(expectedMessage);
-      expect(
-        validationServiceMock.validateAnnouncementPermission,
-      ).toHaveBeenCalledWith(true, Role.ORGANIZER);
-      expect(crudServiceMock.createMessage).toHaveBeenCalledWith(
-        MOCK_ROOM_ID,
-        'important update',
-        true,
-        null,
-        MOCK_ORGANIZER_PROFILE_ID,
-      );
-    });
-
     it('UT-6-017-08: creates a regular message for a confirmed PARTICIPANT, setting senderParticipantId and leaving senderOrganizerId null', async () => {
       const expectedMessage = buildReturnMessage({
         id: MOCK_PARTICIPANT_MESSAGE_ID,
@@ -460,22 +390,6 @@ describe('DiscussionService', () => {
         MOCK_PARTICIPANT_PROFILE_ID,
         null,
       );
-    });
-
-    it('UT-6-017-09: defaults isAnnouncement to false when dto.isAnnouncement is undefined', async () => {
-      const dto: CreateMessageDto = { content: 'no flag set' };
-
-      await service.sendMessage(
-        MOCK_ROOM_ID,
-        dto,
-        Role.PARTICIPANT,
-        MOCK_PARTICIPANT_PROFILE_ID,
-        null,
-      );
-
-      expect(
-        validationServiceMock.validateAnnouncementPermission,
-      ).toHaveBeenCalledWith(false, Role.PARTICIPANT);
     });
 
     it('UT-6-017-10: trims surrounding whitespace from dto.content before persisting the message', async () => {
@@ -523,6 +437,171 @@ describe('DiscussionService', () => {
       );
       expect(validationServiceMock.validateMessageContent).toHaveBeenCalledWith(
         'hello',
+      );
+    });
+  });
+
+  describe('sendAnnouncement', () => {
+    it('UT-6-017A-01: throws AnnouncementNotAllowedException when a PARTICIPANT attempts to send an announcement, before any room lookup', async () => {
+      validationServiceMock.validateAnnouncementSenderRole.mockImplementation(
+        () => {
+          throw new AnnouncementNotAllowedException();
+        },
+      );
+      const dto: CreateAnnouncementDto = { content: 'hello' };
+
+      await expect(
+        service.sendAnnouncement(
+          MOCK_ROOM_ID,
+          dto,
+          Role.PARTICIPANT,
+          MOCK_PARTICIPANT_PROFILE_ID,
+          null,
+        ),
+      ).rejects.toThrow(AnnouncementNotAllowedException);
+      await expect(
+        service.sendAnnouncement(
+          MOCK_ROOM_ID,
+          dto,
+          Role.PARTICIPANT,
+          MOCK_PARTICIPANT_PROFILE_ID,
+          null,
+        ),
+      ).rejects.toThrow('Only the organizer can send announcements.');
+
+      expect(validationServiceMock.validateRoomExists).not.toHaveBeenCalled();
+      expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
+    });
+
+    it('UT-6-017A-02: throws RoomNotFoundException when room does not exist', async () => {
+      validationServiceMock.validateRoomExists.mockRejectedValue(
+        new RoomNotFoundException(),
+      );
+      const dto: CreateAnnouncementDto = { content: 'hello' };
+
+      await expect(
+        service.sendAnnouncement(
+          MOCK_ROOM_ID,
+          dto,
+          Role.ORGANIZER,
+          null,
+          MOCK_ORGANIZER_PROFILE_ID,
+        ),
+      ).rejects.toThrow(RoomNotFoundException);
+
+      expect(validationServiceMock.validateRoomAccess).not.toHaveBeenCalled();
+      expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
+    });
+
+    it('UT-6-017A-03: throws RoomAccessDeniedException when caller is neither owner nor confirmed participant', async () => {
+      validationServiceMock.validateRoomAccess.mockRejectedValue(
+        new RoomAccessDeniedException(),
+      );
+      const dto: CreateAnnouncementDto = { content: 'hello' };
+
+      await expect(
+        service.sendAnnouncement(
+          MOCK_ROOM_ID,
+          dto,
+          Role.ORGANIZER,
+          null,
+          MOCK_ORGANIZER_PROFILE_ID,
+        ),
+      ).rejects.toThrow(RoomAccessDeniedException);
+
+      expect(validationServiceMock.validateRoomWritable).not.toHaveBeenCalled();
+      expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
+    });
+
+    it('UT-6-017A-04: throws RoomReadOnlyException when room is not writable', async () => {
+      validationServiceMock.validateRoomWritable.mockImplementation(() => {
+        throw new RoomReadOnlyException();
+      });
+      const dto: CreateAnnouncementDto = { content: 'hello' };
+
+      await expect(
+        service.sendAnnouncement(
+          MOCK_ROOM_ID,
+          dto,
+          Role.ORGANIZER,
+          null,
+          MOCK_ORGANIZER_PROFILE_ID,
+        ),
+      ).rejects.toThrow(RoomReadOnlyException);
+
+      expect(
+        validationServiceMock.validateMessageContent,
+      ).not.toHaveBeenCalled();
+      expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
+    });
+
+    it('UT-6-017A-05: throws MessageContentInvalidException when content is empty/whitespace-only or exceeds 2000 characters', async () => {
+      validationServiceMock.validateMessageContent.mockImplementation(() => {
+        throw new MessageContentInvalidException('Message cannot be empty.');
+      });
+      const dto: CreateAnnouncementDto = { content: '   ' };
+
+      await expect(
+        service.sendAnnouncement(
+          MOCK_ROOM_ID,
+          dto,
+          Role.ORGANIZER,
+          null,
+          MOCK_ORGANIZER_PROFILE_ID,
+        ),
+      ).rejects.toThrow(MessageContentInvalidException);
+
+      expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
+    });
+
+    it('UT-6-017A-06: creates an announcement for an ORGANIZER, setting senderOrganizerId and leaving senderParticipantId null', async () => {
+      const expectedMessage = buildReturnMessage({
+        id: MOCK_ANNOUNCEMENT_MESSAGE_ID,
+        content: 'important update',
+        isAnnouncement: true,
+        sender: buildSender(Role.ORGANIZER),
+      });
+      crudServiceMock.createMessage.mockResolvedValue(expectedMessage);
+      const dto: CreateAnnouncementDto = { content: 'important update' };
+
+      const result = await service.sendAnnouncement(
+        MOCK_ROOM_ID,
+        dto,
+        Role.ORGANIZER,
+        null,
+        MOCK_ORGANIZER_PROFILE_ID,
+      );
+
+      expect(result).toEqual(expectedMessage);
+      expect(
+        validationServiceMock.validateAnnouncementSenderRole,
+      ).toHaveBeenCalledWith(Role.ORGANIZER);
+      expect(crudServiceMock.createMessage).toHaveBeenCalledWith(
+        MOCK_ROOM_ID,
+        'important update',
+        true,
+        null,
+        MOCK_ORGANIZER_PROFILE_ID,
+      );
+    });
+
+    it('UT-6-017A-07: trims surrounding whitespace from dto.content before persisting the announcement', async () => {
+      const dto: CreateAnnouncementDto = { content: '  padded content  ' };
+
+      await service.sendAnnouncement(
+        MOCK_ROOM_ID,
+        dto,
+        Role.ORGANIZER,
+        null,
+        MOCK_ORGANIZER_PROFILE_ID,
+      );
+
+      expect(crudServiceMock.createMessage).toHaveBeenCalledWith(
+        MOCK_ROOM_ID,
+        'padded content',
+        true,
+        null,
+        MOCK_ORGANIZER_PROFILE_ID,
       );
     });
   });

@@ -4,6 +4,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DiscussionValidationService } from './services/discussion-validation.service';
 import { DiscussionCrudService } from './services/discussion-crud.service';
 import { CreateMessageDto } from './dto/create-message.dto';
+import { CreateAnnouncementDto } from './dto/create-announcement.dto';
 import { GetMessagesQueryDto } from './dto/get-messages-query.dto';
 import { ReturnMessageDto } from './dto/return-message.dto';
 import { ReturnMessagePageDto } from './dto/return-message-page.dto';
@@ -48,12 +49,6 @@ export class DiscussionService {
     this.discussionValidationService.validateMessageContent(dto.content);
     const trimmedContent = dto.content.trim();
 
-    const isAnnouncement =
-      this.discussionValidationService.validateAnnouncementPermission(
-        dto.isAnnouncement ?? false,
-        role,
-      );
-
     const senderParticipantId =
       role === Role.PARTICIPANT ? participantProfileId : null;
     const senderOrganizerId =
@@ -62,9 +57,41 @@ export class DiscussionService {
     return this.discussionCrudService.createMessage(
       roomId,
       trimmedContent,
-      isAnnouncement,
+      false, //isAnnouncement
       senderParticipantId,
       senderOrganizerId,
+    );
+  }
+
+  // called from DiscussionGateway — organizer-only
+  async sendAnnouncement(
+    roomId: string,
+    dto: CreateAnnouncementDto,
+    role: Role,
+    participantProfileId: string | null,
+    organizerProfileId: string | null,
+  ): Promise<ReturnMessageDto> {
+    this.discussionValidationService.validateAnnouncementSenderRole(role);
+
+    const { event } =
+      await this.discussionValidationService.validateRoomExists(roomId);
+    await this.discussionValidationService.validateRoomAccess(
+      event,
+      role,
+      participantProfileId,
+      organizerProfileId,
+    );
+    this.discussionValidationService.validateRoomWritable(event);
+
+    this.discussionValidationService.validateMessageContent(dto.content);
+    const trimmedContent = dto.content.trim();
+
+    return this.discussionCrudService.createMessage(
+      roomId,
+      trimmedContent,
+      true, //isAnnouncement
+      null,
+      organizerProfileId,
     );
   }
 
