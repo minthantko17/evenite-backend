@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Role, EventStatus } from '@prisma/client';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DiscussionValidationService } from './services/discussion-validation.service';
 import { DiscussionCrudService } from './services/discussion-crud.service';
 import { CreateMessageDto } from './dto/create-message.dto';
@@ -23,6 +24,7 @@ export class DiscussionService {
   constructor(
     private readonly discussionValidationService: DiscussionValidationService,
     private readonly discussionCrudService: DiscussionCrudService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   // called from DiscussionGateway
@@ -157,13 +159,30 @@ export class DiscussionService {
       organizerProfileId,
     );
 
-    return this.discussionCrudService.upsertLastReadMessage(
+    const lastReadSerialNumber = lastReadMessageId
+      ? (await this.discussionCrudService.getMessageSerialNumber(
+          lastReadMessageId,
+        )) ?? undefined
+      : undefined;
+
+    const result = await this.discussionCrudService.upsertLastReadMessage(
       roomId,
       role,
       participantProfileId,
       organizerProfileId,
       lastReadMessageId,
+      lastReadSerialNumber,
     );
+
+    this.eventEmitter.emit('room.read-updated', {
+      roomId,
+      role,
+      participantProfileId,
+      organizerProfileId,
+      lastReadSerialNumber: lastReadSerialNumber ?? 0,
+    });
+
+    return result;
   }
 
   async getCreatedDiscussionRooms(
@@ -252,6 +271,12 @@ export class DiscussionService {
     return this.discussionCrudService.findRoomByEventId(eventId);
   }
 
+  async getRoomMemberIds(
+    roomId: string,
+  ): Promise<{ organizerProfileId: string; participantProfileIds: string[] }> {
+    return this.discussionCrudService.getRoomMemberIds(roomId);
+  }
+
   private async mapToDiscussionRoomListDto(
     event: EventWithDiscussionRoom,
     role: Role,
@@ -263,18 +288,12 @@ export class DiscussionService {
     const lastMessage: ReturnMessageDto | null =
       await this.discussionCrudService.getLatestMessageForRoom(roomId);
 
-    const readStatus: { lastReadMessageId: string | null } | null =
-      await this.discussionCrudService.getRoomReadStatus(
+    const unreadCount: number =
+      await this.discussionCrudService.getUnreadCountBySerialNumber(
         roomId,
         role,
         participantProfileId,
         organizerProfileId,
-      );
-
-    const unreadCount: number =
-      await this.discussionCrudService.countUnreadMessages(
-        roomId,
-        readStatus?.lastReadMessageId ?? null,
       );
 
     const isReadOnly: boolean = this.checkIsReadOnly(event);

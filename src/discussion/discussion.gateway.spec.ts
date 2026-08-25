@@ -63,6 +63,7 @@ const MOCK_PARTICIPANT_RETURN_MESSAGE: ReturnMessageDto = {
     imageUrl: '',
   },
   createdAt: new Date('2026-08-01T00:00:00Z'),
+  serialNumber: 1,
 };
 
 const MOCK_ORGANIZER_RETURN_MESSAGE: ReturnMessageDto = {
@@ -76,6 +77,7 @@ const MOCK_ORGANIZER_RETURN_MESSAGE: ReturnMessageDto = {
     imageUrl: '',
   },
   createdAt: new Date('2026-08-01T00:00:00Z'),
+  serialNumber: 2,
 };
 
 const discussionServiceMock = mockDeep<DiscussionService>();
@@ -98,6 +100,11 @@ describe('DiscussionGateway', () => {
   beforeEach(async () => {
     mockReset(discussionServiceMock);
     mockReset(jwtServiceMock);
+
+    discussionServiceMock.getRoomMemberIds.mockResolvedValue({
+      organizerProfileId: MOCK_ORGANIZER_PROFILE_ID,
+      participantProfileIds: [MOCK_PARTICIPANT_PROFILE_ID],
+    });
 
     roomEmitMock = jest.fn();
     toMock = jest.fn(() => ({ emit: roomEmitMock }));
@@ -176,6 +183,38 @@ describe('DiscussionGateway', () => {
       });
       expect(client.disconnect).toHaveBeenCalled();
       expect(client.data.user).toBeUndefined();
+    });
+
+    it('UT-6-028-05: VerifySucceeds + role/profileId present → joins the personal channel so chatList pushes reach this socket', async () => {
+      const payload = buildPayload({
+        currentRole: Role.PARTICIPANT,
+        participantProfileId: MOCK_PARTICIPANT_PROFILE_ID,
+      });
+      jwtServiceMock.verifyAsync.mockResolvedValue(payload);
+      const client = createMockSocket({
+        handshake: { auth: { token: 'valid-token' }, headers: {} },
+      });
+
+      await gateway.handleConnection(client);
+
+      expect(client.join).toHaveBeenCalledWith(
+        `user:${Role.PARTICIPANT}:${MOCK_PARTICIPANT_PROFILE_ID}`,
+      );
+    });
+
+    it('UT-6-028-06: VerifySucceeds + no currentRole yet (profile not created) → does not join any personal channel', async () => {
+      const payload = buildPayload({
+        currentRole: null,
+        participantProfileId: null,
+      });
+      jwtServiceMock.verifyAsync.mockResolvedValue(payload);
+      const client = createMockSocket({
+        handshake: { auth: { token: 'valid-token' }, headers: {} },
+      });
+
+      await gateway.handleConnection(client);
+
+      expect(client.join).not.toHaveBeenCalled();
     });
   });
 
@@ -381,6 +420,18 @@ describe('DiscussionGateway', () => {
         'message:new',
         MOCK_ORGANIZER_RETURN_MESSAGE,
       );
+      expect(discussionServiceMock.getRoomMemberIds).toHaveBeenCalledWith(
+        MOCK_ROOM_ID,
+      );
+      expect(toMock).toHaveBeenCalledWith([
+        `user:${Role.ORGANIZER}:${MOCK_ORGANIZER_PROFILE_ID}`,
+        `user:${Role.PARTICIPANT}:${MOCK_PARTICIPANT_PROFILE_ID}`,
+      ]);
+      expect(roomEmitMock).toHaveBeenCalledWith('chatList:update', {
+        roomId: MOCK_ROOM_ID,
+        lastMessage: MOCK_ORGANIZER_RETURN_MESSAGE,
+        lastSerialNumber: MOCK_ORGANIZER_RETURN_MESSAGE.serialNumber,
+      });
     });
 
     it('UT-6-031-03: RoleParticipant + SendSucceeds → correct profile id threaded through', async () => {
@@ -421,6 +472,45 @@ describe('DiscussionGateway', () => {
         event: 'message:send',
         code: DiscussionErrorCode.MESSAGE_CONTENT_INVALID,
         message: 'Message cannot be empty.',
+      });
+      expect(discussionServiceMock.getRoomMemberIds).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('handleRoomReadUpdated', () => {
+    it('UT-6-034-01: PARTICIPANT read update → pushes chatList:read to that participant\'s personal channel', () => {
+      gateway.handleRoomReadUpdated({
+        roomId: MOCK_ROOM_ID,
+        role: Role.PARTICIPANT,
+        participantProfileId: MOCK_PARTICIPANT_PROFILE_ID,
+        organizerProfileId: null,
+        lastReadSerialNumber: 5,
+      });
+
+      expect(toMock).toHaveBeenCalledWith(
+        `user:${Role.PARTICIPANT}:${MOCK_PARTICIPANT_PROFILE_ID}`,
+      );
+      expect(roomEmitMock).toHaveBeenCalledWith('chatList:read', {
+        roomId: MOCK_ROOM_ID,
+        lastReadSerialNumber: 5,
+      });
+    });
+
+    it('UT-6-034-02: ORGANIZER read update → pushes chatList:read to that organizer\'s personal channel', () => {
+      gateway.handleRoomReadUpdated({
+        roomId: MOCK_ROOM_ID,
+        role: Role.ORGANIZER,
+        participantProfileId: null,
+        organizerProfileId: MOCK_ORGANIZER_PROFILE_ID,
+        lastReadSerialNumber: 8,
+      });
+
+      expect(toMock).toHaveBeenCalledWith(
+        `user:${Role.ORGANIZER}:${MOCK_ORGANIZER_PROFILE_ID}`,
+      );
+      expect(roomEmitMock).toHaveBeenCalledWith('chatList:read', {
+        roomId: MOCK_ROOM_ID,
+        lastReadSerialNumber: 8,
       });
     });
   });

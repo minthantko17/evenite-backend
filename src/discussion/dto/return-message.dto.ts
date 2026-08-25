@@ -13,4 +13,5 @@ export class ReturnMessageDto {
   isAnnouncement!: boolean;
   sender!: ReturnMessageSenderDto;
   createdAt!: Date;
+  serialNumber!: number;
 }

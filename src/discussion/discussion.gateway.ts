@@ -14,6 +14,7 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { Role } from '@prisma/client';
 import { DiscussionService } from './discussion.service';
 import { CreateMessageDto } from './dto/create-message.dto';
+import { ChatListUpdateDto } from './dto/chat-list-update.dto';
 import { JwtAccessPayload } from '../auth/strategies/jwt-access.strategy';
 import { UsePipes, ValidationPipe } from '@nestjs/common';
 import { RoomNotFoundException } from './exceptions/room-not-found.exception';
@@ -54,6 +55,19 @@ export class DiscussionGateway
         },
       );
       client.data.user = payload; // store payload in socket data
+
+      // joins a personal channel (independent of any discussion room)
+      // to update chat-list display even when user haven't joined a specific room's socket.io room
+      const personalChannel = this.getPersonalChannel(
+        payload.currentRole,
+        payload.currentRole === Role.PARTICIPANT
+          ? payload.participantProfileId
+          : payload.organizerProfileId,
+      );
+      if (personalChannel) {
+        await client.join(personalChannel);
+      }
+
       this.logger.log(`Socket connected: ${client.id}, user: ${payload.sub}`);
     } catch {
       this.logger.warn(
@@ -66,6 +80,18 @@ export class DiscussionGateway
 
   handleDisconnect(client: Socket): void {
     this.logger.log(`Socket disconnected: ${client.id}`);
+  }
+
+  // per-user socket.io room name, independent of any discussion room —
+  // socket.io fans this out to all of a user's connected devices/tabs for free
+  private getPersonalChannel(
+    role: Role | null,
+    profileId: string | null,
+  ): string | null {
+    if (!role || !profileId) {
+      return null;
+    }
+    return `user:${role}:${profileId}`;
   }
 
   private extractTokenFromHandshake(client: Socket): string {
@@ -139,9 +165,58 @@ export class DiscussionGateway
         user.currentRole === Role.ORGANIZER ? user.organizerProfileId! : null,
       );
       this.server.to(data.roomId).emit('message:new', message);
+      await this.pushChatListUpdate(data.roomId, message);
     } catch (error) {
       this.emitError(client, 'message:send', error);
     }
+  }
+
+  // pushes to every room member's personal channel for chat-list screen updates live
+  private async pushChatListUpdate(
+    roomId: string,
+    message: Awaited<ReturnType<DiscussionService['sendMessage']>>,
+  ): Promise<void> {
+    const { organizerProfileId, participantProfileIds } =
+      await this.discussionService.getRoomMemberIds(roomId);
+
+    const channels = [
+      this.getPersonalChannel(Role.ORGANIZER, organizerProfileId),
+      ...participantProfileIds.map((participantProfileId) =>
+        this.getPersonalChannel(Role.PARTICIPANT, participantProfileId),
+      ),
+    ].filter((channel): channel is string => channel !== null);
+
+    const payload: ChatListUpdateDto = {
+      roomId,
+      lastMessage: message,
+      lastSerialNumber: message.serialNumber,
+    };
+    this.server.to(channels).emit('chatList:update', payload);
+  }
+
+  // Read status — pushed so other open tabs/devices for the same user clear
+  // their unread badge without a REST refetch
+  @OnEvent('room.read-updated')
+  handleRoomReadUpdated(payload: {
+    roomId: string;
+    role: Role;
+    participantProfileId: string | null;
+    organizerProfileId: string | null;
+    lastReadSerialNumber: number;
+  }): void {
+    const channel = this.getPersonalChannel(
+      payload.role,
+      payload.role === Role.PARTICIPANT
+        ? payload.participantProfileId
+        : payload.organizerProfileId,
+    );
+    if (!channel) {
+      return;
+    }
+    this.server.to(channel).emit('chatList:read', {
+      roomId: payload.roomId,
+      lastReadSerialNumber: payload.lastReadSerialNumber,
+    });
   }
 
   // Force remove client on registration cancellation

@@ -125,6 +125,22 @@ const ID = {
   FLD_CN_FIRSTNAME: 'ff000090-0000-4000-8000-000000000090',
   FLD_CN_STUDENTID: 'ff000091-0000-4000-8000-000000000091',
   FLD_CN_SECTION:   'ff000092-0000-4000-8000-000000000092',
+
+  // Discussion Rooms — one per event
+  ROOM_HALLOWEEN:   'g0000001-0000-4000-8000-000000000001',
+  ROOM_NEW_YEAR:    'g0000002-0000-4000-8000-000000000002',
+  ROOM_SUKHOTHAI:   'g0000003-0000-4000-8000-000000000003',
+  ROOM_EXCHANGE:    'g0000004-0000-4000-8000-000000000004',
+  ROOM_BOOTCAMP:    'g0000005-0000-4000-8000-000000000005',
+  ROOM_HACKATHON:   'g0000006-0000-4000-8000-000000000006',
+  ROOM_SPORTS:      'g0000007-0000-4000-8000-000000000007',
+  ROOM_ORIENTATION: 'g0000008-0000-4000-8000-000000000008',
+  ROOM_AI_SEMINAR:  'g0000009-0000-4000-8000-000000000009',
+  ROOM_NO_FORM:     'g0000010-0000-4000-8000-000000000010',
+  ROOM_DRAFT1:      'g0000011-0000-4000-8000-000000000011',
+  ROOM_DRAFT2:      'g0000012-0000-4000-8000-000000000012',
+  ROOM_DRAFT3:      'g0000013-0000-4000-8000-000000000013',
+  ROOM_CONCERT:     'g0000014-0000-4000-8000-000000000014',
 };
 
 // ─── PARTICIPANT PROFILE DATA ─────────────────────────────────────────────────
@@ -1406,6 +1422,185 @@ async function main() {
   }
   console.log(`✓ Feedback responses (${feedbackConfigs.length} responses)`);
 
+  // ── Discussion Rooms ─────────────────────────────────────────────────────────
+  // Every event gets a discussion room (1:1), regardless of status.
+
+  const roomByEventId: Record<string, string> = {
+    [ID.EVT_HALLOWEEN]:   ID.ROOM_HALLOWEEN,
+    [ID.EVT_NEW_YEAR]:    ID.ROOM_NEW_YEAR,
+    [ID.EVT_SUKHOTHAI]:   ID.ROOM_SUKHOTHAI,
+    [ID.EVT_EXCHANGE]:    ID.ROOM_EXCHANGE,
+    [ID.EVT_BOOTCAMP]:    ID.ROOM_BOOTCAMP,
+    [ID.EVT_HACKATHON]:   ID.ROOM_HACKATHON,
+    [ID.EVT_SPORTS]:      ID.ROOM_SPORTS,
+    [ID.EVT_ORIENTATION]: ID.ROOM_ORIENTATION,
+    [ID.EVT_AI_SEMINAR]:  ID.ROOM_AI_SEMINAR,
+    [ID.EVT_NO_FORM]:     ID.ROOM_NO_FORM,
+    [ID.EVT_DRAFT1]:      ID.ROOM_DRAFT1,
+    [ID.EVT_DRAFT2]:      ID.ROOM_DRAFT2,
+    [ID.EVT_DRAFT3]:      ID.ROOM_DRAFT3,
+    [ID.EVT_CONCERT]:     ID.ROOM_CONCERT,
+  };
+
+  await Promise.all(
+    Object.entries(roomByEventId).map(([eventId, roomId]) =>
+      prisma.discussionRoom.upsert({
+        where: { eventId },
+        update: {},
+        create: { id: roomId, eventId },
+      }),
+    ),
+  );
+  console.log(`✓ Discussion rooms (${Object.keys(roomByEventId).length} — one per event)`);
+
+  // ── Discussion Messages ──────────────────────────────────────────────────────
+  // Only seeded for rooms whose event has confirmed registrations to chat with.
+  // Note: Hackathon and Sports Day concluded well outside the 72h read-only grace
+  // period, so their rooms are already read-only — useful for testing that state.
+
+  type MessageConfig = {
+    id: string;
+    roomId: string;
+    content: string;
+    isAnnouncement?: boolean;
+    senderParticipantId?: string;
+    senderOrganizerId?: string;
+    createdAt: Date;
+    serialNumber: number;
+  };
+
+  const messageConfigs: MessageConfig[] = [
+    // ── Halloween ────────────────────────────────────────────────────────────
+    { id: 'h1000001-0000-4000-8000-000000000001', roomId: ID.ROOM_HALLOWEEN, content: 'Welcome to the Halloween Night discussion room! Costume contest signup closes Oct 25.', isAnnouncement: true, senderOrganizerId: org1.id, createdAt: new Date('2026-09-05T12:00:00.000Z'), serialNumber: 1 },
+    { id: 'h1000002-0000-4000-8000-000000000002', roomId: ID.ROOM_HALLOWEEN, content: 'Excited for this!', senderParticipantId: ID.PAR1, createdAt: new Date('2026-09-05T13:00:00.000Z'), serialNumber: 2 },
+    { id: 'h1000003-0000-4000-8000-000000000003', roomId: ID.ROOM_HALLOWEEN, content: 'What should we wear?', senderParticipantId: ID.PAR2, createdAt: new Date('2026-09-05T14:00:00.000Z'), serialNumber: 3 },
+    { id: 'h1000004-0000-4000-8000-000000000004', roomId: ID.ROOM_HALLOWEEN, content: 'Costumes encouraged but not required!', senderOrganizerId: org1.id, createdAt: new Date('2026-09-05T15:00:00.000Z'), serialNumber: 4 },
+    { id: 'h1000005-0000-4000-8000-000000000005', roomId: ID.ROOM_HALLOWEEN, content: "Can't wait!", senderParticipantId: ID.PAR3, createdAt: new Date('2026-09-05T16:00:00.000Z'), serialNumber: 5 },
+
+    // ── New Year ─────────────────────────────────────────────────────────────
+    { id: 'h2000001-0000-4000-8000-000000000001', roomId: ID.ROOM_NEW_YEAR, content: 'Countdown party details have been posted — check the agenda!', isAnnouncement: true, senderOrganizerId: org1.id, createdAt: new Date('2026-10-05T12:00:00.000Z'), serialNumber: 1 },
+    { id: 'h2000002-0000-4000-8000-000000000002', roomId: ID.ROOM_NEW_YEAR, content: 'So hyped!', senderParticipantId: ID.PAR1, createdAt: new Date('2026-10-05T13:00:00.000Z'), serialNumber: 2 },
+    { id: 'h2000003-0000-4000-8000-000000000003', roomId: ID.ROOM_NEW_YEAR, content: 'Where do we park?', senderParticipantId: ID.PAR4, createdAt: new Date('2026-10-05T14:00:00.000Z'), serialNumber: 3 },
+    { id: 'h2000004-0000-4000-8000-000000000004', roomId: ID.ROOM_NEW_YEAR, content: 'Parking is available at the CAMT lot.', senderOrganizerId: org1.id, createdAt: new Date('2026-10-05T15:00:00.000Z'), serialNumber: 4 },
+
+    // ── Sukhothai ────────────────────────────────────────────────────────────
+    { id: 'h3000001-0000-4000-8000-000000000001', roomId: ID.ROOM_SUKHOTHAI, content: 'Trip itinerary has been emailed to everyone.', senderOrganizerId: org2.id, createdAt: new Date('2026-09-15T12:00:00.000Z'), serialNumber: 1 },
+    { id: 'h3000002-0000-4000-8000-000000000002', roomId: ID.ROOM_SUKHOTHAI, content: 'Looking forward to it!', senderParticipantId: ID.PAR1, createdAt: new Date('2026-09-15T13:00:00.000Z'), serialNumber: 2 },
+
+    // ── Exchange ─────────────────────────────────────────────────────────────
+    { id: 'h4000001-0000-4000-8000-000000000001', roomId: ID.ROOM_EXCHANGE, content: 'Orientation session has been moved online.', isAnnouncement: true, senderOrganizerId: org2.id, createdAt: new Date('2026-08-05T12:00:00.000Z'), serialNumber: 1 },
+    { id: 'h4000002-0000-4000-8000-000000000002', roomId: ID.ROOM_EXCHANGE, content: 'Thanks for the update.', senderParticipantId: ID.PAR2, createdAt: new Date('2026-08-05T13:00:00.000Z'), serialNumber: 2 },
+    { id: 'h4000003-0000-4000-8000-000000000003', roomId: ID.ROOM_EXCHANGE, content: 'Noted, thanks.', senderParticipantId: ID.PAR1, createdAt: new Date('2026-08-05T14:00:00.000Z'), serialNumber: 3 },
+    { id: 'h4000004-0000-4000-8000-000000000004', roomId: ID.ROOM_EXCHANGE, content: 'Let us know if you have any questions.', senderOrganizerId: org2.id, createdAt: new Date('2026-08-05T15:00:00.000Z'), serialNumber: 4 },
+    { id: 'h4000005-0000-4000-8000-000000000005', roomId: ID.ROOM_EXCHANGE, content: "When's the first session?", senderParticipantId: ID.PAR3, createdAt: new Date('2026-08-05T16:00:00.000Z'), serialNumber: 5 },
+
+    // ── Bootcamp ─────────────────────────────────────────────────────────────
+    { id: 'h5000001-0000-4000-8000-000000000001', roomId: ID.ROOM_BOOTCAMP, content: 'Welcome to the bootcamp cohort!', senderOrganizerId: org2.id, createdAt: new Date('2026-07-10T12:00:00.000Z'), serialNumber: 1 },
+    { id: 'h5000002-0000-4000-8000-000000000002', roomId: ID.ROOM_BOOTCAMP, content: 'Excited to start!', senderParticipantId: ID.PAR1, createdAt: new Date('2026-07-10T13:00:00.000Z'), serialNumber: 2 },
+    { id: 'h5000003-0000-4000-8000-000000000003', roomId: ID.ROOM_BOOTCAMP, content: 'Same here!', senderParticipantId: ID.PAR3, createdAt: new Date('2026-07-10T14:00:00.000Z'), serialNumber: 3 },
+    { id: 'h5000004-0000-4000-8000-000000000004', roomId: ID.ROOM_BOOTCAMP, content: 'Lab access codes were sent via email.', isAnnouncement: true, senderOrganizerId: org2.id, createdAt: new Date('2026-07-10T15:00:00.000Z'), serialNumber: 4 },
+
+    // ── Hackathon (CONCLUDED, past 72h grace — room is read-only) ──────────────
+    { id: 'h6000001-0000-4000-8000-000000000001', roomId: ID.ROOM_HACKATHON, content: 'Good luck to all teams!', senderOrganizerId: org3.id, createdAt: new Date('2026-05-20T09:30:00.000Z'), serialNumber: 1 },
+    { id: 'h6000002-0000-4000-8000-000000000002', roomId: ID.ROOM_HACKATHON, content: 'Team Alpha ready!', senderParticipantId: ID.PAR1, createdAt: new Date('2026-05-20T09:45:00.000Z'), serialNumber: 2 },
+    { id: 'h6000003-0000-4000-8000-000000000003', roomId: ID.ROOM_HACKATHON, content: "Team Beta here, let's go!", senderParticipantId: ID.PAR2, createdAt: new Date('2026-05-20T10:00:00.000Z'), serialNumber: 3 },
+    { id: 'h6000004-0000-4000-8000-000000000004', roomId: ID.ROOM_HACKATHON, content: 'Submissions close at 5pm on the 22nd.', senderOrganizerId: org3.id, createdAt: new Date('2026-05-20T10:15:00.000Z'), serialNumber: 4 },
+
+    // ── Sports Day (CONCLUDED, past 72h grace — room is read-only) ─────────────
+    { id: 'h7000001-0000-4000-8000-000000000001', roomId: ID.ROOM_SPORTS, content: 'Good luck at Sports Day!', senderOrganizerId: org3.id, createdAt: new Date('2026-04-10T08:15:00.000Z'), serialNumber: 1 },
+    { id: 'h7000002-0000-4000-8000-000000000002', roomId: ID.ROOM_SPORTS, content: 'Go team!', senderParticipantId: ID.PAR2, createdAt: new Date('2026-04-10T08:30:00.000Z'), serialNumber: 2 },
+  ];
+
+  for (const m of messageConfigs) {
+    await prisma.message.upsert({
+      where: { id: m.id },
+      update: {},
+      create: {
+        id: m.id,
+        roomId: m.roomId,
+        content: m.content,
+        isAnnouncement: m.isAnnouncement ?? false,
+        senderParticipantId: m.senderParticipantId ?? null,
+        senderOrganizerId: m.senderOrganizerId ?? null,
+        createdAt: m.createdAt,
+        serialNumber: m.serialNumber,
+      },
+    });
+  }
+
+  // sync each room's lastSerialNumber to the highest serialNumber seeded for it
+  const maxSerialByRoom = messageConfigs.reduce<Record<string, number>>((acc, m) => {
+    acc[m.roomId] = Math.max(acc[m.roomId] ?? 0, m.serialNumber);
+    return acc;
+  }, {});
+  await Promise.all(
+    Object.entries(maxSerialByRoom).map(([roomId, lastSerialNumber]) =>
+      prisma.discussionRoom.update({ where: { id: roomId }, data: { lastSerialNumber } }),
+    ),
+  );
+  console.log(`✓ Discussion messages (${messageConfigs.length} messages across 7 rooms)`);
+
+  // ── Room Read Statuses ───────────────────────────────────────────────────────
+  // Mix of fully-read, partially-read, and never-opened rooms per participant/organizer
+  // — useful for testing unread counts and chat-list ordering.
+
+  type ReadStatusConfig = {
+    roomId: string;
+    readerParticipantId?: string;
+    readerOrganizerId?: string;
+    lastReadMessageId: string;
+    lastReadSerialNumber: number;
+  };
+
+  const readStatusConfigs: ReadStatusConfig[] = [
+    // Halloween: par1 fully read, par2 read only the first message, par3 never opened
+    { roomId: ID.ROOM_HALLOWEEN, readerParticipantId: ID.PAR1, lastReadMessageId: 'h1000005-0000-4000-8000-000000000005', lastReadSerialNumber: 5 },
+    { roomId: ID.ROOM_HALLOWEEN, readerParticipantId: ID.PAR2, lastReadMessageId: 'h1000001-0000-4000-8000-000000000001', lastReadSerialNumber: 1 },
+
+    // New Year: par1 fully read, par2 read only the announcement
+    { roomId: ID.ROOM_NEW_YEAR, readerParticipantId: ID.PAR1, lastReadMessageId: 'h2000004-0000-4000-8000-000000000004', lastReadSerialNumber: 4 },
+    { roomId: ID.ROOM_NEW_YEAR, readerParticipantId: ID.PAR2, lastReadMessageId: 'h2000001-0000-4000-8000-000000000001', lastReadSerialNumber: 1 },
+
+    // Sukhothai: par1 fully read
+    { roomId: ID.ROOM_SUKHOTHAI, readerParticipantId: ID.PAR1, lastReadMessageId: 'h3000002-0000-4000-8000-000000000002', lastReadSerialNumber: 2 },
+
+    // Exchange: par1 fully read, par2 read up to message 3, par3 never opened
+    { roomId: ID.ROOM_EXCHANGE, readerParticipantId: ID.PAR1, lastReadMessageId: 'h4000005-0000-4000-8000-000000000005', lastReadSerialNumber: 5 },
+    { roomId: ID.ROOM_EXCHANGE, readerParticipantId: ID.PAR2, lastReadMessageId: 'h4000003-0000-4000-8000-000000000003', lastReadSerialNumber: 3 },
+
+    // Bootcamp: par1 fully read, par3 read only the first message
+    { roomId: ID.ROOM_BOOTCAMP, readerParticipantId: ID.PAR1, lastReadMessageId: 'h5000004-0000-4000-8000-000000000004', lastReadSerialNumber: 4 },
+    { roomId: ID.ROOM_BOOTCAMP, readerParticipantId: ID.PAR3, lastReadMessageId: 'h5000001-0000-4000-8000-000000000001', lastReadSerialNumber: 1 },
+
+    // Hackathon (read-only): par1 fully read, par2 never opened
+    { roomId: ID.ROOM_HACKATHON, readerParticipantId: ID.PAR1, lastReadMessageId: 'h6000004-0000-4000-8000-000000000004', lastReadSerialNumber: 4 },
+
+    // Organizers: each has read their own event's latest message
+    { roomId: ID.ROOM_HALLOWEEN, readerOrganizerId: org1.id, lastReadMessageId: 'h1000005-0000-4000-8000-000000000005', lastReadSerialNumber: 5 },
+    { roomId: ID.ROOM_NEW_YEAR, readerOrganizerId: org1.id, lastReadMessageId: 'h2000004-0000-4000-8000-000000000004', lastReadSerialNumber: 4 },
+    { roomId: ID.ROOM_EXCHANGE, readerOrganizerId: org2.id, lastReadMessageId: 'h4000004-0000-4000-8000-000000000004', lastReadSerialNumber: 4 },
+    { roomId: ID.ROOM_BOOTCAMP, readerOrganizerId: org2.id, lastReadMessageId: 'h5000003-0000-4000-8000-000000000003', lastReadSerialNumber: 3 },
+  ];
+
+  for (const rs of readStatusConfigs) {
+    const where = rs.readerOrganizerId
+      ? { roomId_readerOrganizerId: { roomId: rs.roomId, readerOrganizerId: rs.readerOrganizerId } }
+      : { roomId_readerParticipantId: { roomId: rs.roomId, readerParticipantId: rs.readerParticipantId! } };
+
+    await prisma.roomReadStatus.upsert({
+      where,
+      update: { lastReadMessageId: rs.lastReadMessageId, lastReadSerialNumber: rs.lastReadSerialNumber },
+      create: {
+        roomId: rs.roomId,
+        readerParticipantId: rs.readerParticipantId ?? null,
+        readerOrganizerId: rs.readerOrganizerId ?? null,
+        lastReadMessageId: rs.lastReadMessageId,
+        lastReadSerialNumber: rs.lastReadSerialNumber,
+      },
+    });
+  }
+  console.log(`✓ Room read statuses (${readStatusConfigs.length})`);
+
   // ── Summary ──────────────────────────────────────────────────────────────────
 
   console.log('');
@@ -1444,6 +1639,11 @@ async function main() {
   console.log('  Feedback responses: 3');
   console.log('     Hackathon: par1(5★), par2(4★)');
   console.log('     New Year:  par1(5★) only — par2-5 not submitted yet');
+  console.log('');
+  console.log('  14 discussion rooms (one per event)');
+  console.log('     With messages: Halloween, New Year, Sukhothai, Exchange, Bootcamp, Hackathon*, Sports*');
+  console.log('     (* Hackathon and Sports Day rooms are read-only — past the 72h grace period)');
+  console.log('     Empty (no messages): Orientation, AI Seminar, No Form, Drafts x3, Concert');
   console.log('');
   console.log('  Useful test scenarios:');
   console.log('     EventFullException:     try registering any participant for New Year or Exchange');

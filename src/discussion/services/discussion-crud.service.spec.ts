@@ -7,6 +7,7 @@ import { DiscussionCrudService } from './discussion-crud.service';
 import { ReturnMessageDto } from '../dto/return-message.dto';
 import { SaveMessageException } from '../exceptions/save-message.exception';
 import { SaveRoomReadStatusException } from '../exceptions/save-room-read-status.exception';
+import { RoomNotFoundException } from '../exceptions/room-not-found.exception';
 
 const MOCK_ROOM_ID = 'e8946e7f-42a6-4586-9089-9267d0312bff';
 const MOCK_EVENT_ID = '1fa29edd-3a7d-4d2c-bf8f-8521eb4e76b8';
@@ -56,6 +57,7 @@ const buildRawMessage = (overrides: Record<string, any> = {}) => ({
   content: 'hello world',
   isAnnouncement: false,
   createdAt: new Date('2026-08-01T00:00:00Z'),
+  serialNumber: 1,
   senderParticipantId: MOCK_PARTICIPANT_PROFILE_ID,
   senderOrganizerId: null,
   senderParticipant: {
@@ -97,6 +99,7 @@ const mapRawToExpected = (raw: Record<string, any>): ReturnMessageDto => ({
         imageUrl: raw.senderParticipant.imageUrl ?? '',
       },
   createdAt: raw.createdAt,
+  serialNumber: raw.serialNumber,
 });
 
 const prismaMock = mockDeep<PrismaService>();
@@ -110,6 +113,11 @@ describe('DiscussionCrudService', () => {
 
   beforeEach(async () => {
     mockReset(prismaMock);
+    // createMessage wraps the serial claim + insert in a transaction; run the
+    // callback against the same mock so tx.message.create / tx.$queryRaw
+    // calls land on prismaMock and stay assertable
+    prismaMock.$transaction.mockImplementation((fn: any) => fn(prismaMock));
+    prismaMock.$queryRaw.mockResolvedValue([{ lastSerialNumber: 1 }] as any);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -147,6 +155,7 @@ describe('DiscussionCrudService', () => {
             isAnnouncement: false,
             senderParticipantId: MOCK_PARTICIPANT_PROFILE_ID,
             senderOrganizerId: null,
+            serialNumber: 1,
           },
         }),
       );
@@ -684,6 +693,7 @@ describe('DiscussionCrudService', () => {
       prismaMock.roomReadStatus.upsert.mockResolvedValue({
         roomId: MOCK_ROOM_ID,
         lastReadMessageId: MOCK_MESSAGE_ID,
+        lastReadSerialNumber: 5,
       } as any);
 
       const result = await service.upsertLastReadMessage(
@@ -692,11 +702,13 @@ describe('DiscussionCrudService', () => {
         null,
         MOCK_ORGANIZER_PROFILE_ID,
         MOCK_MESSAGE_ID,
+        5,
       );
 
       expect(result).toEqual({
         roomId: MOCK_ROOM_ID,
         lastReadMessageId: MOCK_MESSAGE_ID,
+        lastReadSerialNumber: 5,
       });
       expect(prismaMock.roomReadStatus.upsert).toHaveBeenCalledWith({
         where: {
@@ -710,8 +722,9 @@ describe('DiscussionCrudService', () => {
           readerParticipantId: null,
           readerOrganizerId: MOCK_ORGANIZER_PROFILE_ID,
           lastReadMessageId: MOCK_MESSAGE_ID,
+          lastReadSerialNumber: 5,
         },
-        update: { lastReadMessageId: MOCK_MESSAGE_ID },
+        update: { lastReadMessageId: MOCK_MESSAGE_ID, lastReadSerialNumber: 5 },
       });
     });
 
@@ -719,6 +732,7 @@ describe('DiscussionCrudService', () => {
       prismaMock.roomReadStatus.upsert.mockResolvedValue({
         roomId: MOCK_ROOM_ID,
         lastReadMessageId: MOCK_MESSAGE_ID,
+        lastReadSerialNumber: 5,
       } as any);
 
       const result = await service.upsertLastReadMessage(
@@ -727,11 +741,13 @@ describe('DiscussionCrudService', () => {
         MOCK_PARTICIPANT_PROFILE_ID,
         null,
         MOCK_MESSAGE_ID,
+        5,
       );
 
       expect(result).toEqual({
         roomId: MOCK_ROOM_ID,
         lastReadMessageId: MOCK_MESSAGE_ID,
+        lastReadSerialNumber: 5,
       });
       expect(prismaMock.roomReadStatus.upsert).toHaveBeenCalledWith({
         where: {
@@ -745,8 +761,9 @@ describe('DiscussionCrudService', () => {
           readerParticipantId: MOCK_PARTICIPANT_PROFILE_ID,
           readerOrganizerId: null,
           lastReadMessageId: MOCK_MESSAGE_ID,
+          lastReadSerialNumber: 5,
         },
-        update: { lastReadMessageId: MOCK_MESSAGE_ID },
+        update: { lastReadMessageId: MOCK_MESSAGE_ID, lastReadSerialNumber: 5 },
       });
     });
 
@@ -763,6 +780,7 @@ describe('DiscussionCrudService', () => {
         MOCK_PARTICIPANT_PROFILE_ID,
         null,
         newMessageId,
+        undefined,
       );
 
       expect(result).toEqual({
@@ -787,6 +805,7 @@ describe('DiscussionCrudService', () => {
         Role.PARTICIPANT,
         MOCK_PARTICIPANT_PROFILE_ID,
         null,
+        undefined,
         undefined,
       );
 
@@ -814,6 +833,7 @@ describe('DiscussionCrudService', () => {
         null,
         MOCK_ORGANIZER_PROFILE_ID,
         undefined,
+        undefined,
       );
 
       expect(result).toEqual({
@@ -834,6 +854,7 @@ describe('DiscussionCrudService', () => {
           Role.ORGANIZER,
           null,
           MOCK_ORGANIZER_PROFILE_ID,
+          undefined,
           undefined,
         );
 
@@ -1116,6 +1137,184 @@ describe('DiscussionCrudService', () => {
       const result = await service.findRoomByEventId(MOCK_EVENT_ID);
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe('claimNextRoomSerialNumber', () => {
+    it('UT-6-016-01: room exists → atomically increments and returns the new lastSerialNumber', async () => {
+      prismaMock.$queryRaw.mockResolvedValue([
+        { lastSerialNumber: 12 },
+      ] as any);
+
+      const result = await service.claimNextRoomSerialNumber(MOCK_ROOM_ID);
+
+      expect(result).toBe(12);
+    });
+
+    it('UT-6-016-02: room does not exist → throws RoomNotFoundException', async () => {
+      prismaMock.$queryRaw.mockResolvedValue([] as any);
+
+      await expect(
+        service.claimNextRoomSerialNumber(MOCK_ROOM_ID),
+      ).rejects.toThrow(RoomNotFoundException);
+    });
+
+    it('UT-6-016-03: tx provided → runs the raw query against the tx client, not a fresh transaction', async () => {
+      const txMock = mockDeep<PrismaService>();
+      txMock.$queryRaw.mockResolvedValue([{ lastSerialNumber: 3 }] as any);
+
+      const result = await service.claimNextRoomSerialNumber(
+        MOCK_ROOM_ID,
+        txMock as any,
+      );
+
+      expect(result).toBe(3);
+      expect(txMock.$queryRaw).toHaveBeenCalled();
+      expect(prismaMock.$queryRaw).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getMessageSerialNumber', () => {
+    it('UT-6-016-04: message exists → returns its serialNumber', async () => {
+      prismaMock.message.findUnique.mockResolvedValue({
+        serialNumber: 7,
+      } as any);
+
+      const result = await service.getMessageSerialNumber(MOCK_MESSAGE_ID);
+
+      expect(result).toBe(7);
+      expect(prismaMock.message.findUnique).toHaveBeenCalledWith({
+        where: { id: MOCK_MESSAGE_ID },
+        select: { serialNumber: true },
+      });
+    });
+
+    it('UT-6-016-05: message does not exist → returns null', async () => {
+      prismaMock.message.findUnique.mockResolvedValue(null);
+
+      const result = await service.getMessageSerialNumber(MOCK_MESSAGE_ID);
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('getUnreadCountBySerialNumber', () => {
+    it('UT-6-016-06: ORGANIZER + existing read status → returns room.lastSerialNumber - readStatus.lastReadSerialNumber', async () => {
+      prismaMock.discussionRoom.findUnique.mockResolvedValue({
+        lastSerialNumber: 10,
+      } as any);
+      prismaMock.roomReadStatus.findUnique.mockResolvedValue({
+        lastReadSerialNumber: 4,
+      } as any);
+
+      const result = await service.getUnreadCountBySerialNumber(
+        MOCK_ROOM_ID,
+        Role.ORGANIZER,
+        null,
+        MOCK_ORGANIZER_PROFILE_ID,
+      );
+
+      expect(result).toBe(6);
+      expect(prismaMock.roomReadStatus.findUnique).toHaveBeenCalledWith({
+        where: {
+          roomId_readerOrganizerId: {
+            roomId: MOCK_ROOM_ID,
+            readerOrganizerId: MOCK_ORGANIZER_PROFILE_ID,
+          },
+        },
+        select: { lastReadSerialNumber: true },
+      });
+    });
+
+    it('UT-6-016-07: PARTICIPANT + no read status yet → treats lastReadSerialNumber as 0', async () => {
+      prismaMock.discussionRoom.findUnique.mockResolvedValue({
+        lastSerialNumber: 5,
+      } as any);
+      prismaMock.roomReadStatus.findUnique.mockResolvedValue(null);
+
+      const result = await service.getUnreadCountBySerialNumber(
+        MOCK_ROOM_ID,
+        Role.PARTICIPANT,
+        MOCK_PARTICIPANT_PROFILE_ID,
+        null,
+      );
+
+      expect(result).toBe(5);
+      expect(prismaMock.roomReadStatus.findUnique).toHaveBeenCalledWith({
+        where: {
+          roomId_readerParticipantId: {
+            roomId: MOCK_ROOM_ID,
+            readerParticipantId: MOCK_PARTICIPANT_PROFILE_ID,
+          },
+        },
+        select: { lastReadSerialNumber: true },
+      });
+    });
+
+    it('UT-6-016-08: result never goes negative even if stored lastReadSerialNumber is stale/ahead', async () => {
+      prismaMock.discussionRoom.findUnique.mockResolvedValue({
+        lastSerialNumber: 3,
+      } as any);
+      prismaMock.roomReadStatus.findUnique.mockResolvedValue({
+        lastReadSerialNumber: 9,
+      } as any);
+
+      const result = await service.getUnreadCountBySerialNumber(
+        MOCK_ROOM_ID,
+        Role.PARTICIPANT,
+        MOCK_PARTICIPANT_PROFILE_ID,
+        null,
+      );
+
+      expect(result).toBe(0);
+    });
+
+    it('UT-6-016-09: room does not exist → throws RoomNotFoundException', async () => {
+      prismaMock.discussionRoom.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.getUnreadCountBySerialNumber(
+          MOCK_ROOM_ID,
+          Role.PARTICIPANT,
+          MOCK_PARTICIPANT_PROFILE_ID,
+          null,
+        ),
+      ).rejects.toThrow(RoomNotFoundException);
+    });
+  });
+
+  describe('getRoomMemberIds', () => {
+    it('UT-6-016-10: room exists → returns organizerProfileId and confirmed participantProfileIds', async () => {
+      prismaMock.discussionRoom.findUnique.mockResolvedValue({
+        event: {
+          organizerId: MOCK_ORGANIZER_PROFILE_ID,
+          eventRegistrations: [
+            { participantId: MOCK_PARTICIPANT_PROFILE_ID },
+            { participantId: 'other-participant-id' },
+          ],
+        },
+      } as any);
+
+      const result = await service.getRoomMemberIds(MOCK_ROOM_ID);
+
+      expect(result).toEqual({
+        organizerProfileId: MOCK_ORGANIZER_PROFILE_ID,
+        participantProfileIds: [
+          MOCK_PARTICIPANT_PROFILE_ID,
+          'other-participant-id',
+        ],
+      });
+      expect(prismaMock.discussionRoom.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: MOCK_ROOM_ID } }),
+      );
+    });
+
+    it('UT-6-016-11: room does not exist → throws RoomNotFoundException', async () => {
+      prismaMock.discussionRoom.findUnique.mockResolvedValue(null);
+
+      await expect(service.getRoomMemberIds(MOCK_ROOM_ID)).rejects.toThrow(
+        RoomNotFoundException,
+      );
     });
   });
 });
