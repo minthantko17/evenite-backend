@@ -1198,8 +1198,8 @@ describe('DiscussionCrudService', () => {
     });
   });
 
-  describe('getUnreadCountBySerialNumber', () => {
-    it('UT-6-016-06: ORGANIZER + existing read status → returns room.lastSerialNumber - readStatus.lastReadSerialNumber', async () => {
+  describe('getUnreadStatusBySerialNumber', () => {
+    it('UT-6-016-06: ORGANIZER + existing read status → returns unreadCount = room.lastSerialNumber - readStatus.lastReadSerialNumber, plus the raw lastReadSerialNumber', async () => {
       prismaMock.discussionRoom.findUnique.mockResolvedValue({
         lastSerialNumber: 10,
       } as any);
@@ -1207,14 +1207,14 @@ describe('DiscussionCrudService', () => {
         lastReadSerialNumber: 4,
       } as any);
 
-      const result = await service.getUnreadCountBySerialNumber(
+      const result = await service.getUnreadStatusBySerialNumber(
         MOCK_ROOM_ID,
         Role.ORGANIZER,
         null,
         MOCK_ORGANIZER_PROFILE_ID,
       );
 
-      expect(result).toBe(6);
+      expect(result).toEqual({ unreadCount: 6, lastReadSerialNumber: 4 });
       expect(prismaMock.roomReadStatus.findUnique).toHaveBeenCalledWith({
         where: {
           roomId_readerOrganizerId: {
@@ -1232,14 +1232,14 @@ describe('DiscussionCrudService', () => {
       } as any);
       prismaMock.roomReadStatus.findUnique.mockResolvedValue(null);
 
-      const result = await service.getUnreadCountBySerialNumber(
+      const result = await service.getUnreadStatusBySerialNumber(
         MOCK_ROOM_ID,
         Role.PARTICIPANT,
         MOCK_PARTICIPANT_PROFILE_ID,
         null,
       );
 
-      expect(result).toBe(5);
+      expect(result).toEqual({ unreadCount: 5, lastReadSerialNumber: 0 });
       expect(prismaMock.roomReadStatus.findUnique).toHaveBeenCalledWith({
         where: {
           roomId_readerParticipantId: {
@@ -1251,7 +1251,7 @@ describe('DiscussionCrudService', () => {
       });
     });
 
-    it('UT-6-016-08: result never goes negative even if stored lastReadSerialNumber is stale/ahead', async () => {
+    it('UT-6-016-08: unreadCount never goes negative even if stored lastReadSerialNumber is stale/ahead', async () => {
       prismaMock.discussionRoom.findUnique.mockResolvedValue({
         lastSerialNumber: 3,
       } as any);
@@ -1259,21 +1259,21 @@ describe('DiscussionCrudService', () => {
         lastReadSerialNumber: 9,
       } as any);
 
-      const result = await service.getUnreadCountBySerialNumber(
+      const result = await service.getUnreadStatusBySerialNumber(
         MOCK_ROOM_ID,
         Role.PARTICIPANT,
         MOCK_PARTICIPANT_PROFILE_ID,
         null,
       );
 
-      expect(result).toBe(0);
+      expect(result).toEqual({ unreadCount: 0, lastReadSerialNumber: 9 });
     });
 
     it('UT-6-016-09: room does not exist → throws RoomNotFoundException', async () => {
       prismaMock.discussionRoom.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.getUnreadCountBySerialNumber(
+        service.getUnreadStatusBySerialNumber(
           MOCK_ROOM_ID,
           Role.PARTICIPANT,
           MOCK_PARTICIPANT_PROFILE_ID,
