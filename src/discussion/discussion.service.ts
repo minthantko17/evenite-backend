@@ -288,8 +288,8 @@ export class DiscussionService {
     const lastMessage: ReturnMessageDto | null =
       await this.discussionCrudService.getLatestMessageForRoom(roomId);
 
-    const unreadCount: number =
-      await this.discussionCrudService.getUnreadCountBySerialNumber(
+    const { unreadCount, lastReadSerialNumber } =
+      await this.discussionCrudService.getUnreadStatusBySerialNumber(
         roomId,
         role,
         participantProfileId,
@@ -308,6 +308,7 @@ export class DiscussionService {
       },
       lastMessage,
       unreadCount,
+      lastReadSerialNumber,
       isReadOnly,
     };
   }

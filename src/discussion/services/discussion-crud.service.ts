@@ -269,12 +269,12 @@ export class DiscussionCrudService {
     return message?.serialNumber ?? null;
   }
 
-  async getUnreadCountBySerialNumber(
+  async getUnreadStatusBySerialNumber(
     roomId: string,
     role: Role,
     participantProfileId: string | null,
     organizerProfileId: string | null,
-  ): Promise<number> {
+  ): Promise<{ unreadCount: number; lastReadSerialNumber: number }> {
     const readStatusWhere =
       role === Role.ORGANIZER
         ? {
@@ -306,7 +306,10 @@ export class DiscussionCrudService {
     }
 
     const lastReadSerialNumber = readStatus?.lastReadSerialNumber ?? 0;
-    return Math.max(0, room.lastSerialNumber - lastReadSerialNumber);
+    return {
+      unreadCount: Math.max(0, room.lastSerialNumber - lastReadSerialNumber),
+      lastReadSerialNumber,
+    };
   }
 
   private async resolveLastReadCreatedAt(

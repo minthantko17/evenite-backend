@@ -14,5 +14,6 @@ export class ReturnDiscussionRoomListDto {
   event!: ReturnDiscussionRoomListEventDto;
   lastMessage!: ReturnMessageDto | null;
   unreadCount!: number;
+  lastReadSerialNumber!: number;
   isReadOnly!: boolean;
 }

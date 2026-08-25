@@ -121,6 +121,7 @@ function buildRoomListDto(
     },
     lastMessage: null,
     unreadCount: 0,
+    lastReadSerialNumber: 0,
     isReadOnly: false,
     ...overrides,
   };
@@ -185,7 +186,10 @@ describe('DiscussionService', () => {
     crudServiceMock.getParticipantEventsWithRoom.mockResolvedValue([]);
     crudServiceMock.getLatestMessageForRoom.mockResolvedValue(null);
     crudServiceMock.countUnreadMessages.mockResolvedValue(0);
-    crudServiceMock.getUnreadCountBySerialNumber.mockResolvedValue(0);
+    crudServiceMock.getUnreadStatusBySerialNumber.mockResolvedValue({
+      unreadCount: 0,
+      lastReadSerialNumber: 0,
+    });
     crudServiceMock.getMessageSerialNumber.mockResolvedValue(null);
     crudServiceMock.findRoomByEventId.mockResolvedValue(null);
     crudServiceMock.getLatestAnnouncements.mockResolvedValue([]);
@@ -997,7 +1001,10 @@ describe('DiscussionService', () => {
         MOCK_EVENT_WITH_ROOM,
       ]);
       crudServiceMock.getLatestMessageForRoom.mockResolvedValue(latestMessage);
-      crudServiceMock.getUnreadCountBySerialNumber.mockResolvedValue(3);
+      crudServiceMock.getUnreadStatusBySerialNumber.mockResolvedValue({
+        unreadCount: 3,
+        lastReadSerialNumber: 2,
+      });
       validationServiceMock.validateRoomWritable.mockReturnValue({
         message: 'Discussion room is writable.',
       });
@@ -1010,11 +1017,12 @@ describe('DiscussionService', () => {
         buildRoomListDto(MOCK_EVENT_WITH_ROOM, {
           lastMessage: latestMessage,
           unreadCount: 3,
+          lastReadSerialNumber: 2,
         }),
       ]);
-      // pins the caller identity actually forwarded into the unread-count
+      // pins the caller identity actually forwarded into the unread-status
       // lookup, catching a regression that swaps organizer/participant slots
-      expect(crudServiceMock.getUnreadCountBySerialNumber).toHaveBeenCalledWith(
+      expect(crudServiceMock.getUnreadStatusBySerialNumber).toHaveBeenCalledWith(
         MOCK_ROOM_ID,
         Role.ORGANIZER,
         null,
@@ -1053,7 +1061,10 @@ describe('DiscussionService', () => {
       crudServiceMock.getOrganizerEventsWithRoom.mockResolvedValue([
         MOCK_EVENT_WITH_ROOM,
       ]);
-      crudServiceMock.getUnreadCountBySerialNumber.mockResolvedValue(0);
+      crudServiceMock.getUnreadStatusBySerialNumber.mockResolvedValue({
+        unreadCount: 0,
+        lastReadSerialNumber: 0,
+      });
 
       const result = await service.getCreatedDiscussionRooms(
         MOCK_ORGANIZER_PROFILE_ID,
@@ -1111,7 +1122,7 @@ describe('DiscussionService', () => {
         buildRoomListDto(MOCK_EVENT_WITH_ROOM, { lastMessage: latestMessage }),
       ]);
       expect(
-        crudServiceMock.getUnreadCountBySerialNumber,
+        crudServiceMock.getUnreadStatusBySerialNumber,
       ).toHaveBeenCalledWith(
         MOCK_ROOM_ID,
         Role.PARTICIPANT,
