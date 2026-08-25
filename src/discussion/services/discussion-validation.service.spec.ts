@@ -386,40 +386,21 @@ describe('DiscussionValidationService', () => {
     });
   });
 
-  describe('validateAnnouncementPermission', () => {
-    it('UT-6-005-01: NotAnnouncing + ORGANIZER → returns false', () => {
-      const result = service.validateAnnouncementPermission(
-        false,
-        Role.ORGANIZER,
-      );
+  describe('validateAnnouncementSenderRole', () => {
+    it('UT-6-005-01: RoleOrganizer → returns a success message', () => {
+      const result = service.validateAnnouncementSenderRole(Role.ORGANIZER);
 
-      expect(result).toBe(false);
+      expect(result).toEqual({
+        message: 'Organizer can send announcements.',
+      });
     });
 
-    it('UT-6-005-02: NotAnnouncing + PARTICIPANT → returns false (role irrelevant)', () => {
-      const result = service.validateAnnouncementPermission(
-        false,
-        Role.PARTICIPANT,
-      );
-
-      expect(result).toBe(false);
-    });
-
-    it('UT-6-005-03: Announcing + RoleOrganizer → returns true', () => {
-      const result = service.validateAnnouncementPermission(
-        true,
-        Role.ORGANIZER,
-      );
-
-      expect(result).toBe(true);
-    });
-
-    it('UT-6-005-04: Announcing + RoleParticipant → throws AnnouncementNotAllowedException', () => {
+    it('UT-6-005-02: RoleParticipant → throws AnnouncementNotAllowedException', () => {
       expect(() =>
-        service.validateAnnouncementPermission(true, Role.PARTICIPANT),
+        service.validateAnnouncementSenderRole(Role.PARTICIPANT),
       ).toThrow(AnnouncementNotAllowedException);
       expect(() =>
-        service.validateAnnouncementPermission(true, Role.PARTICIPANT),
+        service.validateAnnouncementSenderRole(Role.PARTICIPANT),
       ).toThrow('Only the organizer can send announcements.');
     });
   });

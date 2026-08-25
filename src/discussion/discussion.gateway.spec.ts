@@ -7,6 +7,7 @@ import { Server, Socket } from 'socket.io';
 import { DiscussionGateway } from './discussion.gateway';
 import { DiscussionService } from './discussion.service';
 import { CreateMessageDto } from './dto/create-message.dto';
+import { CreateAnnouncementDto } from './dto/create-announcement.dto';
 import { ReturnMessageDto } from './dto/return-message.dto';
 import { JwtAccessPayload } from '../auth/strategies/jwt-access.strategy';
 import { RoomNotFoundException } from './exceptions/room-not-found.exception';
@@ -78,6 +79,22 @@ const MOCK_ORGANIZER_RETURN_MESSAGE: ReturnMessageDto = {
   },
   createdAt: new Date('2026-08-01T00:00:00Z'),
   serialNumber: 2,
+};
+
+const MOCK_ANNOUNCEMENT_MESSAGE_ID = '2b3c4d5e-6789-40ab-cdef-1234567890ab';
+
+const MOCK_ANNOUNCEMENT_RETURN_MESSAGE: ReturnMessageDto = {
+  id: MOCK_ANNOUNCEMENT_MESSAGE_ID,
+  content: 'important update',
+  isAnnouncement: true,
+  sender: {
+    id: MOCK_ORGANIZER_PROFILE_ID,
+    role: Role.ORGANIZER,
+    name: 'John',
+    imageUrl: '',
+  },
+  createdAt: new Date('2026-08-01T00:00:00Z'),
+  serialNumber: 3,
 };
 
 const discussionServiceMock = mockDeep<DiscussionService>();
@@ -472,6 +489,77 @@ describe('DiscussionGateway', () => {
         event: 'message:send',
         code: DiscussionErrorCode.MESSAGE_CONTENT_INVALID,
         message: 'Message cannot be empty.',
+      });
+      expect(discussionServiceMock.getRoomMemberIds).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('handleSendAnnouncement', () => {
+    const dto: CreateAnnouncementDto = { content: 'important update' };
+
+    it('not authenticated → emitError(announcement:send, UNAUTHORIZED), server.to(...).emit NOT called', async () => {
+      const client = createMockSocket({ data: {} });
+
+      await gateway.handleSendAnnouncement(client, { roomId: MOCK_ROOM_ID, dto });
+
+      expect(client.emit).toHaveBeenCalledWith('error', {
+        event: 'announcement:send',
+        code: DiscussionErrorCode.UNAUTHORIZED,
+        message: 'Socket not authenticated',
+      });
+      expect(toMock).not.toHaveBeenCalled();
+    });
+
+    it('ORGANIZER role, send succeeds → server.to(roomId).emit(message:new, announcement) called, chat list updated', async () => {
+      const payload = buildPayload({
+        currentRole: Role.ORGANIZER,
+        participantProfileId: null,
+        organizerProfileId: MOCK_ORGANIZER_PROFILE_ID,
+      });
+      const client = createMockSocket({ data: { user: payload } });
+      discussionServiceMock.sendAnnouncement.mockResolvedValue(
+        MOCK_ANNOUNCEMENT_RETURN_MESSAGE,
+      );
+
+      await gateway.handleSendAnnouncement(client, { roomId: MOCK_ROOM_ID, dto });
+
+      expect(discussionServiceMock.sendAnnouncement).toHaveBeenCalledWith(
+        MOCK_ROOM_ID,
+        dto,
+        Role.ORGANIZER,
+        null,
+        MOCK_ORGANIZER_PROFILE_ID,
+      );
+      expect(toMock).toHaveBeenCalledWith(MOCK_ROOM_ID);
+      expect(roomEmitMock).toHaveBeenCalledWith(
+        'message:new',
+        MOCK_ANNOUNCEMENT_RETURN_MESSAGE,
+      );
+      expect(roomEmitMock).toHaveBeenCalledWith('chatList:update', {
+        roomId: MOCK_ROOM_ID,
+        lastMessage: MOCK_ANNOUNCEMENT_RETURN_MESSAGE,
+        lastSerialNumber: MOCK_ANNOUNCEMENT_RETURN_MESSAGE.serialNumber,
+      });
+    });
+
+    it('SendFails → server.to(...).emit NOT called, emitError(announcement:send, <resolved code>) called', async () => {
+      const payload = buildPayload({
+        currentRole: Role.PARTICIPANT,
+        participantProfileId: MOCK_PARTICIPANT_PROFILE_ID,
+        organizerProfileId: null,
+      });
+      const client = createMockSocket({ data: { user: payload } });
+      discussionServiceMock.sendAnnouncement.mockRejectedValue(
+        new AnnouncementNotAllowedException(),
+      );
+
+      await gateway.handleSendAnnouncement(client, { roomId: MOCK_ROOM_ID, dto });
+
+      expect(toMock).not.toHaveBeenCalled();
+      expect(client.emit).toHaveBeenCalledWith('error', {
+        event: 'announcement:send',
+        code: DiscussionErrorCode.ANNOUNCEMENT_NOT_ALLOWED,
+        message: 'Only the organizer can send announcements.',
       });
       expect(discussionServiceMock.getRoomMemberIds).not.toHaveBeenCalled();
     });

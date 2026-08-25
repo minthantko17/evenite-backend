@@ -97,13 +97,11 @@ export class DiscussionValidationService {
     return content;
   }
 
-  validateAnnouncementPermission(
-    isAnnouncement: boolean,
-    role: Role,
-  ): boolean {
-    if (isAnnouncement && role !== Role.ORGANIZER) {
+  // only the organizer may send announcements
+  validateAnnouncementSenderRole(role: Role): { message: string } {
+    if (role !== Role.ORGANIZER) {
       throw new AnnouncementNotAllowedException();
     }
-    return isAnnouncement;
+    return { message: 'Organizer can send announcements.' };
   }
 }

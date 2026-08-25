@@ -14,7 +14,9 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { Role } from '@prisma/client';
 import { DiscussionService } from './discussion.service';
 import { CreateMessageDto } from './dto/create-message.dto';
+import { CreateAnnouncementDto } from './dto/create-announcement.dto';
 import { ChatListUpdateDto } from './dto/chat-list-update.dto';
+import { ReturnMessageDto } from './dto/return-message.dto';
 import { JwtAccessPayload } from '../auth/strategies/jwt-access.strategy';
 import { UsePipes, ValidationPipe } from '@nestjs/common';
 import { RoomNotFoundException } from './exceptions/room-not-found.exception';
@@ -171,10 +173,35 @@ export class DiscussionGateway
     }
   }
 
+  // send announcement
+
+  @SubscribeMessage('announcement:send')
+  async handleSendAnnouncement(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { roomId: string; dto: CreateAnnouncementDto },
+  ): Promise<void> {
+    try {
+      const user = this.requireUser(client);
+      const announcement = await this.discussionService.sendAnnouncement(
+        data.roomId,
+        data.dto,
+        user.currentRole!,
+        user.currentRole === Role.PARTICIPANT
+          ? user.participantProfileId!
+          : null,
+        user.currentRole === Role.ORGANIZER ? user.organizerProfileId! : null,
+      );
+      this.server.to(data.roomId).emit('message:new', announcement);
+      await this.pushChatListUpdate(data.roomId, announcement);
+    } catch (error) {
+      this.emitError(client, 'announcement:send', error);
+    }
+  }
+
   // pushes to every room member's personal channel for chat-list screen updates live
   private async pushChatListUpdate(
     roomId: string,
-    message: Awaited<ReturnType<DiscussionService['sendMessage']>>,
+    message: ReturnMessageDto,
   ): Promise<void> {
     const { organizerProfileId, participantProfileIds } =
       await this.discussionService.getRoomMemberIds(roomId);
