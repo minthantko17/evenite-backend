@@ -510,7 +510,7 @@ describe('DiscussionGateway', () => {
       expect(toMock).not.toHaveBeenCalled();
     });
 
-    it('ORGANIZER role, send succeeds → server.to(roomId).emit(message:new, announcement) called, chat list updated', async () => {
+    it('ORGANIZER role, send succeeds → server.to(roomId).emit(message:new / announcement:new, announcement) called, chat list updated', async () => {
       const payload = buildPayload({
         currentRole: Role.ORGANIZER,
         participantProfileId: null,
@@ -533,6 +533,10 @@ describe('DiscussionGateway', () => {
       expect(toMock).toHaveBeenCalledWith(MOCK_ROOM_ID);
       expect(roomEmitMock).toHaveBeenCalledWith(
         'message:new',
+        MOCK_ANNOUNCEMENT_RETURN_MESSAGE,
+      );
+      expect(roomEmitMock).toHaveBeenCalledWith(
+        'announcement:new',
         MOCK_ANNOUNCEMENT_RETURN_MESSAGE,
       );
       expect(roomEmitMock).toHaveBeenCalledWith('chatList:update', {

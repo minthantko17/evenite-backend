@@ -192,6 +192,7 @@ export class DiscussionGateway
         user.currentRole === Role.ORGANIZER ? user.organizerProfileId! : null,
       );
       this.server.to(data.roomId).emit('message:new', announcement);
+      this.server.to(data.roomId).emit('announcement:new', announcement);
       await this.pushChatListUpdate(data.roomId, announcement);
     } catch (error) {
       this.emitError(client, 'announcement:send', error);

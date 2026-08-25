@@ -57,7 +57,7 @@ export class DiscussionService {
     return this.discussionCrudService.createMessage(
       roomId,
       trimmedContent,
-      false,
+      false, //isAnnouncement
       senderParticipantId,
       senderOrganizerId,
     );
@@ -89,7 +89,7 @@ export class DiscussionService {
     return this.discussionCrudService.createMessage(
       roomId,
       trimmedContent,
-      true,
+      true, //isAnnouncement
       null,
       organizerProfileId,
     );
