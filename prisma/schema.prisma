@@ -259,9 +259,10 @@ model FormFieldResponse {
 }
 
 model DiscussionRoom {
-  id        String   @id @default(uuid())
-  eventId   String   @unique
-  createdAt DateTime @default(now())
+  id               String   @id @default(uuid())
+  eventId          String   @unique
+  createdAt        DateTime @default(now())
+  lastSerialNumber Int      @default(0)
 
   event     Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
   messages  Message[]
@@ -274,6 +275,7 @@ model Message {
   content        String
   isAnnouncement Boolean  @default(false)
   createdAt      DateTime @default(now())
+  serialNumber   Int
 
   senderParticipantId String?
   senderOrganizerId   String?
@@ -284,9 +286,10 @@ model Message {
 }
 
 model RoomReadStatus {
-  id                String  @id @default(uuid())
-  roomId            String
-  lastReadMessageId String?
+  id                   String  @id @default(uuid())
+  roomId               String
+  lastReadMessageId    String?
+  lastReadSerialNumber Int     @default(0)
 
   readerParticipantId String?
   readerOrganizerId   String?

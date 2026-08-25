@@ -10,6 +10,7 @@ import { ReturnDiscussionRoomListDto } from '../dto/return-discussion-room-list.
 import { ReturnRoomReadStatusDto } from '../dto/return-room-read-status.dto';
 import { SaveMessageException } from '../exceptions/save-message.exception';
 import { SaveRoomReadStatusException } from '../exceptions/save-room-read-status.exception';
+import { RoomNotFoundException } from '../exceptions/room-not-found.exception';
 import type { BilingualField } from '../../event/dto/bilingual-field.dto';
 import { EventWithDiscussionRoom } from '../types/discussion.types';
 
@@ -19,6 +20,11 @@ export class DiscussionCrudService {
 
   constructor(private readonly prisma: PrismaService) {}
 
+  // returns tx if provided, falls back to prisma — allows methods to work inside or outside transaction
+  private getClient(tx?: Prisma.TransactionClient) {
+    return tx ?? this.prisma;
+  }
+
   async createMessage(
     roomId: string,
     content: string,
@@ -27,25 +33,31 @@ export class DiscussionCrudService {
     senderOrganizerId: string | null,
   ): Promise<ReturnMessageDto> {
     try {
-      const message = await this.prisma.message.create({
-        data: {
-          roomId,
-          content,
-          isAnnouncement,
-          senderParticipantId,
-          senderOrganizerId,
-        },
-        include: {
-          senderParticipant: {
-            select: {
-              id: true,
-              firstName: true,
-              nickname: true,
-              imageUrl: true,
+      const message = await this.prisma.$transaction(async (tx) => {
+        const serialNumber = await this.claimNextRoomSerialNumber(roomId, tx);
+        return tx.message.create({
+          data: {
+            roomId,
+            content,
+            isAnnouncement,
+            senderParticipantId,
+            senderOrganizerId,
+            serialNumber,
+          },
+          include: {
+            senderParticipant: {
+              select: {
+                id: true,
+                firstName: true,
+                nickname: true,
+                imageUrl: true,
+              },
+            },
+            senderOrganizer: {
+              select: { id: true, name: true, imageUrl: true },
             },
           },
-          senderOrganizer: { select: { id: true, name: true, imageUrl: true } },
-        },
+        });
       });
       return this.mapToReturnMessageDto(message);
     } catch (error) {
@@ -147,6 +159,7 @@ export class DiscussionCrudService {
     participantProfileId: string | null,
     organizerProfileId: string | null,
     lastReadMessageId: string | undefined,
+    lastReadSerialNumber: number | undefined,
   ): Promise<ReturnRoomReadStatusDto> {
     const where =
       role === Role.ORGANIZER
@@ -173,9 +186,11 @@ export class DiscussionCrudService {
           readerOrganizerId:
             role === Role.ORGANIZER ? organizerProfileId : null,
           lastReadMessageId: lastReadMessageId ?? null,
+          lastReadSerialNumber: lastReadSerialNumber ?? 0,
         },
         update: {
           ...(lastReadMessageId !== undefined && { lastReadMessageId }),
+          ...(lastReadSerialNumber !== undefined && { lastReadSerialNumber }),
         },
       });
       return {
@@ -226,6 +241,73 @@ export class DiscussionCrudService {
     });
   }
 
+  async claimNextRoomSerialNumber(
+    roomId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<number> {
+    const client = this.getClient(tx);
+    const result = await client.$queryRaw<{ lastSerialNumber: number }[]>`
+      UPDATE "DiscussionRoom"
+      SET "lastSerialNumber" = "lastSerialNumber" + 1
+      WHERE id = ${roomId}
+      RETURNING "lastSerialNumber"
+    `;
+
+    if (result.length === 0) {
+      throw new RoomNotFoundException();
+    }
+
+    return result[0].lastSerialNumber;
+  }
+
+  async getMessageSerialNumber(messageId: string): Promise<number | null> {
+    const message = await this.prisma.message.findUnique({
+      where: { id: messageId },
+      select: { serialNumber: true },
+    });
+    return message?.serialNumber ?? null;
+  }
+
+  async getUnreadCountBySerialNumber(
+    roomId: string,
+    role: Role,
+    participantProfileId: string | null,
+    organizerProfileId: string | null,
+  ): Promise<number> {
+    const readStatusWhere =
+      role === Role.ORGANIZER
+        ? {
+            roomId_readerOrganizerId: {
+              roomId,
+              readerOrganizerId: organizerProfileId!,
+            },
+          }
+        : {
+            roomId_readerParticipantId: {
+              roomId,
+              readerParticipantId: participantProfileId!,
+            },
+          };
+
+    const [room, readStatus] = await Promise.all([
+      this.prisma.discussionRoom.findUnique({
+        where: { id: roomId },
+        select: { lastSerialNumber: true },
+      }),
+      this.prisma.roomReadStatus.findUnique({
+        where: readStatusWhere,
+        select: { lastReadSerialNumber: true },
+      }),
+    ]);
+
+    if (!room) {
+      throw new RoomNotFoundException();
+    }
+
+    const lastReadSerialNumber = readStatus?.lastReadSerialNumber ?? 0;
+    return Math.max(0, room.lastSerialNumber - lastReadSerialNumber);
+  }
+
   private async resolveLastReadCreatedAt(
     lastReadMessageId: string | null,
   ): Promise<Date> {
@@ -273,6 +355,36 @@ export class DiscussionCrudService {
     });
   }
 
+  async getRoomMemberIds(
+    roomId: string,
+  ): Promise<{ organizerProfileId: string; participantProfileIds: string[] }> {
+    const room = await this.prisma.discussionRoom.findUnique({
+      where: { id: roomId },
+      select: {
+        event: {
+          select: {
+            organizerId: true,
+            eventRegistrations: {
+              where: { status: RegistrationStatus.CONFIRMED },
+              select: { participantId: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!room) {
+      throw new RoomNotFoundException();
+    }
+
+    return {
+      organizerProfileId: room.event.organizerId,
+      participantProfileIds: room.event.eventRegistrations.map(
+        (registration) => registration.participantId,
+      ),
+    };
+  }
+
   async findRoomByEventId(eventId: string): Promise<{ roomId: string } | null> {
     const room = await this.prisma.discussionRoom.findUnique({
       where: { eventId },
@@ -306,6 +418,7 @@ export class DiscussionCrudService {
       isAnnouncement: message.isAnnouncement,
       sender,
       createdAt: message.createdAt,
+      serialNumber: message.serialNumber,
     };
   }
 }
