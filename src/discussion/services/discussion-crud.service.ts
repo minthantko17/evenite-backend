@@ -196,6 +196,7 @@ export class DiscussionCrudService {
       return {
         roomId: result.roomId,
         lastReadMessageId: result.lastReadMessageId,
+        lastReadSerialNumber: result.lastReadSerialNumber,
       };
     } catch (error) {
       this.logger.error('Failed to update room read status', error);

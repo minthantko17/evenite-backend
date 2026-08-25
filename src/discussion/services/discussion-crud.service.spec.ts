@@ -693,6 +693,7 @@ describe('DiscussionCrudService', () => {
       prismaMock.roomReadStatus.upsert.mockResolvedValue({
         roomId: MOCK_ROOM_ID,
         lastReadMessageId: MOCK_MESSAGE_ID,
+        lastReadSerialNumber: 5,
       } as any);
 
       const result = await service.upsertLastReadMessage(
@@ -707,6 +708,7 @@ describe('DiscussionCrudService', () => {
       expect(result).toEqual({
         roomId: MOCK_ROOM_ID,
         lastReadMessageId: MOCK_MESSAGE_ID,
+        lastReadSerialNumber: 5,
       });
       expect(prismaMock.roomReadStatus.upsert).toHaveBeenCalledWith({
         where: {
@@ -730,6 +732,7 @@ describe('DiscussionCrudService', () => {
       prismaMock.roomReadStatus.upsert.mockResolvedValue({
         roomId: MOCK_ROOM_ID,
         lastReadMessageId: MOCK_MESSAGE_ID,
+        lastReadSerialNumber: 5,
       } as any);
 
       const result = await service.upsertLastReadMessage(
@@ -744,6 +747,7 @@ describe('DiscussionCrudService', () => {
       expect(result).toEqual({
         roomId: MOCK_ROOM_ID,
         lastReadMessageId: MOCK_MESSAGE_ID,
+        lastReadSerialNumber: 5,
       });
       expect(prismaMock.roomReadStatus.upsert).toHaveBeenCalledWith({
         where: {

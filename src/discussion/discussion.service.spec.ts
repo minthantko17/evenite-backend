@@ -86,6 +86,7 @@ function buildRoomReadStatusDto(
   return {
     roomId: MOCK_ROOM_ID,
     lastReadMessageId: null,
+    lastReadSerialNumber: 0,
     ...overrides,
   };
 }
