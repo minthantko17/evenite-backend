@@ -127,20 +127,20 @@ const ID = {
   FLD_CN_SECTION:   'ff000092-0000-4000-8000-000000000092',
 
   // Discussion Rooms — one per event
-  ROOM_HALLOWEEN:   'g0000001-0000-4000-8000-000000000001',
-  ROOM_NEW_YEAR:    'g0000002-0000-4000-8000-000000000002',
-  ROOM_SUKHOTHAI:   'g0000003-0000-4000-8000-000000000003',
-  ROOM_EXCHANGE:    'g0000004-0000-4000-8000-000000000004',
-  ROOM_BOOTCAMP:    'g0000005-0000-4000-8000-000000000005',
-  ROOM_HACKATHON:   'g0000006-0000-4000-8000-000000000006',
-  ROOM_SPORTS:      'g0000007-0000-4000-8000-000000000007',
-  ROOM_ORIENTATION: 'g0000008-0000-4000-8000-000000000008',
-  ROOM_AI_SEMINAR:  'g0000009-0000-4000-8000-000000000009',
-  ROOM_NO_FORM:     'g0000010-0000-4000-8000-000000000010',
-  ROOM_DRAFT1:      'g0000011-0000-4000-8000-000000000011',
-  ROOM_DRAFT2:      'g0000012-0000-4000-8000-000000000012',
-  ROOM_DRAFT3:      'g0000013-0000-4000-8000-000000000013',
-  ROOM_CONCERT:     'g0000014-0000-4000-8000-000000000014',
+  ROOM_HALLOWEEN:   '90000001-0000-4000-8000-000000000001',
+  ROOM_NEW_YEAR:    '90000002-0000-4000-8000-000000000002',
+  ROOM_SUKHOTHAI:   '90000003-0000-4000-8000-000000000003',
+  ROOM_EXCHANGE:    '90000004-0000-4000-8000-000000000004',
+  ROOM_BOOTCAMP:    '90000005-0000-4000-8000-000000000005',
+  ROOM_HACKATHON:   '90000006-0000-4000-8000-000000000006',
+  ROOM_SPORTS:      '90000007-0000-4000-8000-000000000007',
+  ROOM_ORIENTATION: '90000008-0000-4000-8000-000000000008',
+  ROOM_AI_SEMINAR:  '90000009-0000-4000-8000-000000000009',
+  ROOM_NO_FORM:     '90000010-0000-4000-8000-000000000010',
+  ROOM_DRAFT1:      '90000011-0000-4000-8000-000000000011',
+  ROOM_DRAFT2:      '90000012-0000-4000-8000-000000000012',
+  ROOM_DRAFT3:      '90000013-0000-4000-8000-000000000013',
+  ROOM_CONCERT:     '90000014-0000-4000-8000-000000000014',
 };
 
 // ─── PARTICIPANT PROFILE DATA ─────────────────────────────────────────────────
@@ -1471,44 +1471,44 @@ async function main() {
 
   const messageConfigs: MessageConfig[] = [
     // ── Halloween ────────────────────────────────────────────────────────────
-    { id: 'h1000001-0000-4000-8000-000000000001', roomId: ID.ROOM_HALLOWEEN, content: 'Welcome to the Halloween Night discussion room! Costume contest signup closes Oct 25.', isAnnouncement: true, senderOrganizerId: org1.id, createdAt: new Date('2026-09-05T12:00:00.000Z'), serialNumber: 1 },
-    { id: 'h1000002-0000-4000-8000-000000000002', roomId: ID.ROOM_HALLOWEEN, content: 'Excited for this!', senderParticipantId: ID.PAR1, createdAt: new Date('2026-09-05T13:00:00.000Z'), serialNumber: 2 },
-    { id: 'h1000003-0000-4000-8000-000000000003', roomId: ID.ROOM_HALLOWEEN, content: 'What should we wear?', senderParticipantId: ID.PAR2, createdAt: new Date('2026-09-05T14:00:00.000Z'), serialNumber: 3 },
-    { id: 'h1000004-0000-4000-8000-000000000004', roomId: ID.ROOM_HALLOWEEN, content: 'Costumes encouraged but not required!', senderOrganizerId: org1.id, createdAt: new Date('2026-09-05T15:00:00.000Z'), serialNumber: 4 },
-    { id: 'h1000005-0000-4000-8000-000000000005', roomId: ID.ROOM_HALLOWEEN, content: "Can't wait!", senderParticipantId: ID.PAR3, createdAt: new Date('2026-09-05T16:00:00.000Z'), serialNumber: 5 },
+    { id: '81000001-0000-4000-8000-000000000001', roomId: ID.ROOM_HALLOWEEN, content: 'Welcome to the Halloween Night discussion room! Costume contest signup closes Oct 25.', isAnnouncement: true, senderOrganizerId: org1.id, createdAt: new Date('2026-09-05T12:00:00.000Z'), serialNumber: 1 },
+    { id: '81000002-0000-4000-8000-000000000002', roomId: ID.ROOM_HALLOWEEN, content: 'Excited for this!', senderParticipantId: ID.PAR1, createdAt: new Date('2026-09-05T13:00:00.000Z'), serialNumber: 2 },
+    { id: '81000003-0000-4000-8000-000000000003', roomId: ID.ROOM_HALLOWEEN, content: 'What should we wear?', senderParticipantId: ID.PAR2, createdAt: new Date('2026-09-05T14:00:00.000Z'), serialNumber: 3 },
+    { id: '81000004-0000-4000-8000-000000000004', roomId: ID.ROOM_HALLOWEEN, content: 'Costumes encouraged but not required!', senderOrganizerId: org1.id, createdAt: new Date('2026-09-05T15:00:00.000Z'), serialNumber: 4 },
+    { id: '81000005-0000-4000-8000-000000000005', roomId: ID.ROOM_HALLOWEEN, content: "Can't wait!", senderParticipantId: ID.PAR3, createdAt: new Date('2026-09-05T16:00:00.000Z'), serialNumber: 5 },
 
     // ── New Year ─────────────────────────────────────────────────────────────
-    { id: 'h2000001-0000-4000-8000-000000000001', roomId: ID.ROOM_NEW_YEAR, content: 'Countdown party details have been posted — check the agenda!', isAnnouncement: true, senderOrganizerId: org1.id, createdAt: new Date('2026-10-05T12:00:00.000Z'), serialNumber: 1 },
-    { id: 'h2000002-0000-4000-8000-000000000002', roomId: ID.ROOM_NEW_YEAR, content: 'So hyped!', senderParticipantId: ID.PAR1, createdAt: new Date('2026-10-05T13:00:00.000Z'), serialNumber: 2 },
-    { id: 'h2000003-0000-4000-8000-000000000003', roomId: ID.ROOM_NEW_YEAR, content: 'Where do we park?', senderParticipantId: ID.PAR4, createdAt: new Date('2026-10-05T14:00:00.000Z'), serialNumber: 3 },
-    { id: 'h2000004-0000-4000-8000-000000000004', roomId: ID.ROOM_NEW_YEAR, content: 'Parking is available at the CAMT lot.', senderOrganizerId: org1.id, createdAt: new Date('2026-10-05T15:00:00.000Z'), serialNumber: 4 },
+    { id: '82000001-0000-4000-8000-000000000001', roomId: ID.ROOM_NEW_YEAR, content: 'Countdown party details have been posted — check the agenda!', isAnnouncement: true, senderOrganizerId: org1.id, createdAt: new Date('2026-10-05T12:00:00.000Z'), serialNumber: 1 },
+    { id: '82000002-0000-4000-8000-000000000002', roomId: ID.ROOM_NEW_YEAR, content: 'So hyped!', senderParticipantId: ID.PAR1, createdAt: new Date('2026-10-05T13:00:00.000Z'), serialNumber: 2 },
+    { id: '82000003-0000-4000-8000-000000000003', roomId: ID.ROOM_NEW_YEAR, content: 'Where do we park?', senderParticipantId: ID.PAR4, createdAt: new Date('2026-10-05T14:00:00.000Z'), serialNumber: 3 },
+    { id: '82000004-0000-4000-8000-000000000004', roomId: ID.ROOM_NEW_YEAR, content: 'Parking is available at the CAMT lot.', senderOrganizerId: org1.id, createdAt: new Date('2026-10-05T15:00:00.000Z'), serialNumber: 4 },
 
     // ── Sukhothai ────────────────────────────────────────────────────────────
-    { id: 'h3000001-0000-4000-8000-000000000001', roomId: ID.ROOM_SUKHOTHAI, content: 'Trip itinerary has been emailed to everyone.', senderOrganizerId: org2.id, createdAt: new Date('2026-09-15T12:00:00.000Z'), serialNumber: 1 },
-    { id: 'h3000002-0000-4000-8000-000000000002', roomId: ID.ROOM_SUKHOTHAI, content: 'Looking forward to it!', senderParticipantId: ID.PAR1, createdAt: new Date('2026-09-15T13:00:00.000Z'), serialNumber: 2 },
+    { id: '83000001-0000-4000-8000-000000000001', roomId: ID.ROOM_SUKHOTHAI, content: 'Trip itinerary has been emailed to everyone.', senderOrganizerId: org2.id, createdAt: new Date('2026-09-15T12:00:00.000Z'), serialNumber: 1 },
+    { id: '83000002-0000-4000-8000-000000000002', roomId: ID.ROOM_SUKHOTHAI, content: 'Looking forward to it!', senderParticipantId: ID.PAR1, createdAt: new Date('2026-09-15T13:00:00.000Z'), serialNumber: 2 },
 
     // ── Exchange ─────────────────────────────────────────────────────────────
-    { id: 'h4000001-0000-4000-8000-000000000001', roomId: ID.ROOM_EXCHANGE, content: 'Orientation session has been moved online.', isAnnouncement: true, senderOrganizerId: org2.id, createdAt: new Date('2026-08-05T12:00:00.000Z'), serialNumber: 1 },
-    { id: 'h4000002-0000-4000-8000-000000000002', roomId: ID.ROOM_EXCHANGE, content: 'Thanks for the update.', senderParticipantId: ID.PAR2, createdAt: new Date('2026-08-05T13:00:00.000Z'), serialNumber: 2 },
-    { id: 'h4000003-0000-4000-8000-000000000003', roomId: ID.ROOM_EXCHANGE, content: 'Noted, thanks.', senderParticipantId: ID.PAR1, createdAt: new Date('2026-08-05T14:00:00.000Z'), serialNumber: 3 },
-    { id: 'h4000004-0000-4000-8000-000000000004', roomId: ID.ROOM_EXCHANGE, content: 'Let us know if you have any questions.', senderOrganizerId: org2.id, createdAt: new Date('2026-08-05T15:00:00.000Z'), serialNumber: 4 },
-    { id: 'h4000005-0000-4000-8000-000000000005', roomId: ID.ROOM_EXCHANGE, content: "When's the first session?", senderParticipantId: ID.PAR3, createdAt: new Date('2026-08-05T16:00:00.000Z'), serialNumber: 5 },
+    { id: '84000001-0000-4000-8000-000000000001', roomId: ID.ROOM_EXCHANGE, content: 'Orientation session has been moved online.', isAnnouncement: true, senderOrganizerId: org2.id, createdAt: new Date('2026-08-05T12:00:00.000Z'), serialNumber: 1 },
+    { id: '84000002-0000-4000-8000-000000000002', roomId: ID.ROOM_EXCHANGE, content: 'Thanks for the update.', senderParticipantId: ID.PAR2, createdAt: new Date('2026-08-05T13:00:00.000Z'), serialNumber: 2 },
+    { id: '84000003-0000-4000-8000-000000000003', roomId: ID.ROOM_EXCHANGE, content: 'Noted, thanks.', senderParticipantId: ID.PAR1, createdAt: new Date('2026-08-05T14:00:00.000Z'), serialNumber: 3 },
+    { id: '84000004-0000-4000-8000-000000000004', roomId: ID.ROOM_EXCHANGE, content: 'Let us know if you have any questions.', senderOrganizerId: org2.id, createdAt: new Date('2026-08-05T15:00:00.000Z'), serialNumber: 4 },
+    { id: '84000005-0000-4000-8000-000000000005', roomId: ID.ROOM_EXCHANGE, content: "When's the first session?", senderParticipantId: ID.PAR3, createdAt: new Date('2026-08-05T16:00:00.000Z'), serialNumber: 5 },
 
     // ── Bootcamp ─────────────────────────────────────────────────────────────
-    { id: 'h5000001-0000-4000-8000-000000000001', roomId: ID.ROOM_BOOTCAMP, content: 'Welcome to the bootcamp cohort!', senderOrganizerId: org2.id, createdAt: new Date('2026-07-10T12:00:00.000Z'), serialNumber: 1 },
-    { id: 'h5000002-0000-4000-8000-000000000002', roomId: ID.ROOM_BOOTCAMP, content: 'Excited to start!', senderParticipantId: ID.PAR1, createdAt: new Date('2026-07-10T13:00:00.000Z'), serialNumber: 2 },
-    { id: 'h5000003-0000-4000-8000-000000000003', roomId: ID.ROOM_BOOTCAMP, content: 'Same here!', senderParticipantId: ID.PAR3, createdAt: new Date('2026-07-10T14:00:00.000Z'), serialNumber: 3 },
-    { id: 'h5000004-0000-4000-8000-000000000004', roomId: ID.ROOM_BOOTCAMP, content: 'Lab access codes were sent via email.', isAnnouncement: true, senderOrganizerId: org2.id, createdAt: new Date('2026-07-10T15:00:00.000Z'), serialNumber: 4 },
+    { id: '85000001-0000-4000-8000-000000000001', roomId: ID.ROOM_BOOTCAMP, content: 'Welcome to the bootcamp cohort!', senderOrganizerId: org2.id, createdAt: new Date('2026-07-10T12:00:00.000Z'), serialNumber: 1 },
+    { id: '85000002-0000-4000-8000-000000000002', roomId: ID.ROOM_BOOTCAMP, content: 'Excited to start!', senderParticipantId: ID.PAR1, createdAt: new Date('2026-07-10T13:00:00.000Z'), serialNumber: 2 },
+    { id: '85000003-0000-4000-8000-000000000003', roomId: ID.ROOM_BOOTCAMP, content: 'Same here!', senderParticipantId: ID.PAR3, createdAt: new Date('2026-07-10T14:00:00.000Z'), serialNumber: 3 },
+    { id: '85000004-0000-4000-8000-000000000004', roomId: ID.ROOM_BOOTCAMP, content: 'Lab access codes were sent via email.', isAnnouncement: true, senderOrganizerId: org2.id, createdAt: new Date('2026-07-10T15:00:00.000Z'), serialNumber: 4 },
 
     // ── Hackathon (CONCLUDED, past 72h grace — room is read-only) ──────────────
-    { id: 'h6000001-0000-4000-8000-000000000001', roomId: ID.ROOM_HACKATHON, content: 'Good luck to all teams!', senderOrganizerId: org3.id, createdAt: new Date('2026-05-20T09:30:00.000Z'), serialNumber: 1 },
-    { id: 'h6000002-0000-4000-8000-000000000002', roomId: ID.ROOM_HACKATHON, content: 'Team Alpha ready!', senderParticipantId: ID.PAR1, createdAt: new Date('2026-05-20T09:45:00.000Z'), serialNumber: 2 },
-    { id: 'h6000003-0000-4000-8000-000000000003', roomId: ID.ROOM_HACKATHON, content: "Team Beta here, let's go!", senderParticipantId: ID.PAR2, createdAt: new Date('2026-05-20T10:00:00.000Z'), serialNumber: 3 },
-    { id: 'h6000004-0000-4000-8000-000000000004', roomId: ID.ROOM_HACKATHON, content: 'Submissions close at 5pm on the 22nd.', senderOrganizerId: org3.id, createdAt: new Date('2026-05-20T10:15:00.000Z'), serialNumber: 4 },
+    { id: '86000001-0000-4000-8000-000000000001', roomId: ID.ROOM_HACKATHON, content: 'Good luck to all teams!', senderOrganizerId: org3.id, createdAt: new Date('2026-05-20T09:30:00.000Z'), serialNumber: 1 },
+    { id: '86000002-0000-4000-8000-000000000002', roomId: ID.ROOM_HACKATHON, content: 'Team Alpha ready!', senderParticipantId: ID.PAR1, createdAt: new Date('2026-05-20T09:45:00.000Z'), serialNumber: 2 },
+    { id: '86000003-0000-4000-8000-000000000003', roomId: ID.ROOM_HACKATHON, content: "Team Beta here, let's go!", senderParticipantId: ID.PAR2, createdAt: new Date('2026-05-20T10:00:00.000Z'), serialNumber: 3 },
+    { id: '86000004-0000-4000-8000-000000000004', roomId: ID.ROOM_HACKATHON, content: 'Submissions close at 5pm on the 22nd.', senderOrganizerId: org3.id, createdAt: new Date('2026-05-20T10:15:00.000Z'), serialNumber: 4 },
 
     // ── Sports Day (CONCLUDED, past 72h grace — room is read-only) ─────────────
-    { id: 'h7000001-0000-4000-8000-000000000001', roomId: ID.ROOM_SPORTS, content: 'Good luck at Sports Day!', senderOrganizerId: org3.id, createdAt: new Date('2026-04-10T08:15:00.000Z'), serialNumber: 1 },
-    { id: 'h7000002-0000-4000-8000-000000000002', roomId: ID.ROOM_SPORTS, content: 'Go team!', senderParticipantId: ID.PAR2, createdAt: new Date('2026-04-10T08:30:00.000Z'), serialNumber: 2 },
+    { id: '87000001-0000-4000-8000-000000000001', roomId: ID.ROOM_SPORTS, content: 'Good luck at Sports Day!', senderOrganizerId: org3.id, createdAt: new Date('2026-04-10T08:15:00.000Z'), serialNumber: 1 },
+    { id: '87000002-0000-4000-8000-000000000002', roomId: ID.ROOM_SPORTS, content: 'Go team!', senderParticipantId: ID.PAR2, createdAt: new Date('2026-04-10T08:30:00.000Z'), serialNumber: 2 },
   ];
 
   for (const m of messageConfigs) {
@@ -1554,32 +1554,32 @@ async function main() {
 
   const readStatusConfigs: ReadStatusConfig[] = [
     // Halloween: par1 fully read, par2 read only the first message, par3 never opened
-    { roomId: ID.ROOM_HALLOWEEN, readerParticipantId: ID.PAR1, lastReadMessageId: 'h1000005-0000-4000-8000-000000000005', lastReadSerialNumber: 5 },
-    { roomId: ID.ROOM_HALLOWEEN, readerParticipantId: ID.PAR2, lastReadMessageId: 'h1000001-0000-4000-8000-000000000001', lastReadSerialNumber: 1 },
+    { roomId: ID.ROOM_HALLOWEEN, readerParticipantId: ID.PAR1, lastReadMessageId: '81000005-0000-4000-8000-000000000005', lastReadSerialNumber: 5 },
+    { roomId: ID.ROOM_HALLOWEEN, readerParticipantId: ID.PAR2, lastReadMessageId: '81000001-0000-4000-8000-000000000001', lastReadSerialNumber: 1 },
 
     // New Year: par1 fully read, par2 read only the announcement
-    { roomId: ID.ROOM_NEW_YEAR, readerParticipantId: ID.PAR1, lastReadMessageId: 'h2000004-0000-4000-8000-000000000004', lastReadSerialNumber: 4 },
-    { roomId: ID.ROOM_NEW_YEAR, readerParticipantId: ID.PAR2, lastReadMessageId: 'h2000001-0000-4000-8000-000000000001', lastReadSerialNumber: 1 },
+    { roomId: ID.ROOM_NEW_YEAR, readerParticipantId: ID.PAR1, lastReadMessageId: '82000004-0000-4000-8000-000000000004', lastReadSerialNumber: 4 },
+    { roomId: ID.ROOM_NEW_YEAR, readerParticipantId: ID.PAR2, lastReadMessageId: '82000001-0000-4000-8000-000000000001', lastReadSerialNumber: 1 },
 
     // Sukhothai: par1 fully read
-    { roomId: ID.ROOM_SUKHOTHAI, readerParticipantId: ID.PAR1, lastReadMessageId: 'h3000002-0000-4000-8000-000000000002', lastReadSerialNumber: 2 },
+    { roomId: ID.ROOM_SUKHOTHAI, readerParticipantId: ID.PAR1, lastReadMessageId: '83000002-0000-4000-8000-000000000002', lastReadSerialNumber: 2 },
 
     // Exchange: par1 fully read, par2 read up to message 3, par3 never opened
-    { roomId: ID.ROOM_EXCHANGE, readerParticipantId: ID.PAR1, lastReadMessageId: 'h4000005-0000-4000-8000-000000000005', lastReadSerialNumber: 5 },
-    { roomId: ID.ROOM_EXCHANGE, readerParticipantId: ID.PAR2, lastReadMessageId: 'h4000003-0000-4000-8000-000000000003', lastReadSerialNumber: 3 },
+    { roomId: ID.ROOM_EXCHANGE, readerParticipantId: ID.PAR1, lastReadMessageId: '84000005-0000-4000-8000-000000000005', lastReadSerialNumber: 5 },
+    { roomId: ID.ROOM_EXCHANGE, readerParticipantId: ID.PAR2, lastReadMessageId: '84000003-0000-4000-8000-000000000003', lastReadSerialNumber: 3 },
 
     // Bootcamp: par1 fully read, par3 read only the first message
-    { roomId: ID.ROOM_BOOTCAMP, readerParticipantId: ID.PAR1, lastReadMessageId: 'h5000004-0000-4000-8000-000000000004', lastReadSerialNumber: 4 },
-    { roomId: ID.ROOM_BOOTCAMP, readerParticipantId: ID.PAR3, lastReadMessageId: 'h5000001-0000-4000-8000-000000000001', lastReadSerialNumber: 1 },
+    { roomId: ID.ROOM_BOOTCAMP, readerParticipantId: ID.PAR1, lastReadMessageId: '85000004-0000-4000-8000-000000000004', lastReadSerialNumber: 4 },
+    { roomId: ID.ROOM_BOOTCAMP, readerParticipantId: ID.PAR3, lastReadMessageId: '85000001-0000-4000-8000-000000000001', lastReadSerialNumber: 1 },
 
     // Hackathon (read-only): par1 fully read, par2 never opened
-    { roomId: ID.ROOM_HACKATHON, readerParticipantId: ID.PAR1, lastReadMessageId: 'h6000004-0000-4000-8000-000000000004', lastReadSerialNumber: 4 },
+    { roomId: ID.ROOM_HACKATHON, readerParticipantId: ID.PAR1, lastReadMessageId: '86000004-0000-4000-8000-000000000004', lastReadSerialNumber: 4 },
 
     // Organizers: each has read their own event's latest message
-    { roomId: ID.ROOM_HALLOWEEN, readerOrganizerId: org1.id, lastReadMessageId: 'h1000005-0000-4000-8000-000000000005', lastReadSerialNumber: 5 },
-    { roomId: ID.ROOM_NEW_YEAR, readerOrganizerId: org1.id, lastReadMessageId: 'h2000004-0000-4000-8000-000000000004', lastReadSerialNumber: 4 },
-    { roomId: ID.ROOM_EXCHANGE, readerOrganizerId: org2.id, lastReadMessageId: 'h4000004-0000-4000-8000-000000000004', lastReadSerialNumber: 4 },
-    { roomId: ID.ROOM_BOOTCAMP, readerOrganizerId: org2.id, lastReadMessageId: 'h5000003-0000-4000-8000-000000000003', lastReadSerialNumber: 3 },
+    { roomId: ID.ROOM_HALLOWEEN, readerOrganizerId: org1.id, lastReadMessageId: '81000005-0000-4000-8000-000000000005', lastReadSerialNumber: 5 },
+    { roomId: ID.ROOM_NEW_YEAR, readerOrganizerId: org1.id, lastReadMessageId: '82000004-0000-4000-8000-000000000004', lastReadSerialNumber: 4 },
+    { roomId: ID.ROOM_EXCHANGE, readerOrganizerId: org2.id, lastReadMessageId: '84000004-0000-4000-8000-000000000004', lastReadSerialNumber: 4 },
+    { roomId: ID.ROOM_BOOTCAMP, readerOrganizerId: org2.id, lastReadMessageId: '85000003-0000-4000-8000-000000000003', lastReadSerialNumber: 3 },
   ];
 
   for (const rs of readStatusConfigs) {
