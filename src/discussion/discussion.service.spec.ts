@@ -1,153 +1,43 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { mockDeep, mockReset } from 'jest-mock-extended';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { Event, EventStatus, Role } from '@prisma/client';
+import { Role } from '@prisma/client';
 import { DiscussionService } from './discussion.service';
 import { DiscussionValidationService } from './services/discussion-validation.service';
 import { DiscussionCrudService } from './services/discussion-crud.service';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { CreateAnnouncementDto } from './dto/create-announcement.dto';
 import { GetMessagesQueryDto } from './dto/get-messages-query.dto';
-import { ReturnMessageDto } from './dto/return-message.dto';
-import { ReturnMessagePageDto } from './dto/return-message-page.dto';
-import { ReturnRoomReadStatusDto } from './dto/return-room-read-status.dto';
-import { ReturnDiscussionRoomListDto } from './dto/return-discussion-room-list.dto';
 import { RoomNotFoundException } from './exceptions/room-not-found.exception';
 import { RoomAccessDeniedException } from './exceptions/room-access-denied.exception';
-import { RoomReadOnlyException } from './exceptions/room-read-only.exception';
-import { MessageContentInvalidException } from './exceptions/message-content-invalid.exception';
 import { AnnouncementNotAllowedException } from './exceptions/announcement-not-allowed.exception';
+import { SaveMessageException } from './exceptions/save-message.exception';
+import { SaveRoomReadStatusException } from './exceptions/save-room-read-status.exception';
 import {
   ACTIVE_ROOM_STATUSES,
   ARCHIVED_ROOM_STATUSES,
 } from './constants/discussion-room-filter.constants';
-import { EventWithDiscussionRoom } from './types/discussion.types';
+import {
+  USERS,
+  ROOMS,
+  NOT_FOUND_ROOM_ID,
+  NOT_FOUND_EVENT_ID,
+  NOT_FOUND_MESSAGE_ID,
+  applyCentralMockImplementations,
+  expectedRoomListDto,
+  organizerSender,
+  participantSender,
+  nthCreatedMessageId,
+  uuidFrom,
+} from './discussion.service.mock-db';
 
-const MOCK_ROOM_ID = 'e8946e7f-42a6-4586-9089-9267d0312bff';
-const MOCK_ORGANIZER_PROFILE_ID = '084066b4-231a-4e1e-bb37-084d5ea66c8a';
-const MOCK_PARTICIPANT_PROFILE_ID = 'bd8a4cbf-dd0f-4dce-a6b4-ee16618c4f44';
-const MOCK_EVENT_ID = '1fa29edd-3a7d-4d2c-bf8f-8521eb4e76b8';
-const MOCK_OTHER_EVENT_ID = '6a552788-764e-4613-bad0-30a595762649';
-const MOCK_EVENT_ID_NO_BANNER = '3856264d-5fa6-423f-ad50-0c2950e4add5';
-const MOCK_UNKNOWN_EVENT_ID = '5b53e2f2-95f3-411e-a00c-717acaed502e';
-const MOCK_CURSOR_ID = 'bb0d173c-621e-4065-8022-9b8b17eb9f7c';
-
-// message ids are unique per authoring scenario so an assertion on `result`
-// actually proves which sender/branch produced it, rather than just proving
-// "a" mocked message came back
-const MOCK_ORGANIZER_MESSAGE_ID = '11111111-1111-4111-8111-111111111111';
-const MOCK_ANNOUNCEMENT_MESSAGE_ID = '22222222-2222-4222-8222-222222222222';
-const MOCK_PARTICIPANT_MESSAGE_ID = '33333333-3333-4333-8333-333333333333';
-const MOCK_DEFAULT_MESSAGE_ID = '44444444-4444-4444-8444-444444444444';
-
-// ---- base factories -------------------------------------------------------
-// Each factory returns a fresh object with sane defaults; tests pass only the
-// overrides that matter for that scenario, keeping fixtures self-explanatory
-// instead of reaching for one ambiguous shared constant.
-
-function buildEvent(overrides: Partial<Event> = {}): Event {
-  return {
-    id: MOCK_EVENT_ID,
-    organizerId: MOCK_ORGANIZER_PROFILE_ID,
-    status: EventStatus.PUBLISHED,
-    startAt: new Date('2026-08-01T00:00:00Z'),
-    endAt: new Date('2026-08-01T02:00:00Z'),
-    ...overrides,
-  } as Event;
-}
-
-function buildSender(
-  role: Role,
-  overrides: Partial<ReturnMessageDto['sender']> = {},
-): ReturnMessageDto['sender'] {
-  const base =
-    role === Role.ORGANIZER
-      ? { id: MOCK_ORGANIZER_PROFILE_ID, role: Role.ORGANIZER, name: 'Alex Organizer' }
-      : { id: MOCK_PARTICIPANT_PROFILE_ID, role: Role.PARTICIPANT, name: 'Jane Doe' };
-  return { ...base, imageUrl: '', ...overrides };
-}
-
-function buildReturnMessage(
-  overrides: Partial<ReturnMessageDto> = {},
-): ReturnMessageDto {
-  return {
-    id: MOCK_DEFAULT_MESSAGE_ID,
-    content: 'hello world',
-    isAnnouncement: false,
-    sender: buildSender(Role.PARTICIPANT),
-    createdAt: new Date('2026-08-01T00:00:00Z'),
-    serialNumber: 1,
-    ...overrides,
-  };
-}
-
-function buildRoomReadStatusDto(
-  overrides: Partial<ReturnRoomReadStatusDto> = {},
-): ReturnRoomReadStatusDto {
-  return {
-    roomId: MOCK_ROOM_ID,
-    lastReadMessageId: null,
-    lastReadSerialNumber: 0,
-    ...overrides,
-  };
-}
-
-function buildEventWithRoom(
-  overrides: Partial<EventWithDiscussionRoom> = {},
-): EventWithDiscussionRoom {
-  return {
-    id: MOCK_EVENT_ID,
-    organizerId: MOCK_ORGANIZER_PROFILE_ID,
-    status: EventStatus.PUBLISHED,
-    startAt: new Date('2026-08-01T00:00:00Z'),
-    endAt: new Date('2026-08-01T02:00:00Z'),
-    title: { en: 'Orientation', th: 'ปฐมนิเทศ' },
-    bannerUrl: 'banner.png',
-    discussionRoom: { id: MOCK_ROOM_ID },
-    ...overrides,
-  } as unknown as EventWithDiscussionRoom;
-}
-
-function buildRoomListDto(
-  event: EventWithDiscussionRoom,
-  overrides: Partial<ReturnDiscussionRoomListDto> = {},
-): ReturnDiscussionRoomListDto {
-  return {
-    roomId: event.discussionRoom!.id,
-    event: {
-      id: event.id,
-      title: event.title as unknown as ReturnDiscussionRoomListDto['event']['title'],
-      bannerUrl: event.bannerUrl ?? '',
-      status: event.status,
-    },
-    lastMessage: null,
-    unreadCount: 0,
-    lastReadSerialNumber: 0,
-    isReadOnly: false,
-    ...overrides,
-  };
-}
-
-// sentinel pages so a `result` assertion proves which crud method's output
-// actually flowed through (both crud methods are mocked simultaneously)
-const MOCK_MESSAGE_PAGE_BY_CURSOR: ReturnMessagePageDto = {
-  messages: [buildReturnMessage({ id: 'cursor-page-message-id' })],
-  hasMoreOlder: false,
-  hasMoreNewer: false,
-  oldestCursor: 'cursor-page-oldest',
-  newestCursor: 'cursor-page-newest',
-};
-
-const MOCK_EVENT: Event = buildEvent();
-const MOCK_EVENT_WITH_ROOM = buildEventWithRoom();
-const MOCK_EVENT_WITHOUT_ROOM = buildEventWithRoom({
-  id: MOCK_OTHER_EVENT_ID,
-  discussionRoom: null,
-});
-const MOCK_EVENT_WITH_ROOM_NO_BANNER = buildEventWithRoom({
-  id: MOCK_EVENT_ID_NO_BANNER,
-  bannerUrl: null,
-});
+// This spec sources all fixtures from ./discussion.service.mock-db.ts (a
+// single centralized "mock database" of rooms/events/users/messages). Tests
+// call the service with fixture ids/roles and assert; they generally do NOT
+// need to hand-write mock setup — see applyCentralMockImplementations.
+//
+// Within each describe block, happy-path cases come first, followed by
+// error cases.
 
 const validationServiceMock = mockDeep<DiscussionValidationService>();
 const crudServiceMock = mockDeep<DiscussionCrudService>();
@@ -160,39 +50,7 @@ describe('DiscussionService', () => {
     mockReset(validationServiceMock);
     mockReset(crudServiceMock);
     mockReset(eventEmitterMock);
-
-    validationServiceMock.validateRoomExists.mockResolvedValue({
-      roomId: MOCK_ROOM_ID,
-      event: MOCK_EVENT,
-    });
-    validationServiceMock.validateRoomAccess.mockResolvedValue({
-      message: 'Organizer has access to this room.',
-    });
-    validationServiceMock.validateRoomWritable.mockReturnValue({
-      message: 'Discussion room is writable.',
-    });
-    validationServiceMock.validateMessageContent.mockImplementation(
-      (content: string) => content,
-    );
-    crudServiceMock.createMessage.mockResolvedValue(buildReturnMessage());
-    crudServiceMock.getPaginatedMessagesByCursor.mockResolvedValue(
-      MOCK_MESSAGE_PAGE_BY_CURSOR,
-    );
-    crudServiceMock.getRoomReadStatus.mockResolvedValue(null);
-    crudServiceMock.upsertLastReadMessage.mockResolvedValue(
-      buildRoomReadStatusDto(),
-    );
-    crudServiceMock.getOrganizerEventsWithRoom.mockResolvedValue([]);
-    crudServiceMock.getParticipantEventsWithRoom.mockResolvedValue([]);
-    crudServiceMock.getLatestMessageForRoom.mockResolvedValue(null);
-    crudServiceMock.countUnreadMessages.mockResolvedValue(0);
-    crudServiceMock.getUnreadStatusBySerialNumber.mockResolvedValue({
-      unreadCount: 0,
-      lastReadSerialNumber: 0,
-    });
-    crudServiceMock.getMessageSerialNumber.mockResolvedValue(null);
-    crudServiceMock.findRoomByEventId.mockResolvedValue(null);
-    crudServiceMock.getLatestAnnouncements.mockResolvedValue([]);
+    applyCentralMockImplementations(validationServiceMock, crudServiceMock);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -209,283 +67,269 @@ describe('DiscussionService', () => {
     service = module.get<DiscussionService>(DiscussionService);
   });
 
+  // ==========================================================================
+  // sendMessage
+  // ==========================================================================
   describe('sendMessage', () => {
-    it('UT-6-017-01: throws RoomNotFoundException when room does not exist, and skips all downstream validation', async () => {
-      validationServiceMock.validateRoomExists.mockRejectedValue(
-        new RoomNotFoundException(),
+    it('UT-sendMessage-01: ORGANIZER sender — creates a regular message and resolves the exact ReturnMessageDto', async () => {
+      const dto: CreateMessageDto = { content: 'hello' };
+
+      const result = await service.sendMessage(
+        ROOMS.ROOM_ACTIVE.id,
+        dto,
+        Role.ORGANIZER,
+        null,
+        USERS.ORGANIZER_MAIN.id,
       );
+
+      expect(crudServiceMock.createMessage).toHaveBeenCalledWith(
+        ROOMS.ROOM_ACTIVE.id,
+        'hello',
+        false,
+        null,
+        USERS.ORGANIZER_MAIN.id,
+      );
+      expect(result).toEqual({
+        id: nthCreatedMessageId(1),
+        content: 'hello',
+        isAnnouncement: false,
+        sender: organizerSender(USERS.ORGANIZER_MAIN.id),
+        createdAt: expect.any(Date),
+        serialNumber: ROOMS.ROOM_ACTIVE.lastSerialNumber + 1,
+      });
+    });
+
+    it('UT-sendMessage-02: PARTICIPANT sender — creates a regular message and resolves the exact ReturnMessageDto', async () => {
+      const dto: CreateMessageDto = { content: 'hi there' };
+
+      const result = await service.sendMessage(
+        ROOMS.ROOM_ACTIVE.id,
+        dto,
+        Role.PARTICIPANT,
+        USERS.PARTICIPANT_MAIN.id,
+        null,
+      );
+
+      expect(crudServiceMock.createMessage).toHaveBeenCalledWith(
+        ROOMS.ROOM_ACTIVE.id,
+        'hi there',
+        false,
+        USERS.PARTICIPANT_MAIN.id,
+        null,
+      );
+      expect(result).toEqual({
+        id: nthCreatedMessageId(1),
+        content: 'hi there',
+        isAnnouncement: false,
+        sender: participantSender(USERS.PARTICIPANT_MAIN.id),
+        createdAt: expect.any(Date),
+        serialNumber: ROOMS.ROOM_ACTIVE.lastSerialNumber + 1,
+      });
+    });
+
+    it('UT-sendMessage-03 [single]: trims surrounding whitespace before persisting, and the resolved content reflects the trimmed value', async () => {
+      const dto: CreateMessageDto = { content: '  padded content  ' };
+
+      const result = await service.sendMessage(
+        ROOMS.ROOM_ACTIVE.id,
+        dto,
+        Role.ORGANIZER,
+        null,
+        USERS.ORGANIZER_MAIN.id,
+      );
+
+      expect(crudServiceMock.createMessage).toHaveBeenCalledWith(
+        ROOMS.ROOM_ACTIVE.id,
+        'padded content',
+        false,
+        null,
+        USERS.ORGANIZER_MAIN.id,
+      );
+      expect(result.content).toBe('padded content');
+    });
+
+    it('UT-sendMessage-04 [error]: room does not exist — throws RoomNotFoundException, skips all downstream calls', async () => {
       const dto: CreateMessageDto = { content: 'hello' };
 
       await expect(
         service.sendMessage(
-          MOCK_ROOM_ID,
+          NOT_FOUND_ROOM_ID,
           dto,
           Role.ORGANIZER,
           null,
-          MOCK_ORGANIZER_PROFILE_ID,
+          USERS.ORGANIZER_MAIN.id,
         ),
       ).rejects.toThrow(RoomNotFoundException);
-      await expect(
-        service.sendMessage(
-          MOCK_ROOM_ID,
-          dto,
-          Role.ORGANIZER,
-          null,
-          MOCK_ORGANIZER_PROFILE_ID,
-        ),
-      ).rejects.toThrow('Discussion room not found.');
 
       expect(validationServiceMock.validateRoomAccess).not.toHaveBeenCalled();
       expect(validationServiceMock.validateRoomWritable).not.toHaveBeenCalled();
-      expect(
-        validationServiceMock.validateMessageContent,
-      ).not.toHaveBeenCalled();
+      expect(validationServiceMock.validateMessageContent).not.toHaveBeenCalled();
       expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
     });
 
-    it('UT-6-017-02: throws RoomAccessDeniedException when caller is neither owner nor confirmed participant', async () => {
-      validationServiceMock.validateRoomAccess.mockRejectedValue(
-        new RoomAccessDeniedException(),
-      );
+    it('UT-sendMessage-05 [error]: caller is neither owner nor a confirmed participant — throws RoomAccessDeniedException', async () => {
       const dto: CreateMessageDto = { content: 'hello' };
 
       await expect(
         service.sendMessage(
-          MOCK_ROOM_ID,
+          ROOMS.ROOM_ACTIVE.id,
           dto,
           Role.PARTICIPANT,
-          MOCK_PARTICIPANT_PROFILE_ID,
+          USERS.PARTICIPANT_OTHER.id,
           null,
         ),
       ).rejects.toThrow(RoomAccessDeniedException);
-      await expect(
-        service.sendMessage(
-          MOCK_ROOM_ID,
-          dto,
-          Role.PARTICIPANT,
-          MOCK_PARTICIPANT_PROFILE_ID,
-          null,
-        ),
-      ).rejects.toThrow(
-        'You do not have permission to access this discussion room.',
-      );
 
       expect(validationServiceMock.validateRoomWritable).not.toHaveBeenCalled();
-      expect(
-        validationServiceMock.validateMessageContent,
-      ).not.toHaveBeenCalled();
+      expect(validationServiceMock.validateMessageContent).not.toHaveBeenCalled();
       expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
     });
 
-    it('UT-6-017-03: throws RoomReadOnlyException when room is not writable (concluded past grace period / cancelled)', async () => {
-      validationServiceMock.validateRoomWritable.mockImplementation(() => {
-        throw new RoomReadOnlyException();
-      });
+    it('UT-sendMessage-06 [error]: room is not writable (cancelled / concluded past grace) — throws RoomReadOnlyException', async () => {
       const dto: CreateMessageDto = { content: 'hello' };
 
       await expect(
         service.sendMessage(
-          MOCK_ROOM_ID,
+          ROOMS.ROOM_CANCELLED.id,
           dto,
           Role.ORGANIZER,
           null,
-          MOCK_ORGANIZER_PROFILE_ID,
+          USERS.ORGANIZER_MAIN.id,
         ),
-      ).rejects.toThrow(RoomReadOnlyException);
-      await expect(
-        service.sendMessage(
-          MOCK_ROOM_ID,
-          dto,
-          Role.ORGANIZER,
-          null,
-          MOCK_ORGANIZER_PROFILE_ID,
-        ),
-      ).rejects.toThrow(
-        'This discussion room is read-only and no longer accepts new messages.',
-      );
+      ).rejects.toThrow('This discussion room is read-only and no longer accepts new messages.');
 
-      expect(
-        validationServiceMock.validateMessageContent,
-      ).not.toHaveBeenCalled();
+      expect(validationServiceMock.validateMessageContent).not.toHaveBeenCalled();
       expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
     });
 
-    it('UT-6-017-04: throws MessageContentInvalidException when content is empty/whitespace-only or exceeds 2000 characters', async () => {
-      validationServiceMock.validateMessageContent.mockImplementation(() => {
-        throw new MessageContentInvalidException('Message cannot be empty.');
-      });
+    it('UT-sendMessage-07 [error]: content is empty/whitespace-only — throws MessageContentInvalidException', async () => {
       const dto: CreateMessageDto = { content: '   ' };
 
       await expect(
         service.sendMessage(
-          MOCK_ROOM_ID,
+          ROOMS.ROOM_ACTIVE.id,
           dto,
           Role.ORGANIZER,
           null,
-          MOCK_ORGANIZER_PROFILE_ID,
-        ),
-      ).rejects.toThrow(MessageContentInvalidException);
-      await expect(
-        service.sendMessage(
-          MOCK_ROOM_ID,
-          dto,
-          Role.ORGANIZER,
-          null,
-          MOCK_ORGANIZER_PROFILE_ID,
+          USERS.ORGANIZER_MAIN.id,
         ),
       ).rejects.toThrow('Message cannot be empty.');
 
       expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
     });
 
-    it('UT-6-017-06: creates a regular message for an ORGANIZER, setting senderOrganizerId and leaving senderParticipantId null', async () => {
-      const expectedMessage = buildReturnMessage({
-        id: MOCK_ORGANIZER_MESSAGE_ID,
-        content: 'hello',
-        sender: buildSender(Role.ORGANIZER),
-      });
-      crudServiceMock.createMessage.mockResolvedValue(expectedMessage);
+    it('UT-sendMessage-08 [error]: content exceeds the max length — throws MessageContentInvalidException', async () => {
+      const dto: CreateMessageDto = { content: 'a'.repeat(2001) };
+
+      await expect(
+        service.sendMessage(
+          ROOMS.ROOM_ACTIVE.id,
+          dto,
+          Role.ORGANIZER,
+          null,
+          USERS.ORGANIZER_MAIN.id,
+        ),
+      ).rejects.toThrow('Message cannot exceed 2000 characters.');
+
+      expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
+    });
+
+    it('UT-sendMessage-09 [error] [single]: createMessage fails downstream — rejects with the CRUD error', async () => {
+      crudServiceMock.createMessage.mockRejectedValueOnce(new SaveMessageException());
       const dto: CreateMessageDto = { content: 'hello' };
 
-      const result = await service.sendMessage(
-        MOCK_ROOM_ID,
-        dto,
-        Role.ORGANIZER,
-        null,
-        MOCK_ORGANIZER_PROFILE_ID,
-      );
-
-      expect(result).toEqual(expectedMessage);
-      expect(crudServiceMock.createMessage).toHaveBeenCalledWith(
-        MOCK_ROOM_ID,
-        'hello',
-        false,
-        null,
-        MOCK_ORGANIZER_PROFILE_ID,
-      );
-    });
-
-    it('UT-6-017-08: creates a regular message for a confirmed PARTICIPANT, setting senderParticipantId and leaving senderOrganizerId null', async () => {
-      const expectedMessage = buildReturnMessage({
-        id: MOCK_PARTICIPANT_MESSAGE_ID,
-        content: 'hi there',
-        sender: buildSender(Role.PARTICIPANT),
-      });
-      crudServiceMock.createMessage.mockResolvedValue(expectedMessage);
-      const dto: CreateMessageDto = { content: 'hi there' };
-
-      const result = await service.sendMessage(
-        MOCK_ROOM_ID,
-        dto,
-        Role.PARTICIPANT,
-        MOCK_PARTICIPANT_PROFILE_ID,
-        null,
-      );
-
-      expect(result).toEqual(expectedMessage);
-      expect(crudServiceMock.createMessage).toHaveBeenCalledWith(
-        MOCK_ROOM_ID,
-        'hi there',
-        false,
-        MOCK_PARTICIPANT_PROFILE_ID,
-        null,
-      );
-    });
-
-    it('UT-6-017-10: trims surrounding whitespace from dto.content before persisting the message', async () => {
-      const dto: CreateMessageDto = { content: '  padded content  ' };
-
-      await service.sendMessage(
-        MOCK_ROOM_ID,
-        dto,
-        Role.ORGANIZER,
-        null,
-        MOCK_ORGANIZER_PROFILE_ID,
-      );
-
-      expect(crudServiceMock.createMessage).toHaveBeenCalledWith(
-        MOCK_ROOM_ID,
-        'padded content',
-        false,
-        null,
-        MOCK_ORGANIZER_PROFILE_ID,
-      );
-    });
-
-    it('UT-6-017-11: passes the resolved event and caller identity through the validation pipeline in order', async () => {
-      const dto: CreateMessageDto = { content: 'hello' };
-
-      await service.sendMessage(
-        MOCK_ROOM_ID,
-        dto,
-        Role.PARTICIPANT,
-        MOCK_PARTICIPANT_PROFILE_ID,
-        null,
-      );
-
-      expect(validationServiceMock.validateRoomExists).toHaveBeenCalledWith(
-        MOCK_ROOM_ID,
-      );
-      expect(validationServiceMock.validateRoomAccess).toHaveBeenCalledWith(
-        MOCK_EVENT,
-        Role.PARTICIPANT,
-        MOCK_PARTICIPANT_PROFILE_ID,
-        null,
-      );
-      expect(validationServiceMock.validateRoomWritable).toHaveBeenCalledWith(
-        MOCK_EVENT,
-      );
-      expect(validationServiceMock.validateMessageContent).toHaveBeenCalledWith(
-        'hello',
-      );
+      await expect(
+        service.sendMessage(
+          ROOMS.ROOM_ACTIVE.id,
+          dto,
+          Role.ORGANIZER,
+          null,
+          USERS.ORGANIZER_MAIN.id,
+        ),
+      ).rejects.toThrow(SaveMessageException);
     });
   });
 
+  // ==========================================================================
+  // sendAnnouncement
+  // ==========================================================================
   describe('sendAnnouncement', () => {
-    it('UT-6-017A-01: throws AnnouncementNotAllowedException when a PARTICIPANT attempts to send an announcement, before any room lookup', async () => {
-      validationServiceMock.validateAnnouncementSenderRole.mockImplementation(
-        () => {
-          throw new AnnouncementNotAllowedException();
-        },
+    it('UT-sendAnnouncement-01: ORGANIZER — creates an announcement and resolves the exact ReturnMessageDto', async () => {
+      const dto: CreateAnnouncementDto = { content: 'important update' };
+
+      const result = await service.sendAnnouncement(
+        ROOMS.ROOM_ACTIVE.id,
+        dto,
+        Role.ORGANIZER,
+        null,
+        USERS.ORGANIZER_MAIN.id,
       );
+
+      expect(crudServiceMock.createMessage).toHaveBeenCalledWith(
+        ROOMS.ROOM_ACTIVE.id,
+        'important update',
+        true,
+        null,
+        USERS.ORGANIZER_MAIN.id,
+      );
+      expect(result).toEqual({
+        id: nthCreatedMessageId(1),
+        content: 'important update',
+        isAnnouncement: true,
+        sender: organizerSender(USERS.ORGANIZER_MAIN.id),
+        createdAt: expect.any(Date),
+        serialNumber: ROOMS.ROOM_ACTIVE.lastSerialNumber + 1,
+      });
+    });
+
+    it('UT-sendAnnouncement-02 [single]: trims surrounding whitespace before persisting, and the resolved content reflects the trimmed value', async () => {
+      const dto: CreateAnnouncementDto = { content: '  padded content  ' };
+
+      const result = await service.sendAnnouncement(
+        ROOMS.ROOM_ACTIVE.id,
+        dto,
+        Role.ORGANIZER,
+        null,
+        USERS.ORGANIZER_MAIN.id,
+      );
+
+      expect(crudServiceMock.createMessage).toHaveBeenCalledWith(
+        ROOMS.ROOM_ACTIVE.id,
+        'padded content',
+        true,
+        null,
+        USERS.ORGANIZER_MAIN.id,
+      );
+      expect(result.content).toBe('padded content');
+    });
+
+    it('UT-sendAnnouncement-03 [error]: PARTICIPANT attempts to send — throws AnnouncementNotAllowedException before any room lookup', async () => {
       const dto: CreateAnnouncementDto = { content: 'hello' };
 
       await expect(
         service.sendAnnouncement(
-          MOCK_ROOM_ID,
+          ROOMS.ROOM_ACTIVE.id,
           dto,
           Role.PARTICIPANT,
-          MOCK_PARTICIPANT_PROFILE_ID,
+          USERS.PARTICIPANT_MAIN.id,
           null,
         ),
       ).rejects.toThrow(AnnouncementNotAllowedException);
-      await expect(
-        service.sendAnnouncement(
-          MOCK_ROOM_ID,
-          dto,
-          Role.PARTICIPANT,
-          MOCK_PARTICIPANT_PROFILE_ID,
-          null,
-        ),
-      ).rejects.toThrow('Only the organizer can send announcements.');
 
       expect(validationServiceMock.validateRoomExists).not.toHaveBeenCalled();
       expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
     });
 
-    it('UT-6-017A-02: throws RoomNotFoundException when room does not exist', async () => {
-      validationServiceMock.validateRoomExists.mockRejectedValue(
-        new RoomNotFoundException(),
-      );
+    it('UT-sendAnnouncement-04 [error]: room does not exist — throws RoomNotFoundException', async () => {
       const dto: CreateAnnouncementDto = { content: 'hello' };
 
       await expect(
         service.sendAnnouncement(
-          MOCK_ROOM_ID,
+          NOT_FOUND_ROOM_ID,
           dto,
           Role.ORGANIZER,
           null,
-          MOCK_ORGANIZER_PROFILE_ID,
+          USERS.ORGANIZER_MAIN.id,
         ),
       ).rejects.toThrow(RoomNotFoundException);
 
@@ -493,19 +337,16 @@ describe('DiscussionService', () => {
       expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
     });
 
-    it('UT-6-017A-03: throws RoomAccessDeniedException when caller is neither owner nor confirmed participant', async () => {
-      validationServiceMock.validateRoomAccess.mockRejectedValue(
-        new RoomAccessDeniedException(),
-      );
+    it('UT-sendAnnouncement-05 [error]: caller is not the room owner — throws RoomAccessDeniedException', async () => {
       const dto: CreateAnnouncementDto = { content: 'hello' };
 
       await expect(
         service.sendAnnouncement(
-          MOCK_ROOM_ID,
+          ROOMS.ROOM_ACTIVE.id,
           dto,
           Role.ORGANIZER,
           null,
-          MOCK_ORGANIZER_PROFILE_ID,
+          USERS.ORGANIZER_OTHER.id,
         ),
       ).rejects.toThrow(RoomAccessDeniedException);
 
@@ -513,798 +354,686 @@ describe('DiscussionService', () => {
       expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
     });
 
-    it('UT-6-017A-04: throws RoomReadOnlyException when room is not writable', async () => {
-      validationServiceMock.validateRoomWritable.mockImplementation(() => {
-        throw new RoomReadOnlyException();
-      });
+    it('UT-sendAnnouncement-06 [error]: room is not writable — throws RoomReadOnlyException', async () => {
       const dto: CreateAnnouncementDto = { content: 'hello' };
 
       await expect(
         service.sendAnnouncement(
-          MOCK_ROOM_ID,
+          ROOMS.ROOM_CONCLUDED_EXPIRED.id,
           dto,
           Role.ORGANIZER,
           null,
-          MOCK_ORGANIZER_PROFILE_ID,
+          USERS.ORGANIZER_MAIN.id,
         ),
-      ).rejects.toThrow(RoomReadOnlyException);
+      ).rejects.toThrow('This discussion room is read-only and no longer accepts new messages.');
 
-      expect(
-        validationServiceMock.validateMessageContent,
-      ).not.toHaveBeenCalled();
+      expect(validationServiceMock.validateMessageContent).not.toHaveBeenCalled();
       expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
     });
 
-    it('UT-6-017A-05: throws MessageContentInvalidException when content is empty/whitespace-only or exceeds 2000 characters', async () => {
-      validationServiceMock.validateMessageContent.mockImplementation(() => {
-        throw new MessageContentInvalidException('Message cannot be empty.');
-      });
+    it('UT-sendAnnouncement-07 [error]: content is empty/whitespace-only — throws MessageContentInvalidException', async () => {
       const dto: CreateAnnouncementDto = { content: '   ' };
 
       await expect(
         service.sendAnnouncement(
-          MOCK_ROOM_ID,
+          ROOMS.ROOM_ACTIVE.id,
           dto,
           Role.ORGANIZER,
           null,
-          MOCK_ORGANIZER_PROFILE_ID,
+          USERS.ORGANIZER_MAIN.id,
         ),
-      ).rejects.toThrow(MessageContentInvalidException);
+      ).rejects.toThrow('Message cannot be empty.');
 
       expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
     });
 
-    it('UT-6-017A-06: creates an announcement for an ORGANIZER, setting senderOrganizerId and leaving senderParticipantId null', async () => {
-      const expectedMessage = buildReturnMessage({
-        id: MOCK_ANNOUNCEMENT_MESSAGE_ID,
-        content: 'important update',
-        isAnnouncement: true,
-        sender: buildSender(Role.ORGANIZER),
-      });
-      crudServiceMock.createMessage.mockResolvedValue(expectedMessage);
-      const dto: CreateAnnouncementDto = { content: 'important update' };
+    it('UT-sendAnnouncement-08 [error]: content exceeds the max length — throws MessageContentInvalidException', async () => {
+      const dto: CreateAnnouncementDto = { content: 'a'.repeat(2001) };
 
-      const result = await service.sendAnnouncement(
-        MOCK_ROOM_ID,
-        dto,
-        Role.ORGANIZER,
-        null,
-        MOCK_ORGANIZER_PROFILE_ID,
-      );
+      await expect(
+        service.sendAnnouncement(
+          ROOMS.ROOM_ACTIVE.id,
+          dto,
+          Role.ORGANIZER,
+          null,
+          USERS.ORGANIZER_MAIN.id,
+        ),
+      ).rejects.toThrow('Message cannot exceed 2000 characters.');
 
-      expect(result).toEqual(expectedMessage);
-      expect(
-        validationServiceMock.validateAnnouncementSenderRole,
-      ).toHaveBeenCalledWith(Role.ORGANIZER);
-      expect(crudServiceMock.createMessage).toHaveBeenCalledWith(
-        MOCK_ROOM_ID,
-        'important update',
-        true,
-        null,
-        MOCK_ORGANIZER_PROFILE_ID,
-      );
+      expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
     });
 
-    it('UT-6-017A-07: trims surrounding whitespace from dto.content before persisting the announcement', async () => {
-      const dto: CreateAnnouncementDto = { content: '  padded content  ' };
+    it('UT-sendAnnouncement-09 [error] [single]: createMessage fails downstream — rejects with the CRUD error', async () => {
+      crudServiceMock.createMessage.mockRejectedValueOnce(new SaveMessageException());
+      const dto: CreateAnnouncementDto = { content: 'hello' };
 
-      await service.sendAnnouncement(
-        MOCK_ROOM_ID,
-        dto,
-        Role.ORGANIZER,
-        null,
-        MOCK_ORGANIZER_PROFILE_ID,
-      );
-
-      expect(crudServiceMock.createMessage).toHaveBeenCalledWith(
-        MOCK_ROOM_ID,
-        'padded content',
-        true,
-        null,
-        MOCK_ORGANIZER_PROFILE_ID,
-      );
+      await expect(
+        service.sendAnnouncement(
+          ROOMS.ROOM_ACTIVE.id,
+          dto,
+          Role.ORGANIZER,
+          null,
+          USERS.ORGANIZER_MAIN.id,
+        ),
+      ).rejects.toThrow(SaveMessageException);
     });
   });
 
+  // ==========================================================================
+  // getMessages
+  // ==========================================================================
   describe('getMessages', () => {
-    it('UT-6-018-01: throws RoomNotFoundException when room does not exist', async () => {
-      validationServiceMock.validateRoomExists.mockRejectedValue(
-        new RoomNotFoundException(),
-      );
-      const query: GetMessagesQueryDto = {};
-
-      await expect(
-        service.getMessages(
-          MOCK_ROOM_ID,
-          query,
-          Role.ORGANIZER,
-          null,
-          MOCK_ORGANIZER_PROFILE_ID,
-        ),
-      ).rejects.toThrow(RoomNotFoundException);
-      await expect(
-        service.getMessages(
-          MOCK_ROOM_ID,
-          query,
-          Role.ORGANIZER,
-          null,
-          MOCK_ORGANIZER_PROFILE_ID,
-        ),
-      ).rejects.toThrow('Discussion room not found.');
-
-      expect(validationServiceMock.validateRoomAccess).not.toHaveBeenCalled();
-      expect(crudServiceMock.getRoomReadStatus).not.toHaveBeenCalled();
-      expect(crudServiceMock.getPaginatedMessagesByCursor).not.toHaveBeenCalled();
-    });
-
-    it('UT-6-018-02: throws RoomAccessDeniedException when caller is not authorized', async () => {
-      validationServiceMock.validateRoomAccess.mockRejectedValue(
-        new RoomAccessDeniedException(),
-      );
-      const query: GetMessagesQueryDto = {};
-
-      await expect(
-        service.getMessages(
-          MOCK_ROOM_ID,
-          query,
-          Role.PARTICIPANT,
-          MOCK_PARTICIPANT_PROFILE_ID,
-          null,
-        ),
-      ).rejects.toThrow(RoomAccessDeniedException);
-      await expect(
-        service.getMessages(
-          MOCK_ROOM_ID,
-          query,
-          Role.PARTICIPANT,
-          MOCK_PARTICIPANT_PROFILE_ID,
-          null,
-        ),
-      ).rejects.toThrow(
-        'You do not have permission to access this discussion room.',
-      );
-
-      expect(crudServiceMock.getRoomReadStatus).not.toHaveBeenCalled();
-      expect(crudServiceMock.getPaginatedMessagesByCursor).not.toHaveBeenCalled();
-    });
-
-    it('UT-6-018-03: with an explicit cursor, calls getPaginatedMessagesByCursor and skips the read-status lookup', async () => {
-      const query: GetMessagesQueryDto = {
-        cursor: MOCK_CURSOR_ID,
-        direction: 'after',
-        limit: 10,
-      };
+    it('UT-getMessages-01: explicit cursor + direction + limit — forwarded as-is, skips the read-status lookup, resolves the CRUD page', async () => {
+      const cursor = ROOMS.ROOM_ACTIVE.messages[0].id;
+      const query: GetMessagesQueryDto = { cursor, direction: 'after', limit: 10 };
 
       const result = await service.getMessages(
-        MOCK_ROOM_ID,
+        ROOMS.ROOM_ACTIVE.id,
         query,
         Role.ORGANIZER,
         null,
-        MOCK_ORGANIZER_PROFILE_ID,
+        USERS.ORGANIZER_MAIN.id,
       );
 
-      expect(result).toEqual(MOCK_MESSAGE_PAGE_BY_CURSOR);
       expect(crudServiceMock.getRoomReadStatus).not.toHaveBeenCalled();
       expect(crudServiceMock.getPaginatedMessagesByCursor).toHaveBeenCalledWith(
-        MOCK_ROOM_ID,
-        MOCK_CURSOR_ID,
+        ROOMS.ROOM_ACTIVE.id,
+        cursor,
         'after',
         10,
       );
+      expect(result).toEqual(ROOMS.ROOM_ACTIVE.messagePage);
     });
 
-    it('UT-6-018-04: with an explicit cursor and no direction, defaults direction to "before" and pageSize to DEFAULT_MESSAGE_PAGE_SIZE', async () => {
-      const query: GetMessagesQueryDto = { cursor: MOCK_CURSOR_ID };
+    it('UT-getMessages-02: explicit cursor with no direction — defaults direction to "before"', async () => {
+      const cursor = ROOMS.ROOM_ACTIVE.messages[0].id;
+      const query: GetMessagesQueryDto = { cursor };
 
       const result = await service.getMessages(
-        MOCK_ROOM_ID,
+        ROOMS.ROOM_ACTIVE.id,
         query,
         Role.ORGANIZER,
         null,
-        MOCK_ORGANIZER_PROFILE_ID,
+        USERS.ORGANIZER_MAIN.id,
       );
 
-      expect(result).toEqual(MOCK_MESSAGE_PAGE_BY_CURSOR);
       expect(crudServiceMock.getPaginatedMessagesByCursor).toHaveBeenCalledWith(
-        MOCK_ROOM_ID,
-        MOCK_CURSOR_ID,
+        ROOMS.ROOM_ACTIVE.id,
+        cursor,
         'before',
         25,
       );
+      expect(result).toEqual(ROOMS.ROOM_ACTIVE.messagePage);
     });
 
-    it('UT-6-018-05: with no cursor and an existing read status with a lastReadMessageId, resumes via getPaginatedMessagesByCursor(after)', async () => {
-      const readStatus = {
-        lastReadMessageId: MOCK_CURSOR_ID,
-      };
-      crudServiceMock.getRoomReadStatus.mockResolvedValue(readStatus);
-      const query: GetMessagesQueryDto = { limit: 20 };
+    it('UT-getMessages-03: no cursor, read status exists with a lastReadMessageId — resumes "after" that message, ignoring query.direction', async () => {
+      const query: GetMessagesQueryDto = { direction: 'before', limit: 20 };
 
       const result = await service.getMessages(
-        MOCK_ROOM_ID,
+        ROOMS.ROOM_ACTIVE.id,
         query,
-        Role.PARTICIPANT,
-        MOCK_PARTICIPANT_PROFILE_ID,
+        Role.ORGANIZER,
         null,
+        USERS.ORGANIZER_MAIN.id,
       );
 
-      expect(result).toEqual(MOCK_MESSAGE_PAGE_BY_CURSOR);
       expect(crudServiceMock.getPaginatedMessagesByCursor).toHaveBeenCalledWith(
-        MOCK_ROOM_ID,
-        MOCK_CURSOR_ID,
+        ROOMS.ROOM_ACTIVE.id,
+        ROOMS.ROOM_ACTIVE.readStatus.organizer!.lastReadMessageId,
         'after',
         20,
       );
+      expect(result).toEqual(ROOMS.ROOM_ACTIVE.messagePage);
     });
 
-    it('UT-6-018-05b: with no cursor and a read status whose lastReadMessageId is null (room was empty at last read), falls through to the latest-page fetch', async () => {
-      const readStatus = {
-        lastReadMessageId: null,
-      };
-      crudServiceMock.getRoomReadStatus.mockResolvedValue(readStatus);
+    it('UT-getMessages-04: no cursor, read status exists but lastReadMessageId is null (room was empty at last read) — falls through to the latest-page fetch', async () => {
       const query: GetMessagesQueryDto = { limit: 20 };
 
       const result = await service.getMessages(
-        MOCK_ROOM_ID,
+        ROOMS.ROOM_NEVER_READ_EMPTY.id,
         query,
         Role.PARTICIPANT,
-        MOCK_PARTICIPANT_PROFILE_ID,
+        USERS.PARTICIPANT_MAIN.id,
         null,
       );
 
-      expect(result).toEqual(MOCK_MESSAGE_PAGE_BY_CURSOR);
       expect(crudServiceMock.getPaginatedMessagesByCursor).toHaveBeenCalledWith(
-        MOCK_ROOM_ID,
+        ROOMS.ROOM_NEVER_READ_EMPTY.id,
         undefined,
         'before',
         20,
       );
+      expect(result).toEqual(ROOMS.ROOM_NEVER_READ_EMPTY.messagePage);
     });
 
-    it('UT-6-018-06: with no cursor and no read status, falls through to the latest-page fetch', async () => {
-      crudServiceMock.getRoomReadStatus.mockResolvedValue(null);
+    it('UT-getMessages-05: no cursor, no read status record at all (never read) — falls through to the latest-page fetch', async () => {
       const query: GetMessagesQueryDto = { limit: 20 };
 
       const result = await service.getMessages(
-        MOCK_ROOM_ID,
+        ROOMS.ROOM_NEVER_READ_EMPTY.id,
         query,
-        Role.PARTICIPANT,
-        MOCK_PARTICIPANT_PROFILE_ID,
+        Role.ORGANIZER,
         null,
+        USERS.ORGANIZER_MAIN.id,
       );
 
-      expect(result).toEqual(MOCK_MESSAGE_PAGE_BY_CURSOR);
       expect(crudServiceMock.getPaginatedMessagesByCursor).toHaveBeenCalledWith(
-        MOCK_ROOM_ID,
+        ROOMS.ROOM_NEVER_READ_EMPTY.id,
         undefined,
         'before',
         20,
       );
+      expect(result).toEqual(ROOMS.ROOM_NEVER_READ_EMPTY.messagePage);
     });
 
-    it('UT-6-018-07: limit omitted → pageSize defaults to DEFAULT_MESSAGE_PAGE_SIZE (25)', async () => {
-      crudServiceMock.getRoomReadStatus.mockResolvedValue(null);
+    it('UT-getMessages-06: limit omitted — pageSize defaults to DEFAULT_MESSAGE_PAGE_SIZE (25)', async () => {
       const query: GetMessagesQueryDto = {};
 
       const result = await service.getMessages(
-        MOCK_ROOM_ID,
+        ROOMS.ROOM_NEVER_READ_EMPTY.id,
         query,
         Role.PARTICIPANT,
-        MOCK_PARTICIPANT_PROFILE_ID,
+        USERS.PARTICIPANT_MAIN.id,
         null,
       );
 
-      expect(result).toEqual(MOCK_MESSAGE_PAGE_BY_CURSOR);
       expect(crudServiceMock.getPaginatedMessagesByCursor).toHaveBeenCalledWith(
-        MOCK_ROOM_ID,
+        ROOMS.ROOM_NEVER_READ_EMPTY.id,
         undefined,
         'before',
         25,
       );
+      expect(result).toEqual(ROOMS.ROOM_NEVER_READ_EMPTY.messagePage);
     });
-  });
 
-  describe('getAnnouncements', () => {
-    it('UT-6-018a-01: throws RoomNotFoundException when room does not exist', async () => {
-      validationServiceMock.validateRoomExists.mockRejectedValue(
-        new RoomNotFoundException(),
+    it('UT-getMessages-07: limit at/above MAX_MESSAGE_PAGE_SIZE — capped to 25', async () => {
+      const query: GetMessagesQueryDto = { cursor: ROOMS.ROOM_ACTIVE.messages[0].id, limit: 100 };
+
+      const result = await service.getMessages(
+        ROOMS.ROOM_ACTIVE.id,
+        query,
+        Role.ORGANIZER,
+        null,
+        USERS.ORGANIZER_MAIN.id,
       );
 
+      expect(crudServiceMock.getPaginatedMessagesByCursor).toHaveBeenCalledWith(
+        ROOMS.ROOM_ACTIVE.id,
+        ROOMS.ROOM_ACTIVE.messages[0].id,
+        'before',
+        25,
+      );
+      expect(result).toEqual(ROOMS.ROOM_ACTIVE.messagePage);
+    });
+
+    it('UT-getMessages-08 [error]: room does not exist — throws RoomNotFoundException', async () => {
+      const query: GetMessagesQueryDto = {};
+
       await expect(
-        service.getAnnouncements(
-          MOCK_ROOM_ID,
+        service.getMessages(
+          NOT_FOUND_ROOM_ID,
+          query,
           Role.ORGANIZER,
           null,
-          MOCK_ORGANIZER_PROFILE_ID,
+          USERS.ORGANIZER_MAIN.id,
         ),
       ).rejects.toThrow(RoomNotFoundException);
 
       expect(validationServiceMock.validateRoomAccess).not.toHaveBeenCalled();
-      expect(
-        crudServiceMock.getLatestAnnouncements,
-      ).not.toHaveBeenCalled();
+      expect(crudServiceMock.getRoomReadStatus).not.toHaveBeenCalled();
+      expect(crudServiceMock.getPaginatedMessagesByCursor).not.toHaveBeenCalled();
     });
 
-    it('UT-6-018a-02: throws RoomAccessDeniedException when caller is not authorized', async () => {
-      validationServiceMock.validateRoomAccess.mockRejectedValue(
-        new RoomAccessDeniedException(),
-      );
+    it('UT-getMessages-09 [error]: caller is not authorized — throws RoomAccessDeniedException', async () => {
+      const query: GetMessagesQueryDto = {};
 
       await expect(
-        service.getAnnouncements(
-          MOCK_ROOM_ID,
+        service.getMessages(
+          ROOMS.ROOM_ACTIVE.id,
+          query,
           Role.PARTICIPANT,
-          MOCK_PARTICIPANT_PROFILE_ID,
+          USERS.PARTICIPANT_OTHER.id,
           null,
         ),
       ).rejects.toThrow(RoomAccessDeniedException);
 
-      expect(
-        crudServiceMock.getLatestAnnouncements,
-      ).not.toHaveBeenCalled();
-    });
-
-    it('UT-6-018a-03: delegates straight to DiscussionCrudService.getLatestAnnouncements(roomId, MAX_ANNOUNCEMENT_COUNT)', async () => {
-      const announcements = [
-        buildReturnMessage({ id: 'announcement-1', isAnnouncement: true }),
-      ];
-      crudServiceMock.getLatestAnnouncements.mockResolvedValue(
-        announcements,
-      );
-
-      const result = await service.getAnnouncements(
-        MOCK_ROOM_ID,
-        Role.ORGANIZER,
-        null,
-        MOCK_ORGANIZER_PROFILE_ID,
-      );
-
-      expect(result).toEqual(announcements);
       expect(crudServiceMock.getRoomReadStatus).not.toHaveBeenCalled();
-      expect(
-        crudServiceMock.getLatestAnnouncements,
-      ).toHaveBeenCalledWith(MOCK_ROOM_ID, 15);
+      expect(crudServiceMock.getPaginatedMessagesByCursor).not.toHaveBeenCalled();
     });
   });
 
-  describe('updateLastReadMessage', () => {
-    it('UT-6-019-01: throws RoomNotFoundException when room does not exist', async () => {
-      validationServiceMock.validateRoomExists.mockRejectedValue(
-        new RoomNotFoundException(),
+  // ==========================================================================
+  // getAnnouncements
+  // ==========================================================================
+  describe('getAnnouncements', () => {
+    it('UT-getAnnouncements-01 [single]: delegates to getLatestAnnouncements(roomId, MAX_ANNOUNCEMENT_COUNT) and resolves its result', async () => {
+      const result = await service.getAnnouncements(
+        ROOMS.ROOM_ACTIVE.id,
+        Role.ORGANIZER,
+        null,
+        USERS.ORGANIZER_MAIN.id,
       );
 
+      expect(crudServiceMock.getLatestAnnouncements).toHaveBeenCalledWith(
+        ROOMS.ROOM_ACTIVE.id,
+        15,
+      );
+      expect(result).toEqual(ROOMS.ROOM_ACTIVE.announcements);
+    });
+
+    it('UT-getAnnouncements-02 [error]: room does not exist — throws RoomNotFoundException', async () => {
+      await expect(
+        service.getAnnouncements(NOT_FOUND_ROOM_ID, Role.ORGANIZER, null, USERS.ORGANIZER_MAIN.id),
+      ).rejects.toThrow(RoomNotFoundException);
+
+      expect(validationServiceMock.validateRoomAccess).not.toHaveBeenCalled();
+      expect(crudServiceMock.getLatestAnnouncements).not.toHaveBeenCalled();
+    });
+
+    it('UT-getAnnouncements-03 [error]: caller is not authorized — throws RoomAccessDeniedException', async () => {
+      await expect(
+        service.getAnnouncements(
+          ROOMS.ROOM_ACTIVE.id,
+          Role.PARTICIPANT,
+          USERS.PARTICIPANT_OTHER.id,
+          null,
+        ),
+      ).rejects.toThrow(RoomAccessDeniedException);
+
+      expect(crudServiceMock.getLatestAnnouncements).not.toHaveBeenCalled();
+    });
+  });
+
+  // ==========================================================================
+  // updateLastReadMessage
+  // ==========================================================================
+  describe('updateLastReadMessage', () => {
+    it('UT-updateLastReadMessage-01 [single]: lastReadMessageId omitted — skips the serial-number lookup, resolves { lastReadMessageId: null, lastReadSerialNumber: 0 }', async () => {
+      const result = await service.updateLastReadMessage(
+        ROOMS.ROOM_ACTIVE.id,
+        Role.ORGANIZER,
+        null,
+        USERS.ORGANIZER_MAIN.id,
+        undefined,
+      );
+
+      expect(crudServiceMock.getMessageSerialNumber).not.toHaveBeenCalled();
+      expect(crudServiceMock.upsertLastReadMessage).toHaveBeenCalledWith(
+        ROOMS.ROOM_ACTIVE.id,
+        Role.ORGANIZER,
+        null,
+        USERS.ORGANIZER_MAIN.id,
+        undefined,
+        undefined,
+      );
+      expect(result).toEqual({
+        roomId: ROOMS.ROOM_ACTIVE.id,
+        lastReadMessageId: null,
+        lastReadSerialNumber: 0,
+      });
+    });
+
+    it('UT-updateLastReadMessage-02: ORGANIZER, lastReadMessageId provided and found — resolves its serial number, upserts keyed on organizerProfileId, and emits room.read-updated', async () => {
+      const messageId = ROOMS.ROOM_ACTIVE.messages[1].id; // serialNumber 2
+
+      const result = await service.updateLastReadMessage(
+        ROOMS.ROOM_ACTIVE.id,
+        Role.ORGANIZER,
+        null,
+        USERS.ORGANIZER_MAIN.id,
+        messageId,
+      );
+
+      expect(crudServiceMock.getMessageSerialNumber).toHaveBeenCalledWith(messageId);
+      expect(crudServiceMock.upsertLastReadMessage).toHaveBeenCalledWith(
+        ROOMS.ROOM_ACTIVE.id,
+        Role.ORGANIZER,
+        null,
+        USERS.ORGANIZER_MAIN.id,
+        messageId,
+        2,
+      );
+      expect(result).toEqual({
+        roomId: ROOMS.ROOM_ACTIVE.id,
+        lastReadMessageId: messageId,
+        lastReadSerialNumber: 2,
+      });
+      expect(eventEmitterMock.emit).toHaveBeenCalledWith('room.read-updated', {
+        roomId: ROOMS.ROOM_ACTIVE.id,
+        role: Role.ORGANIZER,
+        participantProfileId: null,
+        organizerProfileId: USERS.ORGANIZER_MAIN.id,
+        lastReadSerialNumber: 2,
+      });
+    });
+
+    it('UT-updateLastReadMessage-03: PARTICIPANT, lastReadMessageId provided and found — resolves its serial number and upserts keyed on participantProfileId', async () => {
+      const messageId = ROOMS.ROOM_ACTIVE.announcements[0].id; // serialNumber 3
+
+      const result = await service.updateLastReadMessage(
+        ROOMS.ROOM_ACTIVE.id,
+        Role.PARTICIPANT,
+        USERS.PARTICIPANT_MAIN.id,
+        null,
+        messageId,
+      );
+
+      expect(crudServiceMock.upsertLastReadMessage).toHaveBeenCalledWith(
+        ROOMS.ROOM_ACTIVE.id,
+        Role.PARTICIPANT,
+        USERS.PARTICIPANT_MAIN.id,
+        null,
+        messageId,
+        3,
+      );
+      expect(result).toEqual({
+        roomId: ROOMS.ROOM_ACTIVE.id,
+        lastReadMessageId: messageId,
+        lastReadSerialNumber: 3,
+      });
+    });
+
+    it('UT-updateLastReadMessage-04: lastReadMessageId provided but not found — falls back to lastReadSerialNumber=undefined, emits 0', async () => {
+      const result = await service.updateLastReadMessage(
+        ROOMS.ROOM_ACTIVE.id,
+        Role.ORGANIZER,
+        null,
+        USERS.ORGANIZER_MAIN.id,
+        NOT_FOUND_MESSAGE_ID,
+      );
+
+      expect(crudServiceMock.upsertLastReadMessage).toHaveBeenCalledWith(
+        ROOMS.ROOM_ACTIVE.id,
+        Role.ORGANIZER,
+        null,
+        USERS.ORGANIZER_MAIN.id,
+        NOT_FOUND_MESSAGE_ID,
+        undefined,
+      );
+      expect(result).toEqual({
+        roomId: ROOMS.ROOM_ACTIVE.id,
+        lastReadMessageId: NOT_FOUND_MESSAGE_ID,
+        lastReadSerialNumber: 0,
+      });
+      expect(eventEmitterMock.emit).toHaveBeenCalledWith(
+        'room.read-updated',
+        expect.objectContaining({ lastReadSerialNumber: 0 }),
+      );
+    });
+
+    it('UT-updateLastReadMessage-05 [error]: room does not exist — throws RoomNotFoundException', async () => {
       await expect(
         service.updateLastReadMessage(
-          MOCK_ROOM_ID,
+          NOT_FOUND_ROOM_ID,
           Role.ORGANIZER,
           null,
-          MOCK_ORGANIZER_PROFILE_ID,
+          USERS.ORGANIZER_MAIN.id,
           undefined,
         ),
       ).rejects.toThrow(RoomNotFoundException);
-      await expect(
-        service.updateLastReadMessage(
-          MOCK_ROOM_ID,
-          Role.ORGANIZER,
-          null,
-          MOCK_ORGANIZER_PROFILE_ID,
-          undefined,
-        ),
-      ).rejects.toThrow('Discussion room not found.');
 
       expect(crudServiceMock.upsertLastReadMessage).not.toHaveBeenCalled();
     });
 
-    it('UT-6-019-02: throws RoomAccessDeniedException when caller is not authorized', async () => {
-      validationServiceMock.validateRoomAccess.mockRejectedValue(
-        new RoomAccessDeniedException(),
-      );
-
+    it('UT-updateLastReadMessage-06 [error]: caller is not authorized — throws RoomAccessDeniedException', async () => {
       await expect(
         service.updateLastReadMessage(
-          MOCK_ROOM_ID,
+          ROOMS.ROOM_ACTIVE.id,
           Role.PARTICIPANT,
-          MOCK_PARTICIPANT_PROFILE_ID,
+          USERS.PARTICIPANT_OTHER.id,
           null,
           undefined,
         ),
       ).rejects.toThrow(RoomAccessDeniedException);
-      await expect(
-        service.updateLastReadMessage(
-          MOCK_ROOM_ID,
-          Role.PARTICIPANT,
-          MOCK_PARTICIPANT_PROFILE_ID,
-          null,
-          undefined,
-        ),
-      ).rejects.toThrow(
-        'You do not have permission to access this discussion room.',
-      );
 
       expect(crudServiceMock.upsertLastReadMessage).not.toHaveBeenCalled();
     });
 
-    it('UT-6-019-03: for an ORGANIZER, upserts the read status keyed on organizerProfileId, passing lastReadMessageId through', async () => {
-      // distinct message id from the PARTICIPANT case below, so a swapped-args
-      // regression (e.g. organizerId passed into the participant slot) would
-      // surface as a result mismatch, not just pass because both share one dto
-      const expectedStatus = buildRoomReadStatusDto({
-        lastReadMessageId: 'mark-as-read-organizer-message-id',
-      });
-      crudServiceMock.upsertLastReadMessage.mockResolvedValue(expectedStatus);
-      crudServiceMock.getMessageSerialNumber.mockResolvedValue(5);
-
-      const result = await service.updateLastReadMessage(
-        MOCK_ROOM_ID,
-        Role.ORGANIZER,
-        null,
-        MOCK_ORGANIZER_PROFILE_ID,
-        'mark-as-read-organizer-message-id',
+    it('UT-updateLastReadMessage-07 [error] [single]: upsertLastReadMessage fails downstream — rejects with the CRUD error, still no emit', async () => {
+      crudServiceMock.upsertLastReadMessage.mockRejectedValueOnce(
+        new SaveRoomReadStatusException(),
       );
 
-      expect(result).toEqual(expectedStatus);
-      expect(crudServiceMock.getMessageSerialNumber).toHaveBeenCalledWith(
-        'mark-as-read-organizer-message-id',
-      );
-      expect(crudServiceMock.upsertLastReadMessage).toHaveBeenCalledWith(
-        MOCK_ROOM_ID,
-        Role.ORGANIZER,
-        null,
-        MOCK_ORGANIZER_PROFILE_ID,
-        'mark-as-read-organizer-message-id',
-        5,
-      );
-      expect(eventEmitterMock.emit).toHaveBeenCalledWith('room.read-updated', {
-        roomId: MOCK_ROOM_ID,
-        role: Role.ORGANIZER,
-        participantProfileId: null,
-        organizerProfileId: MOCK_ORGANIZER_PROFILE_ID,
-        lastReadSerialNumber: 5,
-      });
-    });
+      await expect(
+        service.updateLastReadMessage(
+          ROOMS.ROOM_ACTIVE.id,
+          Role.ORGANIZER,
+          null,
+          USERS.ORGANIZER_MAIN.id,
+          undefined,
+        ),
+      ).rejects.toThrow(SaveRoomReadStatusException);
 
-    it('UT-6-019-04: for a PARTICIPANT, upserts the read status keyed on participantProfileId, passing lastReadMessageId through', async () => {
-      const expectedStatus = buildRoomReadStatusDto({
-        lastReadMessageId: 'mark-as-read-participant-message-id',
-      });
-      crudServiceMock.upsertLastReadMessage.mockResolvedValue(expectedStatus);
-      crudServiceMock.getMessageSerialNumber.mockResolvedValue(7);
-
-      const result = await service.updateLastReadMessage(
-        MOCK_ROOM_ID,
-        Role.PARTICIPANT,
-        MOCK_PARTICIPANT_PROFILE_ID,
-        null,
-        'mark-as-read-participant-message-id',
-      );
-
-      expect(result).toEqual(expectedStatus);
-      expect(crudServiceMock.upsertLastReadMessage).toHaveBeenCalledWith(
-        MOCK_ROOM_ID,
-        Role.PARTICIPANT,
-        MOCK_PARTICIPANT_PROFILE_ID,
-        null,
-        'mark-as-read-participant-message-id',
-        7,
-      );
-    });
-
-    it('UT-6-019-05: lastReadMessageId omitted → passes undefined through to upsertLastReadMessage', async () => {
-      const expectedStatus = buildRoomReadStatusDto({
-        lastReadMessageId: null,
-      });
-      crudServiceMock.upsertLastReadMessage.mockResolvedValue(expectedStatus);
-
-      const result = await service.updateLastReadMessage(
-        MOCK_ROOM_ID,
-        Role.PARTICIPANT,
-        MOCK_PARTICIPANT_PROFILE_ID,
-        null,
-        undefined,
-      );
-
-      expect(result).toEqual(expectedStatus);
-      expect(crudServiceMock.upsertLastReadMessage).toHaveBeenCalledWith(
-        MOCK_ROOM_ID,
-        Role.PARTICIPANT,
-        MOCK_PARTICIPANT_PROFILE_ID,
-        null,
-        undefined,
-        undefined,
-      );
+      expect(eventEmitterMock.emit).not.toHaveBeenCalled();
     });
   });
 
+  // ==========================================================================
+  // getCreatedDiscussionRooms
+  // ==========================================================================
   describe('getCreatedDiscussionRooms', () => {
-    it('UT-6-020-01: filter="active" resolves to ACTIVE_ROOM_STATUSES', async () => {
-      await service.getCreatedDiscussionRooms(
-        MOCK_ORGANIZER_PROFILE_ID,
+    it('UT-getCreatedDiscussionRooms-01: filter="active" — forwards ACTIVE_ROOM_STATUSES and resolves the composed, roomless-filtered DTOs', async () => {
+      const result = await service.getCreatedDiscussionRooms(
+        USERS.ORGANIZER_MAIN.id,
         'active',
       );
 
-      expect(
-        crudServiceMock.getOrganizerEventsWithRoom,
-      ).toHaveBeenCalledWith(MOCK_ORGANIZER_PROFILE_ID, ACTIVE_ROOM_STATUSES);
+      expect(crudServiceMock.getOrganizerEventsWithRoom).toHaveBeenCalledWith(
+        USERS.ORGANIZER_MAIN.id,
+        ACTIVE_ROOM_STATUSES,
+      );
+      // ROOM_NO_BANNER's fallback ('') and ROOM_NEVER_READ_EMPTY's lastMessage=null
+      // are exercised inline via expectedRoomListDto below.
+      expect(result).toEqual([
+        expectedRoomListDto(ROOMS.ROOM_ACTIVE, Role.ORGANIZER),
+        expectedRoomListDto(ROOMS.ROOM_NEVER_READ_EMPTY, Role.ORGANIZER),
+        expectedRoomListDto(ROOMS.ROOM_NO_BANNER, Role.ORGANIZER),
+      ]);
     });
 
-    it('UT-6-020-02: filter="archived" resolves to ARCHIVED_ROOM_STATUSES', async () => {
-      await service.getCreatedDiscussionRooms(
-        MOCK_ORGANIZER_PROFILE_ID,
+    it('UT-getCreatedDiscussionRooms-02: filter="archived" — forwards ARCHIVED_ROOM_STATUSES and resolves DTOs with mixed isReadOnly true/false', async () => {
+      const result = await service.getCreatedDiscussionRooms(
+        USERS.ORGANIZER_MAIN.id,
         'archived',
       );
 
-      expect(
-        crudServiceMock.getOrganizerEventsWithRoom,
-      ).toHaveBeenCalledWith(MOCK_ORGANIZER_PROFILE_ID, ARCHIVED_ROOM_STATUSES);
-    });
-
-    it('UT-6-020-03: filter omitted resolves to undefined (no status filter)', async () => {
-      await service.getCreatedDiscussionRooms(MOCK_ORGANIZER_PROFILE_ID);
-
-      expect(
-        crudServiceMock.getOrganizerEventsWithRoom,
-      ).toHaveBeenCalledWith(MOCK_ORGANIZER_PROFILE_ID, undefined);
-    });
-
-    it('UT-6-020-04: filters out events with no discussionRoom before mapping', async () => {
-      crudServiceMock.getOrganizerEventsWithRoom.mockResolvedValue([
-        MOCK_EVENT_WITH_ROOM,
-        MOCK_EVENT_WITHOUT_ROOM,
+      expect(crudServiceMock.getOrganizerEventsWithRoom).toHaveBeenCalledWith(
+        USERS.ORGANIZER_MAIN.id,
+        ARCHIVED_ROOM_STATUSES,
+      );
+      expect(result).toEqual([
+        expectedRoomListDto(ROOMS.ROOM_CANCELLED, Role.ORGANIZER), // isReadOnly: true
+        expectedRoomListDto(ROOMS.ROOM_CONCLUDED_GRACE, Role.ORGANIZER), // isReadOnly: false
+        expectedRoomListDto(ROOMS.ROOM_CONCLUDED_EXPIRED, Role.ORGANIZER), // isReadOnly: true
       ]);
-
-      const result = await service.getCreatedDiscussionRooms(
-        MOCK_ORGANIZER_PROFILE_ID,
-      );
-
-      expect(result).toEqual([buildRoomListDto(MOCK_EVENT_WITH_ROOM)]);
-      expect(crudServiceMock.getLatestMessageForRoom).toHaveBeenCalledTimes(1);
     });
 
-    it('UT-6-020-05: returns [] without mapping when CRUD returns no events', async () => {
-      crudServiceMock.getOrganizerEventsWithRoom.mockResolvedValue([]);
+    it('UT-getCreatedDiscussionRooms-03: filter omitted — forwards undefined (no status filter), resolves every owned room', async () => {
+      const result = await service.getCreatedDiscussionRooms(USERS.ORGANIZER_MAIN.id);
 
-      const result = await service.getCreatedDiscussionRooms(
-        MOCK_ORGANIZER_PROFILE_ID,
+      expect(crudServiceMock.getOrganizerEventsWithRoom).toHaveBeenCalledWith(
+        USERS.ORGANIZER_MAIN.id,
+        undefined,
       );
+      expect(result).toEqual([
+        expectedRoomListDto(ROOMS.ROOM_ACTIVE, Role.ORGANIZER),
+        expectedRoomListDto(ROOMS.ROOM_NEVER_READ_EMPTY, Role.ORGANIZER),
+        expectedRoomListDto(ROOMS.ROOM_CANCELLED, Role.ORGANIZER),
+        expectedRoomListDto(ROOMS.ROOM_CONCLUDED_GRACE, Role.ORGANIZER),
+        expectedRoomListDto(ROOMS.ROOM_CONCLUDED_EXPIRED, Role.ORGANIZER),
+        expectedRoomListDto(ROOMS.ROOM_NO_BANNER, Role.ORGANIZER),
+      ]);
+    });
+
+    it('UT-getCreatedDiscussionRooms-04 [single]: reads unread status keyed on the ORGANIZER caller identity, not the participant slot', async () => {
+      await service.getCreatedDiscussionRooms(USERS.ORGANIZER_MAIN.id, 'active');
+
+      expect(crudServiceMock.getUnreadStatusBySerialNumber).toHaveBeenCalledWith(
+        ROOMS.ROOM_ACTIVE.id,
+        Role.ORGANIZER,
+        null,
+        USERS.ORGANIZER_MAIN.id,
+      );
+    });
+
+    it('UT-getCreatedDiscussionRooms-05 [single]: no rooms for the caller — resolves [] without mapping', async () => {
+      const result = await service.getCreatedDiscussionRooms(USERS.ORGANIZER_OTHER.id);
 
       expect(result).toEqual([]);
       expect(crudServiceMock.getLatestMessageForRoom).not.toHaveBeenCalled();
     });
-
-    it('UT-6-020-06: composes the room DTO from lastMessage, serial-derived unreadCount, and writability, reading the status keyed on the ORGANIZER caller', async () => {
-      const latestMessage = buildReturnMessage({
-        id: 'created-rooms-latest-message-id',
-        sender: buildSender(Role.PARTICIPANT),
-      });
-      crudServiceMock.getOrganizerEventsWithRoom.mockResolvedValue([
-        MOCK_EVENT_WITH_ROOM,
-      ]);
-      crudServiceMock.getLatestMessageForRoom.mockResolvedValue(latestMessage);
-      crudServiceMock.getUnreadStatusBySerialNumber.mockResolvedValue({
-        unreadCount: 3,
-        lastReadSerialNumber: 2,
-      });
-      validationServiceMock.validateRoomWritable.mockReturnValue({
-        message: 'Discussion room is writable.',
-      });
-
-      const result = await service.getCreatedDiscussionRooms(
-        MOCK_ORGANIZER_PROFILE_ID,
-      );
-
-      expect(result).toEqual([
-        buildRoomListDto(MOCK_EVENT_WITH_ROOM, {
-          lastMessage: latestMessage,
-          unreadCount: 3,
-          lastReadSerialNumber: 2,
-        }),
-      ]);
-      // pins the caller identity actually forwarded into the unread-status
-      // lookup, catching a regression that swaps organizer/participant slots
-      expect(crudServiceMock.getUnreadStatusBySerialNumber).toHaveBeenCalledWith(
-        MOCK_ROOM_ID,
-        Role.ORGANIZER,
-        null,
-        MOCK_ORGANIZER_PROFILE_ID,
-      );
-    });
-
-    it('UT-6-020-07: lastMessage is null when the room has no messages', async () => {
-      crudServiceMock.getOrganizerEventsWithRoom.mockResolvedValue([
-        MOCK_EVENT_WITH_ROOM,
-      ]);
-      crudServiceMock.getLatestMessageForRoom.mockResolvedValue(null);
-
-      const result = await service.getCreatedDiscussionRooms(
-        MOCK_ORGANIZER_PROFILE_ID,
-      );
-
-      expect(result).toEqual([buildRoomListDto(MOCK_EVENT_WITH_ROOM)]);
-    });
-
-    it('UT-6-020-08: event bannerUrl falls back to an empty string when null', async () => {
-      crudServiceMock.getOrganizerEventsWithRoom.mockResolvedValue([
-        MOCK_EVENT_WITH_ROOM_NO_BANNER,
-      ]);
-
-      const result = await service.getCreatedDiscussionRooms(
-        MOCK_ORGANIZER_PROFILE_ID,
-      );
-
-      expect(result).toEqual([
-        buildRoomListDto(MOCK_EVENT_WITH_ROOM_NO_BANNER),
-      ]);
-    });
-
-    it('UT-6-020-09: unreadCount is 0 when no messages are unread', async () => {
-      crudServiceMock.getOrganizerEventsWithRoom.mockResolvedValue([
-        MOCK_EVENT_WITH_ROOM,
-      ]);
-      crudServiceMock.getUnreadStatusBySerialNumber.mockResolvedValue({
-        unreadCount: 0,
-        lastReadSerialNumber: 0,
-      });
-
-      const result = await service.getCreatedDiscussionRooms(
-        MOCK_ORGANIZER_PROFILE_ID,
-      );
-
-      expect(result).toEqual([buildRoomListDto(MOCK_EVENT_WITH_ROOM)]);
-    });
-
-    it('UT-6-020-10: isReadOnly is true when the room is not currently writable', async () => {
-      crudServiceMock.getOrganizerEventsWithRoom.mockResolvedValue([
-        MOCK_EVENT_WITH_ROOM,
-      ]);
-      validationServiceMock.validateRoomWritable.mockImplementation(() => {
-        throw new RoomReadOnlyException();
-      });
-
-      const result = await service.getCreatedDiscussionRooms(
-        MOCK_ORGANIZER_PROFILE_ID,
-      );
-
-      expect(result).toEqual([
-        buildRoomListDto(MOCK_EVENT_WITH_ROOM, { isReadOnly: true }),
-      ]);
-    });
   });
 
+  // ==========================================================================
+  // getJoinedDiscussionRooms
+  // ==========================================================================
   describe('getJoinedDiscussionRooms', () => {
-    it('UT-6-021-01: delegates to getParticipantEventsWithRoom with the caller id and resolved status filter', async () => {
-      await service.getJoinedDiscussionRooms(
-        MOCK_PARTICIPANT_PROFILE_ID,
+    it('UT-getJoinedDiscussionRooms-01: filter="archived" — forwards ARCHIVED_ROOM_STATUSES and resolves the composed DTOs', async () => {
+      const result = await service.getJoinedDiscussionRooms(
+        USERS.PARTICIPANT_MAIN.id,
         'archived',
       );
 
-      expect(
-        crudServiceMock.getParticipantEventsWithRoom,
-      ).toHaveBeenCalledWith(MOCK_PARTICIPANT_PROFILE_ID, ARCHIVED_ROOM_STATUSES);
+      expect(crudServiceMock.getParticipantEventsWithRoom).toHaveBeenCalledWith(
+        USERS.PARTICIPANT_MAIN.id,
+        ARCHIVED_ROOM_STATUSES,
+      );
+      expect(result).toEqual([
+        expectedRoomListDto(ROOMS.ROOM_CANCELLED, Role.PARTICIPANT),
+        expectedRoomListDto(ROOMS.ROOM_CONCLUDED_GRACE, Role.PARTICIPANT),
+        expectedRoomListDto(ROOMS.ROOM_CONCLUDED_EXPIRED, Role.PARTICIPANT),
+      ]);
     });
 
-    it('UT-6-021-02: maps rooms using the participant role and profile id, filtering out roomless events', async () => {
-      const latestMessage = buildReturnMessage({
-        id: 'joined-rooms-latest-message-id',
-        sender: buildSender(Role.ORGANIZER),
-      });
-      crudServiceMock.getParticipantEventsWithRoom.mockResolvedValue([
-        MOCK_EVENT_WITH_ROOM,
-        MOCK_EVENT_WITHOUT_ROOM,
-      ]);
-      crudServiceMock.getLatestMessageForRoom.mockResolvedValue(latestMessage);
-
-      const result = await service.getJoinedDiscussionRooms(
-        MOCK_PARTICIPANT_PROFILE_ID,
-      );
+    it('UT-getJoinedDiscussionRooms-02: filter omitted — resolves every joined room, filtering out roomless events, keyed on the PARTICIPANT caller identity', async () => {
+      const result = await service.getJoinedDiscussionRooms(USERS.PARTICIPANT_MAIN.id);
 
       expect(result).toEqual([
-        buildRoomListDto(MOCK_EVENT_WITH_ROOM, { lastMessage: latestMessage }),
+        expectedRoomListDto(ROOMS.ROOM_ACTIVE, Role.PARTICIPANT),
+        expectedRoomListDto(ROOMS.ROOM_NEVER_READ_EMPTY, Role.PARTICIPANT),
+        expectedRoomListDto(ROOMS.ROOM_CANCELLED, Role.PARTICIPANT),
+        expectedRoomListDto(ROOMS.ROOM_CONCLUDED_GRACE, Role.PARTICIPANT),
+        expectedRoomListDto(ROOMS.ROOM_CONCLUDED_EXPIRED, Role.PARTICIPANT),
       ]);
-      expect(
-        crudServiceMock.getUnreadStatusBySerialNumber,
-      ).toHaveBeenCalledWith(
-        MOCK_ROOM_ID,
+      expect(crudServiceMock.getUnreadStatusBySerialNumber).toHaveBeenCalledWith(
+        ROOMS.ROOM_ACTIVE.id,
         Role.PARTICIPANT,
-        MOCK_PARTICIPANT_PROFILE_ID,
+        USERS.PARTICIPANT_MAIN.id,
         null,
       );
     });
+
+    it('UT-getJoinedDiscussionRooms-03 [single]: participant with no joined rooms — resolves []', async () => {
+      const result = await service.getJoinedDiscussionRooms(USERS.PARTICIPANT_OTHER.id);
+
+      expect(result).toEqual([]);
+    });
   });
 
+  // ==========================================================================
+  // authorizeRoomJoinAccess
+  // ==========================================================================
   describe('authorizeRoomJoinAccess', () => {
-    it('UT-6-026-01: bubbles RoomNotFoundException when the room does not exist', async () => {
-      validationServiceMock.validateRoomExists.mockRejectedValue(
-        new RoomNotFoundException(),
+    it('UT-authorizeRoomJoinAccess-01: authorized organizer — resolves the access-confirmation message with no side effects', async () => {
+      const result = await service.authorizeRoomJoinAccess(
+        ROOMS.ROOM_ACTIVE.id,
+        Role.ORGANIZER,
+        null,
+        USERS.ORGANIZER_MAIN.id,
       );
 
-      await expect(
-        service.authorizeRoomJoinAccess(
-          MOCK_ROOM_ID,
-          Role.ORGANIZER,
-          null,
-          MOCK_ORGANIZER_PROFILE_ID,
-        ),
-      ).rejects.toThrow(RoomNotFoundException);
-      await expect(
-        service.authorizeRoomJoinAccess(
-          MOCK_ROOM_ID,
-          Role.ORGANIZER,
-          null,
-          MOCK_ORGANIZER_PROFILE_ID,
-        ),
-      ).rejects.toThrow('Discussion room not found.');
+      expect(result).toEqual({ message: 'Organizer has access to this room.' });
+      expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
     });
 
-    it('UT-6-026-02: bubbles RoomAccessDeniedException when the caller is not authorized', async () => {
-      validationServiceMock.validateRoomAccess.mockRejectedValue(
-        new RoomAccessDeniedException(),
+    it('UT-authorizeRoomJoinAccess-02: authorized confirmed participant — resolves the access-confirmation message', async () => {
+      const result = await service.authorizeRoomJoinAccess(
+        ROOMS.ROOM_ACTIVE.id,
+        Role.PARTICIPANT,
+        USERS.PARTICIPANT_MAIN.id,
+        null,
       );
 
+      expect(result).toEqual({ message: 'Participant has access to this room.' });
+    });
+
+    it('UT-authorizeRoomJoinAccess-03 [error]: room does not exist — throws RoomNotFoundException', async () => {
       await expect(
         service.authorizeRoomJoinAccess(
-          MOCK_ROOM_ID,
+          NOT_FOUND_ROOM_ID,
+          Role.ORGANIZER,
+          null,
+          USERS.ORGANIZER_MAIN.id,
+        ),
+      ).rejects.toThrow(RoomNotFoundException);
+    });
+
+    it('UT-authorizeRoomJoinAccess-04 [error]: caller is not authorized — throws RoomAccessDeniedException', async () => {
+      await expect(
+        service.authorizeRoomJoinAccess(
+          ROOMS.ROOM_ACTIVE.id,
           Role.PARTICIPANT,
-          MOCK_PARTICIPANT_PROFILE_ID,
+          USERS.PARTICIPANT_OTHER.id,
           null,
         ),
       ).rejects.toThrow(RoomAccessDeniedException);
-      await expect(
-        service.authorizeRoomJoinAccess(
-          MOCK_ROOM_ID,
-          Role.PARTICIPANT,
-          MOCK_PARTICIPANT_PROFILE_ID,
-          null,
-        ),
-      ).rejects.toThrow(
-        'You do not have permission to access this discussion room.',
-      );
-    });
-
-    it('UT-6-026-03: returns the access-confirmation message with no other side effects when authorized', async () => {
-      validationServiceMock.validateRoomAccess.mockResolvedValue({
-        message: 'Participant has access to this room.',
-      });
-
-      const result = await service.authorizeRoomJoinAccess(
-        MOCK_ROOM_ID,
-        Role.PARTICIPANT,
-        MOCK_PARTICIPANT_PROFILE_ID,
-        null,
-      );
-
-      expect(result).toEqual({
-        message: 'Participant has access to this room.',
-      });
-      expect(validationServiceMock.validateRoomAccess).toHaveBeenCalledWith(
-        MOCK_EVENT,
-        Role.PARTICIPANT,
-        MOCK_PARTICIPANT_PROFILE_ID,
-        null,
-      );
-      expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
     });
   });
 
+  // ==========================================================================
+  // findRoomByEventId
+  // ==========================================================================
   describe('findRoomByEventId', () => {
-    it('UT-6-027-01: returns { roomId } when a DiscussionRoom exists for the event', async () => {
-      crudServiceMock.findRoomByEventId.mockResolvedValue({
-        roomId: MOCK_ROOM_ID,
-      });
+    it('UT-findRoomByEventId-01 [single]: room exists for the event — resolves { roomId }', async () => {
+      const result = await service.findRoomByEventId(ROOMS.ROOM_ACTIVE.event.id);
 
-      const result = await service.findRoomByEventId(MOCK_EVENT_ID);
-
-      expect(result).toEqual({ roomId: MOCK_ROOM_ID });
-      expect(crudServiceMock.findRoomByEventId).toHaveBeenCalledWith(
-        MOCK_EVENT_ID,
-      );
+      expect(result).toEqual({ roomId: ROOMS.ROOM_ACTIVE.id });
     });
 
-    it('UT-6-027-02: returns null when no DiscussionRoom exists for the event', async () => {
-      crudServiceMock.findRoomByEventId.mockResolvedValue(null);
-
-      const result = await service.findRoomByEventId(MOCK_UNKNOWN_EVENT_ID);
+    it('UT-findRoomByEventId-02 [single]: no room exists for the event — resolves null', async () => {
+      const result = await service.findRoomByEventId(NOT_FOUND_EVENT_ID);
 
       expect(result).toBeNull();
     });
+  });
+
+  // ==========================================================================
+  // getRoomMemberIds
+  // ==========================================================================
+  describe('getRoomMemberIds', () => {
+    it('UT-getRoomMemberIds-01 [single]: room found — resolves the organizer id and confirmed participant ids', async () => {
+      const result = await service.getRoomMemberIds(ROOMS.ROOM_ACTIVE.id);
+
+      expect(result).toEqual({
+        organizerProfileId: USERS.ORGANIZER_MAIN.id,
+        participantProfileIds: [USERS.PARTICIPANT_MAIN.id],
+      });
+    });
+
+    it('UT-getRoomMemberIds-02 [single]: room has no confirmed participants — resolves an empty array', async () => {
+      const result = await service.getRoomMemberIds(ROOMS.ROOM_NO_BANNER.id);
+
+      expect(result).toEqual({
+        organizerProfileId: USERS.ORGANIZER_MAIN.id,
+        participantProfileIds: [],
+      });
+    });
+
+    it('UT-getRoomMemberIds-03 [error] [single]: room not found — throws RoomNotFoundException', async () => {
+      await expect(service.getRoomMemberIds(NOT_FOUND_ROOM_ID)).rejects.toThrow(
+        RoomNotFoundException,
+      );
+    });
+  });
+});
+
+// sanity check that fixture-id generation stays in UUID v4 shape if reused
+// directly in a test (`uuidFrom` is re-exported from the mock db for this).
+describe('mock-db uuidFrom', () => {
+  it('produces RFC-4122 v4-shaped ids', () => {
+    const id = uuidFrom('sanity-check');
+    expect(id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
   });
 });
