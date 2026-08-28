@@ -169,15 +169,16 @@ describe('DiscussionCrudService', () => {
     });
 
     it('UT-createMessage-06 [error]: room does not exist — the serial-number claim fails, rejects with SaveMessageException', async () => {
-      await expect(
-        service.createMessage(
-          NOT_FOUND_ROOM_ID,
-          'hi',
-          false,
-          USERS.PARTICIPANT_MAIN.id,
-          null,
-        ),
-      ).rejects.toThrow(SaveMessageException);
+      const promise = service.createMessage(
+        NOT_FOUND_ROOM_ID,
+        'hi',
+        false,
+        USERS.PARTICIPANT_MAIN.id,
+        null,
+      );
+
+      await expect(promise).rejects.toThrow(SaveMessageException);
+      await expect(promise).rejects.toThrow('Failed to save message. Please try again.');
 
       expect(prismaMock.message.create).not.toHaveBeenCalled();
     });
@@ -185,15 +186,16 @@ describe('DiscussionCrudService', () => {
     it('UT-createMessage-07 [error] [single]: message.create fails since database disconnected — rejects with SaveMessageException', async () => {
       prismaMock.message.create.mockRejectedValueOnce(new Error('DB down'));
 
-      await expect(
-        service.createMessage(
-          ROOMS.ROOM_MAIN.id,
-          'hi',
-          false,
-          USERS.PARTICIPANT_MAIN.id,
-          null,
-        ),
-      ).rejects.toThrow('Failed to save message. Please try again.');
+      const promise = service.createMessage(
+        ROOMS.ROOM_MAIN.id,
+        'hi',
+        false,
+        USERS.PARTICIPANT_MAIN.id,
+        null,
+      );
+
+      await expect(promise).rejects.toThrow(SaveMessageException);
+      await expect(promise).rejects.toThrow('Failed to save message. Please try again.');
     });
   });
 
@@ -627,16 +629,17 @@ describe('DiscussionCrudService', () => {
     it('UT-upsertLastReadMessage-05 [error] [single]: upsert throws — rejects with SaveRoomReadStatusException', async () => {
       prismaMock.roomReadStatus.upsert.mockRejectedValueOnce(new Error('DB down'));
 
-      await expect(
-        service.upsertLastReadMessage(
-          ROOMS.ROOM_MAIN.id,
-          Role.ORGANIZER,
-          null,
-          USERS.ORGANIZER_MAIN.id,
-          undefined,
-          undefined,
-        ),
-      ).rejects.toThrow(SaveRoomReadStatusException);
+      const promise = service.upsertLastReadMessage(
+        ROOMS.ROOM_MAIN.id,
+        Role.ORGANIZER,
+        null,
+        USERS.ORGANIZER_MAIN.id,
+        undefined,
+        undefined,
+      );
+
+      await expect(promise).rejects.toThrow(SaveRoomReadStatusException);
+      await expect(promise).rejects.toThrow('Failed to update read status. Please try again.');
     });
   });
 
@@ -787,9 +790,10 @@ describe('DiscussionCrudService', () => {
     });
 
     it('UT-claimNextRoomSerialNumber-04 [error]: room does not exist — throws RoomNotFoundException', async () => {
-      await expect(
-        service.claimNextRoomSerialNumber(NOT_FOUND_ROOM_ID),
-      ).rejects.toThrow(RoomNotFoundException);
+      const promise = service.claimNextRoomSerialNumber(NOT_FOUND_ROOM_ID);
+
+      await expect(promise).rejects.toThrow(RoomNotFoundException);
+      await expect(promise).rejects.toThrow('Discussion room not found.');
     });
   });
 
@@ -878,14 +882,15 @@ describe('DiscussionCrudService', () => {
     });
 
     it('UT-getUnreadStatusBySerialNumber-05 [error]: room does not exist — throws RoomNotFoundException', async () => {
-      await expect(
-        service.getUnreadStatusBySerialNumber(
-          NOT_FOUND_ROOM_ID,
-          Role.ORGANIZER,
-          null,
-          USERS.ORGANIZER_MAIN.id,
-        ),
-      ).rejects.toThrow(RoomNotFoundException);
+      const promise = service.getUnreadStatusBySerialNumber(
+        NOT_FOUND_ROOM_ID,
+        Role.ORGANIZER,
+        null,
+        USERS.ORGANIZER_MAIN.id,
+      );
+
+      await expect(promise).rejects.toThrow(RoomNotFoundException);
+      await expect(promise).rejects.toThrow('Discussion room not found.');
     });
   });
 
@@ -987,9 +992,10 @@ describe('DiscussionCrudService', () => {
     });
 
     it('UT-getRoomMemberIds-03 [error]: room does not exist — throws RoomNotFoundException', async () => {
-      await expect(service.getRoomMemberIds(NOT_FOUND_ROOM_ID)).rejects.toThrow(
-        RoomNotFoundException,
-      );
+      const promise = service.getRoomMemberIds(NOT_FOUND_ROOM_ID);
+
+      await expect(promise).rejects.toThrow(RoomNotFoundException);
+      await expect(promise).rejects.toThrow('Discussion room not found.');
     });
   });
 });

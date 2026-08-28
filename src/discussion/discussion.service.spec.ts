@@ -10,6 +10,8 @@ import { CreateAnnouncementDto } from './dto/create-announcement.dto';
 import { GetMessagesQueryDto } from './dto/get-messages-query.dto';
 import { RoomNotFoundException } from './exceptions/room-not-found.exception';
 import { RoomAccessDeniedException } from './exceptions/room-access-denied.exception';
+import { RoomReadOnlyException } from './exceptions/room-read-only.exception';
+import { MessageContentInvalidException } from './exceptions/message-content-invalid.exception';
 import { AnnouncementNotAllowedException } from './exceptions/announcement-not-allowed.exception';
 import { SaveMessageException } from './exceptions/save-message.exception';
 import { SaveRoomReadStatusException } from './exceptions/save-room-read-status.exception';
@@ -151,15 +153,16 @@ describe('DiscussionService', () => {
     it('UT-sendMessage-04 [error]: room does not exist — throws RoomNotFoundException, skips all downstream calls', async () => {
       const dto: CreateMessageDto = { content: 'hello' };
 
-      await expect(
-        service.sendMessage(
-          NOT_FOUND_ROOM_ID,
-          dto,
-          Role.ORGANIZER,
-          null,
-          USERS.ORGANIZER_MAIN.id,
-        ),
-      ).rejects.toThrow(RoomNotFoundException);
+      const promise = service.sendMessage(
+        NOT_FOUND_ROOM_ID,
+        dto,
+        Role.ORGANIZER,
+        null,
+        USERS.ORGANIZER_MAIN.id,
+      );
+
+      await expect(promise).rejects.toThrow(RoomNotFoundException);
+      await expect(promise).rejects.toThrow('Discussion room not found.');
 
       expect(validationServiceMock.validateRoomAccess).not.toHaveBeenCalled();
       expect(validationServiceMock.validateRoomWritable).not.toHaveBeenCalled();
@@ -170,15 +173,18 @@ describe('DiscussionService', () => {
     it('UT-sendMessage-05 [error]: caller is neither owner nor a confirmed participant — throws RoomAccessDeniedException', async () => {
       const dto: CreateMessageDto = { content: 'hello' };
 
-      await expect(
-        service.sendMessage(
-          ROOMS.ROOM_ACTIVE.id,
-          dto,
-          Role.PARTICIPANT,
-          USERS.PARTICIPANT_OTHER.id,
-          null,
-        ),
-      ).rejects.toThrow(RoomAccessDeniedException);
+      const promise = service.sendMessage(
+        ROOMS.ROOM_ACTIVE.id,
+        dto,
+        Role.PARTICIPANT,
+        USERS.PARTICIPANT_OTHER.id,
+        null,
+      );
+
+      await expect(promise).rejects.toThrow(RoomAccessDeniedException);
+      await expect(promise).rejects.toThrow(
+        'You do not have permission to access this discussion room.',
+      );
 
       expect(validationServiceMock.validateRoomWritable).not.toHaveBeenCalled();
       expect(validationServiceMock.validateMessageContent).not.toHaveBeenCalled();
@@ -188,15 +194,18 @@ describe('DiscussionService', () => {
     it('UT-sendMessage-06 [error]: room is not writable (cancelled / concluded past grace) — throws RoomReadOnlyException', async () => {
       const dto: CreateMessageDto = { content: 'hello' };
 
-      await expect(
-        service.sendMessage(
-          ROOMS.ROOM_CANCELLED.id,
-          dto,
-          Role.ORGANIZER,
-          null,
-          USERS.ORGANIZER_MAIN.id,
-        ),
-      ).rejects.toThrow('This discussion room is read-only and no longer accepts new messages.');
+      const promise = service.sendMessage(
+        ROOMS.ROOM_CANCELLED.id,
+        dto,
+        Role.ORGANIZER,
+        null,
+        USERS.ORGANIZER_MAIN.id,
+      );
+
+      await expect(promise).rejects.toThrow(RoomReadOnlyException);
+      await expect(promise).rejects.toThrow(
+        'This discussion room is read-only and no longer accepts new messages.',
+      );
 
       expect(validationServiceMock.validateMessageContent).not.toHaveBeenCalled();
       expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
@@ -205,15 +214,16 @@ describe('DiscussionService', () => {
     it('UT-sendMessage-07 [error]: content is empty/whitespace-only — throws MessageContentInvalidException', async () => {
       const dto: CreateMessageDto = { content: '   ' };
 
-      await expect(
-        service.sendMessage(
-          ROOMS.ROOM_ACTIVE.id,
-          dto,
-          Role.ORGANIZER,
-          null,
-          USERS.ORGANIZER_MAIN.id,
-        ),
-      ).rejects.toThrow('Message cannot be empty.');
+      const promise = service.sendMessage(
+        ROOMS.ROOM_ACTIVE.id,
+        dto,
+        Role.ORGANIZER,
+        null,
+        USERS.ORGANIZER_MAIN.id,
+      );
+
+      await expect(promise).rejects.toThrow(MessageContentInvalidException);
+      await expect(promise).rejects.toThrow('Message cannot be empty.');
 
       expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
     });
@@ -221,15 +231,16 @@ describe('DiscussionService', () => {
     it('UT-sendMessage-08 [error]: content exceeds the max length — throws MessageContentInvalidException', async () => {
       const dto: CreateMessageDto = { content: 'a'.repeat(2001) };
 
-      await expect(
-        service.sendMessage(
-          ROOMS.ROOM_ACTIVE.id,
-          dto,
-          Role.ORGANIZER,
-          null,
-          USERS.ORGANIZER_MAIN.id,
-        ),
-      ).rejects.toThrow('Message cannot exceed 2000 characters.');
+      const promise = service.sendMessage(
+        ROOMS.ROOM_ACTIVE.id,
+        dto,
+        Role.ORGANIZER,
+        null,
+        USERS.ORGANIZER_MAIN.id,
+      );
+
+      await expect(promise).rejects.toThrow(MessageContentInvalidException);
+      await expect(promise).rejects.toThrow('Message cannot exceed 2000 characters.');
 
       expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
     });
@@ -238,15 +249,16 @@ describe('DiscussionService', () => {
       crudServiceMock.createMessage.mockRejectedValueOnce(new SaveMessageException());
       const dto: CreateMessageDto = { content: 'hello' };
 
-      await expect(
-        service.sendMessage(
-          ROOMS.ROOM_ACTIVE.id,
-          dto,
-          Role.ORGANIZER,
-          null,
-          USERS.ORGANIZER_MAIN.id,
-        ),
-      ).rejects.toThrow(SaveMessageException);
+      const promise = service.sendMessage(
+        ROOMS.ROOM_ACTIVE.id,
+        dto,
+        Role.ORGANIZER,
+        null,
+        USERS.ORGANIZER_MAIN.id,
+      );
+
+      await expect(promise).rejects.toThrow(SaveMessageException);
+      await expect(promise).rejects.toThrow('Failed to save message. Please try again.');
     });
   });
 
@@ -306,15 +318,16 @@ describe('DiscussionService', () => {
     it('UT-sendAnnouncement-03 [error]: PARTICIPANT attempts to send — throws AnnouncementNotAllowedException before any room lookup', async () => {
       const dto: CreateAnnouncementDto = { content: 'hello' };
 
-      await expect(
-        service.sendAnnouncement(
-          ROOMS.ROOM_ACTIVE.id,
-          dto,
-          Role.PARTICIPANT,
-          USERS.PARTICIPANT_MAIN.id,
-          null,
-        ),
-      ).rejects.toThrow(AnnouncementNotAllowedException);
+      const promise = service.sendAnnouncement(
+        ROOMS.ROOM_ACTIVE.id,
+        dto,
+        Role.PARTICIPANT,
+        USERS.PARTICIPANT_MAIN.id,
+        null,
+      );
+
+      await expect(promise).rejects.toThrow(AnnouncementNotAllowedException);
+      await expect(promise).rejects.toThrow('Only the organizer can send announcements.');
 
       expect(validationServiceMock.validateRoomExists).not.toHaveBeenCalled();
       expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
@@ -323,15 +336,16 @@ describe('DiscussionService', () => {
     it('UT-sendAnnouncement-04 [error]: room does not exist — throws RoomNotFoundException', async () => {
       const dto: CreateAnnouncementDto = { content: 'hello' };
 
-      await expect(
-        service.sendAnnouncement(
-          NOT_FOUND_ROOM_ID,
-          dto,
-          Role.ORGANIZER,
-          null,
-          USERS.ORGANIZER_MAIN.id,
-        ),
-      ).rejects.toThrow(RoomNotFoundException);
+      const promise = service.sendAnnouncement(
+        NOT_FOUND_ROOM_ID,
+        dto,
+        Role.ORGANIZER,
+        null,
+        USERS.ORGANIZER_MAIN.id,
+      );
+
+      await expect(promise).rejects.toThrow(RoomNotFoundException);
+      await expect(promise).rejects.toThrow('Discussion room not found.');
 
       expect(validationServiceMock.validateRoomAccess).not.toHaveBeenCalled();
       expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
@@ -340,15 +354,18 @@ describe('DiscussionService', () => {
     it('UT-sendAnnouncement-05 [error]: caller is not the room owner — throws RoomAccessDeniedException', async () => {
       const dto: CreateAnnouncementDto = { content: 'hello' };
 
-      await expect(
-        service.sendAnnouncement(
-          ROOMS.ROOM_ACTIVE.id,
-          dto,
-          Role.ORGANIZER,
-          null,
-          USERS.ORGANIZER_OTHER.id,
-        ),
-      ).rejects.toThrow(RoomAccessDeniedException);
+      const promise = service.sendAnnouncement(
+        ROOMS.ROOM_ACTIVE.id,
+        dto,
+        Role.ORGANIZER,
+        null,
+        USERS.ORGANIZER_OTHER.id,
+      );
+
+      await expect(promise).rejects.toThrow(RoomAccessDeniedException);
+      await expect(promise).rejects.toThrow(
+        'You do not have permission to access this discussion room.',
+      );
 
       expect(validationServiceMock.validateRoomWritable).not.toHaveBeenCalled();
       expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
@@ -357,15 +374,18 @@ describe('DiscussionService', () => {
     it('UT-sendAnnouncement-06 [error]: room is not writable — throws RoomReadOnlyException', async () => {
       const dto: CreateAnnouncementDto = { content: 'hello' };
 
-      await expect(
-        service.sendAnnouncement(
-          ROOMS.ROOM_CONCLUDED_EXPIRED.id,
-          dto,
-          Role.ORGANIZER,
-          null,
-          USERS.ORGANIZER_MAIN.id,
-        ),
-      ).rejects.toThrow('This discussion room is read-only and no longer accepts new messages.');
+      const promise = service.sendAnnouncement(
+        ROOMS.ROOM_CONCLUDED_EXPIRED.id,
+        dto,
+        Role.ORGANIZER,
+        null,
+        USERS.ORGANIZER_MAIN.id,
+      );
+
+      await expect(promise).rejects.toThrow(RoomReadOnlyException);
+      await expect(promise).rejects.toThrow(
+        'This discussion room is read-only and no longer accepts new messages.',
+      );
 
       expect(validationServiceMock.validateMessageContent).not.toHaveBeenCalled();
       expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
@@ -374,15 +394,16 @@ describe('DiscussionService', () => {
     it('UT-sendAnnouncement-07 [error]: content is empty/whitespace-only — throws MessageContentInvalidException', async () => {
       const dto: CreateAnnouncementDto = { content: '   ' };
 
-      await expect(
-        service.sendAnnouncement(
-          ROOMS.ROOM_ACTIVE.id,
-          dto,
-          Role.ORGANIZER,
-          null,
-          USERS.ORGANIZER_MAIN.id,
-        ),
-      ).rejects.toThrow('Message cannot be empty.');
+      const promise = service.sendAnnouncement(
+        ROOMS.ROOM_ACTIVE.id,
+        dto,
+        Role.ORGANIZER,
+        null,
+        USERS.ORGANIZER_MAIN.id,
+      );
+
+      await expect(promise).rejects.toThrow(MessageContentInvalidException);
+      await expect(promise).rejects.toThrow('Message cannot be empty.');
 
       expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
     });
@@ -390,15 +411,16 @@ describe('DiscussionService', () => {
     it('UT-sendAnnouncement-08 [error]: content exceeds the max length — throws MessageContentInvalidException', async () => {
       const dto: CreateAnnouncementDto = { content: 'a'.repeat(2001) };
 
-      await expect(
-        service.sendAnnouncement(
-          ROOMS.ROOM_ACTIVE.id,
-          dto,
-          Role.ORGANIZER,
-          null,
-          USERS.ORGANIZER_MAIN.id,
-        ),
-      ).rejects.toThrow('Message cannot exceed 2000 characters.');
+      const promise = service.sendAnnouncement(
+        ROOMS.ROOM_ACTIVE.id,
+        dto,
+        Role.ORGANIZER,
+        null,
+        USERS.ORGANIZER_MAIN.id,
+      );
+
+      await expect(promise).rejects.toThrow(MessageContentInvalidException);
+      await expect(promise).rejects.toThrow('Message cannot exceed 2000 characters.');
 
       expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
     });
@@ -407,15 +429,16 @@ describe('DiscussionService', () => {
       crudServiceMock.createMessage.mockRejectedValueOnce(new SaveMessageException());
       const dto: CreateAnnouncementDto = { content: 'hello' };
 
-      await expect(
-        service.sendAnnouncement(
-          ROOMS.ROOM_ACTIVE.id,
-          dto,
-          Role.ORGANIZER,
-          null,
-          USERS.ORGANIZER_MAIN.id,
-        ),
-      ).rejects.toThrow(SaveMessageException);
+      const promise = service.sendAnnouncement(
+        ROOMS.ROOM_ACTIVE.id,
+        dto,
+        Role.ORGANIZER,
+        null,
+        USERS.ORGANIZER_MAIN.id,
+      );
+
+      await expect(promise).rejects.toThrow(SaveMessageException);
+      await expect(promise).rejects.toThrow('Failed to save message. Please try again.');
     });
   });
 
@@ -569,15 +592,16 @@ describe('DiscussionService', () => {
     it('UT-getMessages-08 [error]: room does not exist — throws RoomNotFoundException', async () => {
       const query: GetMessagesQueryDto = {};
 
-      await expect(
-        service.getMessages(
-          NOT_FOUND_ROOM_ID,
-          query,
-          Role.ORGANIZER,
-          null,
-          USERS.ORGANIZER_MAIN.id,
-        ),
-      ).rejects.toThrow(RoomNotFoundException);
+      const promise = service.getMessages(
+        NOT_FOUND_ROOM_ID,
+        query,
+        Role.ORGANIZER,
+        null,
+        USERS.ORGANIZER_MAIN.id,
+      );
+
+      await expect(promise).rejects.toThrow(RoomNotFoundException);
+      await expect(promise).rejects.toThrow('Discussion room not found.');
 
       expect(validationServiceMock.validateRoomAccess).not.toHaveBeenCalled();
       expect(crudServiceMock.getRoomReadStatus).not.toHaveBeenCalled();
@@ -587,15 +611,18 @@ describe('DiscussionService', () => {
     it('UT-getMessages-09 [error]: caller is not authorized — throws RoomAccessDeniedException', async () => {
       const query: GetMessagesQueryDto = {};
 
-      await expect(
-        service.getMessages(
-          ROOMS.ROOM_ACTIVE.id,
-          query,
-          Role.PARTICIPANT,
-          USERS.PARTICIPANT_OTHER.id,
-          null,
-        ),
-      ).rejects.toThrow(RoomAccessDeniedException);
+      const promise = service.getMessages(
+        ROOMS.ROOM_ACTIVE.id,
+        query,
+        Role.PARTICIPANT,
+        USERS.PARTICIPANT_OTHER.id,
+        null,
+      );
+
+      await expect(promise).rejects.toThrow(RoomAccessDeniedException);
+      await expect(promise).rejects.toThrow(
+        'You do not have permission to access this discussion room.',
+      );
 
       expect(crudServiceMock.getRoomReadStatus).not.toHaveBeenCalled();
       expect(crudServiceMock.getPaginatedMessagesByCursor).not.toHaveBeenCalled();
@@ -622,23 +649,32 @@ describe('DiscussionService', () => {
     });
 
     it('UT-getAnnouncements-02 [error]: room does not exist — throws RoomNotFoundException', async () => {
-      await expect(
-        service.getAnnouncements(NOT_FOUND_ROOM_ID, Role.ORGANIZER, null, USERS.ORGANIZER_MAIN.id),
-      ).rejects.toThrow(RoomNotFoundException);
+      const promise = service.getAnnouncements(
+        NOT_FOUND_ROOM_ID,
+        Role.ORGANIZER,
+        null,
+        USERS.ORGANIZER_MAIN.id,
+      );
+
+      await expect(promise).rejects.toThrow(RoomNotFoundException);
+      await expect(promise).rejects.toThrow('Discussion room not found.');
 
       expect(validationServiceMock.validateRoomAccess).not.toHaveBeenCalled();
       expect(crudServiceMock.getLatestAnnouncements).not.toHaveBeenCalled();
     });
 
     it('UT-getAnnouncements-03 [error]: caller is not authorized — throws RoomAccessDeniedException', async () => {
-      await expect(
-        service.getAnnouncements(
-          ROOMS.ROOM_ACTIVE.id,
-          Role.PARTICIPANT,
-          USERS.PARTICIPANT_OTHER.id,
-          null,
-        ),
-      ).rejects.toThrow(RoomAccessDeniedException);
+      const promise = service.getAnnouncements(
+        ROOMS.ROOM_ACTIVE.id,
+        Role.PARTICIPANT,
+        USERS.PARTICIPANT_OTHER.id,
+        null,
+      );
+
+      await expect(promise).rejects.toThrow(RoomAccessDeniedException);
+      await expect(promise).rejects.toThrow(
+        'You do not have permission to access this discussion room.',
+      );
 
       expect(crudServiceMock.getLatestAnnouncements).not.toHaveBeenCalled();
     });
@@ -762,29 +798,33 @@ describe('DiscussionService', () => {
     });
 
     it('UT-updateLastReadMessage-05 [error]: room does not exist — throws RoomNotFoundException', async () => {
-      await expect(
-        service.updateLastReadMessage(
-          NOT_FOUND_ROOM_ID,
-          Role.ORGANIZER,
-          null,
-          USERS.ORGANIZER_MAIN.id,
-          undefined,
-        ),
-      ).rejects.toThrow(RoomNotFoundException);
+      const promise = service.updateLastReadMessage(
+        NOT_FOUND_ROOM_ID,
+        Role.ORGANIZER,
+        null,
+        USERS.ORGANIZER_MAIN.id,
+        undefined,
+      );
+
+      await expect(promise).rejects.toThrow(RoomNotFoundException);
+      await expect(promise).rejects.toThrow('Discussion room not found.');
 
       expect(crudServiceMock.upsertLastReadMessage).not.toHaveBeenCalled();
     });
 
     it('UT-updateLastReadMessage-06 [error]: caller is not authorized — throws RoomAccessDeniedException', async () => {
-      await expect(
-        service.updateLastReadMessage(
-          ROOMS.ROOM_ACTIVE.id,
-          Role.PARTICIPANT,
-          USERS.PARTICIPANT_OTHER.id,
-          null,
-          undefined,
-        ),
-      ).rejects.toThrow(RoomAccessDeniedException);
+      const promise = service.updateLastReadMessage(
+        ROOMS.ROOM_ACTIVE.id,
+        Role.PARTICIPANT,
+        USERS.PARTICIPANT_OTHER.id,
+        null,
+        undefined,
+      );
+
+      await expect(promise).rejects.toThrow(RoomAccessDeniedException);
+      await expect(promise).rejects.toThrow(
+        'You do not have permission to access this discussion room.',
+      );
 
       expect(crudServiceMock.upsertLastReadMessage).not.toHaveBeenCalled();
     });
@@ -794,15 +834,16 @@ describe('DiscussionService', () => {
         new SaveRoomReadStatusException(),
       );
 
-      await expect(
-        service.updateLastReadMessage(
-          ROOMS.ROOM_ACTIVE.id,
-          Role.ORGANIZER,
-          null,
-          USERS.ORGANIZER_MAIN.id,
-          undefined,
-        ),
-      ).rejects.toThrow(SaveRoomReadStatusException);
+      const promise = service.updateLastReadMessage(
+        ROOMS.ROOM_ACTIVE.id,
+        Role.ORGANIZER,
+        null,
+        USERS.ORGANIZER_MAIN.id,
+        undefined,
+      );
+
+      await expect(promise).rejects.toThrow(SaveRoomReadStatusException);
+      await expect(promise).rejects.toThrow('Failed to update read status. Please try again.');
 
       expect(eventEmitterMock.emit).not.toHaveBeenCalled();
     });
@@ -958,25 +999,29 @@ describe('DiscussionService', () => {
     });
 
     it('UT-authorizeRoomJoinAccess-03 [error]: room does not exist — throws RoomNotFoundException', async () => {
-      await expect(
-        service.authorizeRoomJoinAccess(
-          NOT_FOUND_ROOM_ID,
-          Role.ORGANIZER,
-          null,
-          USERS.ORGANIZER_MAIN.id,
-        ),
-      ).rejects.toThrow(RoomNotFoundException);
+      const promise = service.authorizeRoomJoinAccess(
+        NOT_FOUND_ROOM_ID,
+        Role.ORGANIZER,
+        null,
+        USERS.ORGANIZER_MAIN.id,
+      );
+
+      await expect(promise).rejects.toThrow(RoomNotFoundException);
+      await expect(promise).rejects.toThrow('Discussion room not found.');
     });
 
     it('UT-authorizeRoomJoinAccess-04 [error]: caller is not authorized — throws RoomAccessDeniedException', async () => {
-      await expect(
-        service.authorizeRoomJoinAccess(
-          ROOMS.ROOM_ACTIVE.id,
-          Role.PARTICIPANT,
-          USERS.PARTICIPANT_OTHER.id,
-          null,
-        ),
-      ).rejects.toThrow(RoomAccessDeniedException);
+      const promise = service.authorizeRoomJoinAccess(
+        ROOMS.ROOM_ACTIVE.id,
+        Role.PARTICIPANT,
+        USERS.PARTICIPANT_OTHER.id,
+        null,
+      );
+
+      await expect(promise).rejects.toThrow(RoomAccessDeniedException);
+      await expect(promise).rejects.toThrow(
+        'You do not have permission to access this discussion room.',
+      );
     });
   });
 
@@ -1020,9 +1065,10 @@ describe('DiscussionService', () => {
     });
 
     it('UT-getRoomMemberIds-03 [error] [single]: room not found — throws RoomNotFoundException', async () => {
-      await expect(service.getRoomMemberIds(NOT_FOUND_ROOM_ID)).rejects.toThrow(
-        RoomNotFoundException,
-      );
+      const promise = service.getRoomMemberIds(NOT_FOUND_ROOM_ID);
+
+      await expect(promise).rejects.toThrow(RoomNotFoundException);
+      await expect(promise).rejects.toThrow('Discussion room not found.');
     });
   });
 });
