@@ -1,285 +1,303 @@
-# TSL Specifications — Discussion Module
+# DiscussionCrudService — Test Specification Language (Category-Partition)
 
-Category-Partition style TSL specs for `DiscussionCrudService` and `DiscussionValidationService`, following the same convention used for `DiscussionService`: `[property X]` tags a choice that later categories can reference via `[if X]`; `[error]` marks a choice expected to throw/produce a failure path; `[single]` marks a choice that should collapse to exactly one test frame regardless of combination with other categories.
+Scope: public methods of `DiscussionCrudService`. `PrismaService` is mocked
+(deep mock of the Prisma client); its outcome is modeled as a category on
+this service (e.g. "Room exists: yes / no [error]") the same way collaborator
+outcomes were modeled for `DiscussionService`. The private helper
+`mapToReturnMessageDto` is exercised indirectly through every public method
+that returns `ReturnMessageDto`(s), and is also broken out on its own since
+its fallback rules are shared logic worth covering directly.
 
----
-
-## DiscussionCrudService
-
-### `createMessage(roomId, content, isAnnouncement, senderParticipantId, senderOrganizerId)`
-
-```
-Parameter sender identity (caller-supplied combination):
-  which id is set:
-    senderParticipantId set, senderOrganizerId null.        [property FromParticipant]
-    senderOrganizerId set, senderParticipantId null.        [property FromOrganizer]
-    (both null / both set — not expected from caller per convention; not a validated case at this layer)
-
-Parameter isAnnouncement:
-  flag value:
-    true.        [property Announcement]
-    false.       [property NotAnnouncement]
-
-Parameter prisma.message.create outcome:
-  result:
-    succeeds.                    [property CreateSucceeds] → returns mapped ReturnMessageDto
-    throws (DB error).           [error SaveMessageException] [single]
-
-Resulting test frames:
-  FromParticipant + NotAnnouncement + CreateSucceeds   → sender.role = PARTICIPANT, mapped correctly
-  FromOrganizer + Announcement + CreateSucceeds        → sender.role = ORGANIZER, isAnnouncement: true
-  CreateSucceeds, participant sender with nickname present     → sender.name = nickname (preferred over firstName)
-  CreateSucceeds, participant sender with nickname null/empty  → sender.name = firstName (fallback)
-  CreateSucceeds, participant sender with both nickname and firstName empty  → sender.name = ''
-  CreateSucceeds, organizer sender with imageUrl null          → sender.imageUrl = ''
-  any sender combination + CreateThrows                → throws SaveMessageException, logs error   [single]
-```
+Legend: `[error]` = error case, `[single]` = only needs one representative
+test (don't combine with every other category), `[if C]` = choice only
+applies / is only meaningful under condition C.
 
 ---
 
-### `getPaginatedMessagesByCursor(roomId, cursor, direction, limit, isAnnouncement = false)`
+## createMessage(roomId, content, isAnnouncement, senderParticipantId, senderOrganizerId)
 
-```
-Parameter direction:
-  value:
-    'before'.        [property Before]
-    'after'.         [property After]
-
-Parameter cursor:
-  presence:
-    cursor provided (valid existing message id).        [property HasCursor]
-    cursor undefined.                                     [property NoCursor]
-
-Parameter isAnnouncement:
-  value:
-    false (default, or explicitly passed).      [property NotAnnouncement] → where clause has no isAnnouncement filter; take capped at MAX_MESSAGE_PAGE_SIZE (25)
-    true.                                        [property Announcement] → where clause adds { isAnnouncement: true }; take capped at MAX_ANNOUNCEMENT_PAGE_SIZE (15)
-
-Parameter limit (caller-supplied, always a number — no longer optional at this layer):
-  value:
-    provided, <= applicable max (25 if NotAnnouncement, 15 if Announcement).      [property CustomLimit]
-    provided, > applicable max.       [property ClampedLimit] → take = the applicable max
-
-Parameter row count returned by Prisma (relative to take):
-  count:
-    rows returned <= take (no extra row).        [property NoMorePages] → hasMore(queried direction) = false
-    rows returned == take + 1 (extra row present).   [property MorePages] → hasMore(queried direction) = true, sliced to take
-
-Parameter row count == 0 (empty result):
-  emptiness:
-    page has 0 rows after slicing.        [property EmptyPage] → oldestCursor/newestCursor fall back to input cursor
-
-Resulting test frames (cross-product of direction × cursor × page-fullness — isAnnouncement held at its default False for this cross-product, since it doesn't interact with ordering/paging math, only with the where-clause and the max-size ceiling):
-  Before + HasCursor + MorePages       → hasMoreOlder=true, hasMoreNewer=true, page reversed to ascending
-  Before + HasCursor + NoMorePages     → hasMoreOlder=false, hasMoreNewer=true
-  Before + NoCursor + MorePages        → hasMoreOlder=true, hasMoreNewer=false (initial "latest page" load)
-  Before + NoCursor + NoMorePages      → hasMoreOlder=false, hasMoreNewer=false (room has <= take messages total)
-  After + HasCursor + MorePages        → hasMoreOlder=true, hasMoreNewer=true
-  After + HasCursor + NoMorePages      → hasMoreOlder=true, hasMoreNewer=false
-  After + NoCursor + MorePages         → hasMoreOlder=false, hasMoreNewer=true  (edge case: after with no cursor)
-  After + NoCursor + NoMorePages       → hasMoreOlder=false, hasMoreNewer=false
-  Before + HasCursor + EmptyPage       → oldestCursor = newestCursor = input cursor (fallback)   [single]
-  After + HasCursor + EmptyPage        → oldestCursor = newestCursor = input cursor (fallback)   [single]
-  CustomLimit / ClampedLimit (NotAnnouncement)  → verify `take` value used in the Prisma call matches expectation, capped at 25, independent of direction/cursor
-  NotAnnouncement (explicit or defaulted)  → prisma.message.findMany `where` has no isAnnouncement key   [single]
-  Announcement, CustomLimit (<=15)         → `where` includes { isAnnouncement: true }, take = limit    [single]
-  Announcement, ClampedLimit (>15)         → `where` includes { isAnnouncement: true }, take = 15 (MAX_ANNOUNCEMENT_PAGE_SIZE, not 25)   [single]
-```
+**Categories**
+- Room existence (claimNextRoomSerialNumber's raw UPDATE...RETURNING, run inside the transaction)
+  - room exists → serial number claimed, transaction proceeds
+  - room does not exist (UPDATE affects 0 rows) → claimNextRoomSerialNumber
+    throws RoomNotFoundException, caught by this method's try/catch, logged,
+    and rethrown as SaveMessageException [error]
+- isAnnouncement
+  - false → persisted as a regular message
+  - true → persisted as an announcement
+- Sender identity (mutually exclusive per DiscussionService's contract)
+  - senderParticipantId set, senderOrganizerId null → tx.message.create
+    receives both fields as given; mapped sender.role = PARTICIPANT
+  - senderOrganizerId set, senderParticipantId null → mapped sender.role = ORGANIZER
+- Participant sender name fallback [if participant sender]
+  - nickname present → sender.name = nickname
+  - nickname absent, firstName present → sender.name = firstName
+  - both absent → sender.name = ''
+- Participant/organizer sender imageUrl fallback [single]
+  - imageUrl null/undefined on the included profile → sender.imageUrl = ''
+- Persistence outcome
+  - tx.message.create succeeds → resolves a ReturnMessageDto with the
+    generated id, claimed serialNumber, and mapped sender
+  - tx.message.create (or the transaction itself) throws for any other
+    reason (constraint violation, connection error) [error] [single] →
+    caught, logged, rethrown as SaveMessageException
+- Ordering constraint [single]: serial number claim and message insert occur
+  in the same `$transaction`; assert both are invoked with a roomId match
+  (not that they interleave — that's Prisma's job, not this method's).
 
 ---
 
-### `getPaginatedMessagesByTimestamp(roomId, lastReadAt, limit)`
+## getPaginatedMessagesByCursor(roomId, cursor, direction, limit)
 
-```
-Parameter limit (caller-supplied, always a number — no longer optional at this layer; this method is never invoked for announcements, so there's no isAnnouncement parameter here):
-  value:
-    provided, <= MAX_MESSAGE_PAGE_SIZE (25).     [property CustomLimit]
-    provided, > MAX_MESSAGE_PAGE_SIZE.           [property ClampedLimit] → take = MAX_MESSAGE_PAGE_SIZE
-
-Parameter anchorMessage lookup (message at-or-before lastReadAt):
-  existence:
-    a message exists with createdAt <= lastReadAt.        [property AnchorFound] → anchorTime = that message's createdAt
-    no message exists with createdAt <= lastReadAt (room empty or all messages after lastReadAt).   [property NoAnchor] → anchorTime = epoch(0)
-
-Parameter messages with createdAt >= anchorTime:
-  row count relative to take:
-    rows <= take.            [property NoMoreNewer] → hasMoreNewer = false
-    rows == take + 1.        [property MoreNewer] → hasMoreNewer = true, sliced
-
-Parameter page emptiness:
-  emptiness:
-    page has 0 rows (only possible if NoAnchor and room is genuinely empty).   [property EmptyResult] → oldestCursor/newestCursor = null
-
-Resulting test frames:
-  AnchorFound + NoMoreNewer      → returns [anchorMessage, ...any newer], hasMoreOlder=true (always), hasMoreNewer=false
-  AnchorFound + MoreNewer        → returns take messages starting at anchor, hasMoreNewer=true
-  NoAnchor + room has messages   → anchorTime=epoch, returns from the very beginning of the room
-  NoAnchor + room empty          → EmptyResult, messages=[], cursors=null, hasMoreOlder=true (note: potentially misleading when room is genuinely empty — worth flagging as a known quirk, not yet addressed)
-  ClampedLimit                   → take = MAX_MESSAGE_PAGE_SIZE regardless of a larger requested limit   [single]
-```
-
----
-
-### `getLatestMessageForRoom(roomId)`
-
-```
-Parameter room message count:
-  existence:
-    room has at least one message.        [property HasMessages] → returns mapped latest ReturnMessageDto
-    room has zero messages.               [property NoMessages] → returns null
-
-  [single] each — no further parameter combination needed, this is a simple existence check.
-```
+**Categories**
+- direction
+  - 'before' (scrolling to older messages) → orderBy `[createdAt desc, id desc]`;
+    fetched page reversed before being returned (so output is ascending)
+  - 'after' (scrolling to newer messages) → orderBy `[createdAt asc, id asc]`;
+    fetched page returned in fetch order
+- cursor
+  - undefined → no `cursor`/`skip` applied; fetch starts from the natural
+    beginning of the ordering
+  - provided → `cursor: { id: cursor }, skip: 1` applied, excluding the
+    cursor message itself
+- Fetched-count vs limit (extra-row probe: `take: limit + 1`)
+  - fetched count ≤ limit → no more rows in the queried direction
+  - fetched count > limit → extra row present, sliced off, "more in this
+    direction" flag set true
+- hasMoreOlder / hasMoreNewer derivation [if direction = 'before']
+  - hasMoreOlder = (fetched count > limit)
+  - hasMoreNewer = !!cursor
+- hasMoreOlder / hasMoreNewer derivation [if direction = 'after']
+  - hasMoreOlder = !!cursor
+  - hasMoreNewer = (fetched count > limit)
+- oldestCursor / newestCursor
+  - page non-empty → oldestCursor = first message id in the (ascending)
+    output, newestCursor = last message id in the output
+  - page empty (no messages in range) → oldestCursor = newestCursor =
+    `cursor ?? null` [single]
+- Message set
+  - room has messages in the queried range → each mapped via
+    mapToReturnMessageDto, in the direction-appropriate order
+  - room has zero messages in range → messages = []
+- roomId scoping [single]: query is always scoped to `where: { roomId }` —
+  another room's messages must never appear in the result.
 
 ---
 
-### `upsertLastReadMessage(roomId, role, participantProfileId, organizerProfileId)`
+## getLatestAnnouncements(roomId, limit)
 
-```
-Parameter role:
-  caller role:
-    ORGANIZER.        [property RoleOrganizer] → keyed on roomId_readerOrganizerId
-    PARTICIPANT.      [property RoleParticipant] → keyed on roomId_readerParticipantId
-
-Parameter existing RoomReadStatus row:
-  existence:
-    a row already exists for this (roomId, reader).        [property RowExists] → upsert takes update branch, lastReadAt refreshed
-    no row exists yet.                                       [property NoRow] → upsert takes create branch
-
-Parameter prisma.roomReadStatus.upsert outcome:
-  result:
-    succeeds.        [property UpsertSucceeds] → returns { roomId, lastReadAt }
-    throws.          [error SaveRoomReadStatusException] [single]
-
-Resulting test frames:
-  RoleOrganizer + RowExists + UpsertSucceeds     → update path, correct key used
-  RoleOrganizer + NoRow + UpsertSucceeds         → create path, readerOrganizerId set, readerParticipantId null
-  RoleParticipant + RowExists + UpsertSucceeds   → update path, correct key used
-  RoleParticipant + NoRow + UpsertSucceeds       → create path, readerParticipantId set, readerOrganizerId null
-  any role/row combination + UpsertThrows        → throws SaveRoomReadStatusException, logs error   [single]
-```
+**Categories**
+- Result set
+  - room has announcements (isAnnouncement = true) at or below `limit` → all
+    returned, oldest-first (fetched desc, then reversed)
+  - room has more announcements than `limit` → only the latest `limit` are
+    returned (regular `take`, before the reverse) [single]
+  - room has zero announcements → returns []
+- Filtering [single]: only `isAnnouncement: true` messages are included —
+  regular messages in the same room, however many, must never appear.
+- roomId scoping [single]: scoped to `where: { roomId, isAnnouncement: true }`.
 
 ---
 
-### `getRoomReadStatus(roomId, role, participantProfileId, organizerProfileId)`
+## getLatestMessageForRoom(roomId)
 
-```
-Parameter role:
-  caller role:
-    ORGANIZER.        [property RoleOrganizer] → queries by roomId_readerOrganizerId
-    PARTICIPANT.      [property RoleParticipant] → queries by roomId_readerParticipantId
-
-Parameter query result:
-  existence:
-    a matching row is found.        [property Found] → returns { lastReadAt }
-    no matching row is found.       [property NotFound] → returns null
-
-Resulting test frames:
-  RoleOrganizer + Found        → returns lastReadAt, correct key used in query
-  RoleOrganizer + NotFound     → returns null
-  RoleParticipant + Found      → returns lastReadAt, correct key used in query
-  RoleParticipant + NotFound   → returns null
-```
+**Categories**
+- Result
+  - room has at least one message (regular or announcement) → returns the
+    most recently created one, mapped via mapToReturnMessageDto
+  - room has zero messages → returns null
+- Ordering [single]: strictly `orderBy: { createdAt: 'desc' }` regardless of
+  `isAnnouncement` — a later announcement outranks an earlier regular
+  message and vice versa.
 
 ---
 
-### `countUnreadMessages(roomId, sinceDate)`
+## upsertLastReadMessage(roomId, role, participantProfileId, organizerProfileId, lastReadMessageId, lastReadSerialNumber)
 
-```
-Parameter message count where createdAt > sinceDate:
-  count value:
-    count > 0.        [property HasUnread] → returns that number
-    count == 0.        [property NoUnread] → returns 0
-
-  [single] each — straightforward pass-through of prisma.message.count() result.
-```
-
----
-
-### `getParticipantEventsWithRoom(participantProfileId, statusFilter)`
-
-```
-Parameter statusFilter:
-  presence:
-    statusFilter provided (non-empty array).        [property HasFilter] → where clause includes event.status filter
-    statusFilter undefined.                           [property NoFilter] → no status filter applied
-
-Parameter registrations found:
-  result set:
-    one or more CONFIRMED registrations found.        [property HasRegistrations] → returns mapped .event array
-    zero registrations found.                          [property NoRegistrations] → returns []
-
-Parameter registration.event.discussionRoom (per returned registration):
-  presence:
-    discussionRoom is non-null.        [property RoomPresent]
-    discussionRoom is null.            [property RoomAbsent] (defensive case — should not occur post-Feature-#5, but the method itself doesn't filter it; filtering happens one layer up in the service)
-
-Resulting test frames:
-  HasFilter + HasRegistrations          → query includes status filter, returns extracted events
-  NoFilter + HasRegistrations           → query has no status filter, returns extracted events
-  HasFilter or NoFilter + NoRegistrations  → returns []                          [single, filter-independent]
-  HasRegistrations + mix of RoomPresent/RoomAbsent  → method returns both as-is, unfiltered (confirms this method does NOT filter — that's the service's job)
-```
+**Categories**
+- role (selects the upsert's `where` composite key)
+  - ORGANIZER → keyed on `roomId_readerOrganizerId` using organizerProfileId
+  - PARTICIPANT → keyed on `roomId_readerParticipantId` using participantProfileId
+- Upsert branch (no direct control in a unit test beyond asserting the
+  `create`/`update` payloads passed to prisma; both payloads are always
+  constructed and only one takes effect at the DB layer)
+  - create payload: readerParticipantId/readerOrganizerId set per role,
+    lastReadMessageId defaults to `null` when undefined, lastReadSerialNumber
+    defaults to `0` when undefined
+  - update payload: fields are spread in conditionally — lastReadMessageId
+    key is present only when the argument is not `undefined`; same for
+    lastReadSerialNumber [single each]
+- lastReadMessageId argument
+  - provided → used as given in both create and (conditionally) update payloads
+  - undefined → create defaults to null; update payload omits the key entirely
+- lastReadSerialNumber argument
+  - provided → used as given
+  - undefined → create defaults to 0; update payload omits the key entirely
+- Persistence outcome
+  - upsert succeeds → resolves `{ roomId, lastReadMessageId, lastReadSerialNumber }`
+    taken from the prisma result
+  - upsert throws (constraint violation, connection error) [error] [single]
+    → caught, logged, rethrown as SaveRoomReadStatusException
 
 ---
 
-### `getOrganizerEventsWithRoom(organizerProfileId, statusFilter)`
+## getRoomReadStatus(roomId, role, participantProfileId, organizerProfileId)
 
-```
-Parameter statusFilter:
-  presence:
-    statusFilter provided.        [property HasFilter]
-    statusFilter undefined.       [property NoFilter]
-
-Parameter events found:
-  result set:
-    one or more events found.        [property HasEvents] → returns events with discussionRoom included
-    zero events found.                [property NoEvents] → returns []
-
-Resulting test frames:
-  HasFilter + HasEvents      → query includes status filter
-  NoFilter + HasEvents       → query has no status filter
-  either + NoEvents          → returns []    [single, filter-independent]
-```
+**Categories**
+- role (selects the `findUnique` composite key)
+  - ORGANIZER → keyed on `roomId_readerOrganizerId`
+  - PARTICIPANT → keyed on `roomId_readerParticipantId`
+- Record existence
+  - record found → returns `{ lastReadMessageId: result.lastReadMessageId }`
+    (the field itself may be null — "read while room was empty")
+  - record not found → returns `null`
 
 ---
 
-### `findRoomByEventId(eventId)`
+## countUnreadMessages(roomId, lastReadMessageId)
 
-```
-Parameter room association:
-  existence:
-    a DiscussionRoom exists for this eventId.        [property Found] → returns { roomId }
-    no DiscussionRoom exists for this eventId.       [property NotFound] → returns null
-
-  [single] each — simple existence check, used by DiscussionGateway for event-driven kick logic.
-```
+**Categories**
+- lastReadMessageId
+  - `null` → sinceDate = epoch (`new Date(0)`) → counts every message in the room
+  - provided, referenced message found → sinceDate = that message's `createdAt`
+  - provided, referenced message not found (since deleted) → sinceDate falls
+    back to epoch, per the "never under-count" comment [single]
+- Count result
+  - zero messages created after sinceDate → returns 0
+  - N messages created after sinceDate → returns N
+- roomId scoping [single]: count is always `where: { roomId, createdAt: { gt: sinceDate } }`.
 
 ---
 
-### `mapToReturnMessageDto(message)` (private)
+## claimNextRoomSerialNumber(roomId, tx?)
 
-```
-Parameter sender identity fields on the raw message:
-  which sender field is set:
-    senderOrganizerId non-null.        [property OrganizerSender] → sender.role = ORGANIZER, name from senderOrganizer.name
-    senderOrganizerId null (implies senderParticipantId set).     [property ParticipantSender]
+**Categories**
+- Room existence (raw `UPDATE ... RETURNING`)
+  - room exists → exactly one row returned, resolves the new
+    `lastSerialNumber`
+  - room does not exist → zero rows returned → throws RoomNotFoundException [error]
+- Transaction client parameter
+  - tx provided → the raw query runs through the given transaction client
+  - tx omitted → falls back to `this.prisma` (getClient's default) [single]
+- Sequential increment [single]: two calls for the same room (same client)
+  resolve strictly increasing values (N, then N+1).
 
-Parameter senderParticipant.nickname (relevant when ParticipantSender):
-  presence:
-    nickname present, non-empty.        [property HasNickname] [if ParticipantSender] → sender.name = nickname
-    nickname null or empty string.       [property NoNickname] [if ParticipantSender] → sender.name = firstName
+---
 
-Parameter senderOrganizer.imageUrl / senderParticipant.imageUrl:
-  presence:
-    imageUrl present.        → sender.imageUrl = that value
-    imageUrl null/undefined. → sender.imageUrl = ''
+## getMessageSerialNumber(messageId)
 
-Resulting test frames:
-  OrganizerSender + imageUrl present        → sender = { role: ORGANIZER, name, imageUrl }
-  OrganizerSender + imageUrl null           → sender.imageUrl = ''
-  ParticipantSender + HasNickname           → sender.name = nickname
-  ParticipantSender + NoNickname            → sender.name = firstName
-  ParticipantSender + both nickname and firstName empty  → sender.name = ''
-  ParticipantSender + imageUrl null          → sender.imageUrl = ''
-```
+**Categories**
+- Message existence
+  - message found → returns its `serialNumber`
+  - message not found → returns `null`
+
+---
+
+## getUnreadStatusBySerialNumber(roomId, role, participantProfileId, organizerProfileId)
+
+**Categories**
+- Room existence
+  - room found → proceeds to compute unread status
+  - room not found → throws RoomNotFoundException [error]
+- role (selects the read-status `where` composite key)
+  - ORGANIZER → keyed on `roomId_readerOrganizerId`
+  - PARTICIPANT → keyed on `roomId_readerParticipantId`
+- Read status existence
+  - record exists → lastReadSerialNumber = record's `lastReadSerialNumber`
+  - no record → lastReadSerialNumber defaults to 0
+- unreadCount computation
+  - room.lastSerialNumber > lastReadSerialNumber → unreadCount = the
+    difference
+  - room.lastSerialNumber ≤ lastReadSerialNumber (caught up, or a stale
+    read-status ahead of the room) → unreadCount = 0, floored via
+    `Math.max(0, …)` [single]
+- Concurrency [single]: room lookup and read-status lookup are issued via
+  `Promise.all` — assert both are called with the right arguments, not
+  ordering.
+
+---
+
+## getParticipantEventsWithRoom(participantProfileId, statusFilter?)
+
+**Categories**
+- Registration existence
+  - participant has CONFIRMED registrations → returns each registration's
+    event (with discussionRoom included)
+  - participant has no CONFIRMED registrations → returns []
+- Registration status filtering [single]: only `status: CONFIRMED`
+  registrations are queried — a CANCELLED registration for the same
+  participant/event must never contribute an entry.
+- statusFilter
+  - undefined → no `event.status` filter applied; all confirmed-registration
+    events are returned regardless of event status
+  - provided (e.g. ACTIVE_ROOM_STATUSES) → only events whose status is in
+    the filter list are returned
+- discussionRoom inclusion [single]: each returned event includes its
+  `discussionRoom` relation, which may be `null` (filtering roomless events
+  out is the caller's responsibility, not this method's).
+
+---
+
+## getOrganizerEventsWithRoom(organizerProfileId, statusFilter?)
+
+**Categories**
+- Event existence
+  - organizer owns one or more events → returned with `discussionRoom` included
+  - organizer owns no events → returns []
+- statusFilter
+  - undefined → no status filter applied
+  - provided → only matching-status events returned
+- Ownership scoping [single]: query is always `where: { organizerId }` —
+  another organizer's events must never appear.
+
+---
+
+## getRoomMemberIds(roomId)
+
+**Categories**
+- Room existence
+  - room found → returns `{ organizerProfileId: event.organizerId,
+    participantProfileIds: [...] }`
+  - room not found → throws RoomNotFoundException [error]
+- Confirmed participant filtering [single]: only `eventRegistrations` with
+  `status: CONFIRMED` contribute to `participantProfileIds` — a CANCELLED
+  registration must be excluded even though the same select scopes to the
+  event.
+- Participant count
+  - event has one or more confirmed registrations → non-empty array, in
+    registration order
+  - event has zero confirmed registrations → `participantProfileIds: []`
+
+---
+
+## findRoomByEventId(eventId)
+
+**Categories**
+- Room existence
+  - a DiscussionRoom exists for the event → returns `{ roomId: room.id }`
+  - no DiscussionRoom exists for the event → returns `null`
+
+---
+
+## mapToReturnMessageDto(message) — private, exercised via every method above that returns message DTO(s)
+
+**Categories**
+- Sender kind
+  - `message.senderOrganizerId !== null` → sender built from
+    `message.senderOrganizer`, `sender.role = ORGANIZER`
+  - `message.senderOrganizerId === null` → sender built from
+    `message.senderParticipant`, `sender.role = PARTICIPANT`
+- Organizer sender field fallback [if organizer sender] [single]
+  - `senderOrganizer.name` present → used as-is
+  - `senderOrganizer.name` falsy/undefined → falls back to `''`
+  - `senderOrganizer.imageUrl` present/absent → same present/fallback-to-''
+    pattern
+- Participant sender name fallback [if participant sender]
+  - `nickname` present (non-empty) → sender.name = nickname, even when
+    firstName is also present (nickname takes priority)
+  - `nickname` absent/empty, `firstName` present → sender.name = firstName
+  - both `nickname` and `firstName` absent/empty → sender.name = `''`
+- Participant sender imageUrl fallback [if participant sender] [single]
+  - `imageUrl` present/absent → same present/fallback-to-'' pattern
+- Passthrough fields [single]: `id`, `content`, `isAnnouncement`,
+  `createdAt`, `serialNumber` are copied through unchanged from the input row.

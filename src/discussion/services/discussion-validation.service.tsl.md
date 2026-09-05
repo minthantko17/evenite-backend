@@ -1,123 +1,103 @@
-## DiscussionValidationService
+# DiscussionValidationService — Test Specification Language (Category-Partition)
 
-### `validateRoomExists(roomId: string)`
+Scope: public methods of `DiscussionValidationService`. `PrismaService` and
+`RegistrationValidationService` are mocked collaborators; their outcome is
+modeled as a category on this service (e.g. "Room exists: yes / no
+[error]"), same convention as the other discussion-module TSLs.
+`validateRoomWritable`'s CONCLUDED-status branch depends on wall-clock time
+(`Date.now()`), so its categories are phrased in terms of "now relative to
+the computed threshold" — tests control this via `jest.spyOn(Date, 'now')`.
 
-```
-Parameter roomId:
-  room existence:
-    a DiscussionRoom with this id exists.        [property RoomExists] → returns { roomId, event }
-    no DiscussionRoom with this id exists.       [error RoomNotFoundException] [single]
-```
-
----
-
-### `validateRoomAccess(event, role, participantProfileId, organizerProfileId)`
-
-```
-Parameter role:
-  caller role:
-    role is ORGANIZER.       [property RoleOrganizer]
-    role is PARTICIPANT.     [property RoleParticipant]
-
-Parameter organizerProfileId (relevant when RoleOrganizer):
-  ownership match:
-    organizerProfileId === event.organizerId.        [property IsOwner] [if RoleOrganizer]
-    organizerProfileId !== event.organizerId.         [if RoleOrganizer]
-    organizerProfileId is null.                        [if RoleOrganizer]
-
-Parameter participantProfileId (relevant when RoleParticipant):
-  presence:
-    participantProfileId is non-null.        [property HasParticipantId] [if RoleParticipant]
-    participantProfileId is null.             [if RoleParticipant]
-
-Parameter registration status (via RegistrationValidationService, relevant when HasParticipantId):
-  registration outcome:
-    confirmed registration exists for event.id + participantProfileId.        [property ConfirmedReg] [if HasParticipantId]
-    no registration, or registration not CONFIRMED.                           [error RegistrationNotFoundException] [if HasParticipantId]
-
-Resulting test frames:
-  RoleOrganizer + IsOwner                                    → returns { message: 'Organizer has access...' }   [single]
-  RoleOrganizer + not-owner (or null organizerProfileId)      → falls through to final else → throws RoomAccessDeniedException
-  RoleParticipant + HasParticipantId + ConfirmedReg           → returns { message: 'Participant has access...' } [single]
-  RoleParticipant + HasParticipantId + not-confirmed          → throws RegistrationNotFoundException (bubbles, not caught)
-  RoleParticipant + participantProfileId null                 → falls through to final else → throws RoomAccessDeniedException
-```
+Legend: `[error]` = error case, `[single]` = only needs one representative
+test (don't combine with every other category), `[if C]` = choice only
+applies / is only meaningful under condition C.
 
 ---
 
-### `validateRoomWritable(event: Event)`
+## validateRoomExists(roomId)
 
-```
-Parameter event.status:
-  status value:
-    PUBLISHED.        [property StatusOpen] → writable
-    ONGOING.          [property StatusOpen] → writable
-    DRAFT.            [property StatusOpen] → writable 
-    CANCELLED.        [error RoomReadOnlyException, message: "...cancelled..."] [single]
-    CONCLUDED.        [property StatusConcluded]
-
-Parameter event.endAt (relevant when StatusConcluded):
-  presence:
-    endAt is non-null.        [property HasEndAt] [if StatusConcluded]
-    endAt is null.            [property NoEndAt] [if StatusConcluded]
-
-Parameter event.startAt (relevant when NoEndAt):
-  presence:
-    startAt is non-null.      [if NoEndAt] → reference time = startAt + 6h
-    startAt is null.          [if NoEndAt] → reference time = epoch(0) + 6h
-
-Parameter elapsed time since reference time (relevant when StatusConcluded):
-  boundary:
-    now <= referenceTime + 72h.        [property WithinGrace] → writable
-    now > referenceTime + 72h.         [error RoomReadOnlyException, default message] [if StatusConcluded]
-
-Resulting test frames:
-  StatusOpen (PUBLISHED)                                          → { message: 'Discussion room is writable.' }  [single]
-  StatusOpen (ONGOING)                                            → { message: 'Discussion room is writable.' }  [single]
-  StatusOpen (DRAFT)                                              → { message: 'Discussion room is writable.' }  [single]
-  CANCELLED                                                        → throws, custom message                       [single]
-  StatusConcluded + HasEndAt + WithinGrace                        → writable
-  StatusConcluded + HasEndAt + past 72h                           → throws, default message
-  StatusConcluded + NoEndAt + startAt present + WithinGrace       → writable
-  StatusConcluded + NoEndAt + startAt present + past 72h          → throws
-  StatusConcluded + NoEndAt + startAt null + WithinGrace          → writable (reference = epoch + 6h; "now" is always past this in practice — flag as effectively unreachable/edge case)
-  StatusConcluded + NoEndAt + startAt null + past 72h             → throws (the realistic case for this sub-branch)
-```
+**Categories**
+- Room existence (prisma.discussionRoom.findUnique)
+  - room found → resolves `{ roomId, event }`
+  - room not found → throws RoomNotFoundException [error]
 
 ---
 
-### `validateMessageContent(content: string)`
+## validateRoomAccess(event, role, participantProfileId, organizerProfileId)
 
-```
-Parameter content:
-  trimmed content:
-    non-empty, length <= 2000 chars.                    [property ContentValid] → returns content
-    empty after trim (e.g. "", "   ").                  [error MessageContentInvalidException, "cannot be empty"] [single]
-    length > 2000 chars after trim.                      [error MessageContentInvalidException, "cannot exceed..."] [single]
-    exactly 2000 chars after trim (boundary).             [property ContentValid] — boundary test, should pass
-    exactly 2001 chars after trim (boundary).             [error] — boundary test, should fail
-    content with leading/trailing whitespace, valid once trimmed.   [property ContentValid] — confirms trim happens before length check
-```
+**Categories**
+- role
+  - ORGANIZER
+  - PARTICIPANT
+- Ownership check [if role = ORGANIZER]
+  - organizerProfileId === event.organizerId (isOwner) → resolves the
+    organizer access-confirmation message; registrationValidationService is
+    never called
+  - organizerProfileId !== event.organizerId, or organizerProfileId is null
+    → not the owner → falls through to the final throw [error]
+- Participant registration check [if role = PARTICIPANT]
+  - participantProfileId is truthy → delegates to
+    registrationValidationService.validateConfirmedRegistration(event.id,
+    participantProfileId)
+    - collaborator resolves → returns the participant access-confirmation
+      message
+    - collaborator throws (e.g. RegistrationNotFoundException for a
+      cancelled/nonexistent registration) → bubbles up unchanged, not
+      wrapped [error]
+  - participantProfileId is null/empty → skips the collaborator call
+    entirely, falls through to the final throw [error] [single]
+- Final fallback [single]: any combination that reaches neither the
+  organizer-owner return nor the participant-with-id branch (e.g. ORGANIZER
+  role with organizerProfileId null) throws RoomAccessDeniedException.
+
+---
+
+## validateRoomWritable(event)
+
+**Categories**
+- event.status
+  - CANCELLED → throws RoomReadOnlyException with the
+    cancellation-specific message [error]
+  - CONCLUDED → evaluated further via the categories below
+  - DRAFT / PUBLISHED / ONGOING → writable, returns the writable message,
+    no time computation performed [single]
+- CONCLUDED reference-time resolution [if status = CONCLUDED]
+  - event.endAt present → referenceTime = endAt
+  - event.endAt null, event.startAt present → referenceTime = startAt +
+    CONCLUDED_FALLBACK_OFFSET_MS (6h)
+  - event.endAt null, event.startAt null → referenceTime = epoch(0) + 6h
+    (degenerate edge case) [single]
+- CONCLUDED grace-period check [if status = CONCLUDED]
+  - now ≤ referenceTime + READ_ONLY_GRACE_PERIOD_MS (72h) → still writable
+  - now > referenceTime + 72h → throws RoomReadOnlyException with the
+    default (non-cancellation) message [error]
+- Boundary [single]: now exactly equal to referenceTime + 72h → writable
+  (the throw condition is strictly `>`, not `>=`).
 
 ---
 
-### `validateAnnouncementPermission(isAnnouncement, role)`
+## validateMessageContent(content)
 
-```
-Parameter isAnnouncement:
-  flag value:
-    true.        [property Announcing]
-    false.       [property NotAnnouncing]
-
-Parameter role (relevant when Announcing):
-  caller role:
-    ORGANIZER.         [property RoleOrganizer] [if Announcing]
-    PARTICIPANT.       [error AnnouncementNotAllowedException] [if Announcing]
-
-Resulting test frames:
-  NotAnnouncing + any role                    → returns false                [single, role irrelevant]
-  Announcing + RoleOrganizer                  → returns true                 [single]
-  Announcing + RoleParticipant                → throws AnnouncementNotAllowedException  [single]
-```
+**Categories**
+- Content after trimming
+  - empty (empty string or all-whitespace) → throws
+    MessageContentInvalidException('Message cannot be empty.') [error]
+  - non-empty, length ≤ MAX_MESSAGE_LENGTH (2000) → passes
+  - length > 2000 after trim → throws
+    MessageContentInvalidException('Message cannot exceed 2000
+    characters.') [error]
+- Boundary [single]: exactly 2000 characters after trim → passes; exactly
+  2001 → throws.
+- Return value [single]: on success, returns the original `content`
+  argument unchanged (including any leading/trailing whitespace) — the
+  trimmed value is used only for the length check, not as the return value.
 
 ---
+
+## validateAnnouncementSenderRole(role)
+
+**Categories**
+- role
+  - ORGANIZER → returns the announcement-permission success message
+  - PARTICIPANT (any non-ORGANIZER role) → throws
+    AnnouncementNotAllowedException [error]

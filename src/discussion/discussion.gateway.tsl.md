@@ -1,196 +1,240 @@
-## DiscussionGateway
+# DiscussionGateway — Test Specification Language (Category-Partition)
 
-Note: this is a gateway, not pure business logic — several methods interact with the live `Socket`/`Server` objects (mocked in tests) rather than pure data transforms. Categories here reflect connection/auth state, delegated-service outcomes, and error-routing behavior rather than deep domain branching (that logic is already specified above, in `DiscussionService`/`DiscussionValidationService`).
+Scope: public/lifecycle handlers and private helpers of `DiscussionGateway`.
+`DiscussionService` and `JwtService` are mocked collaborators; their outcome
+is modeled as a category on this gateway, same convention as the other
+discussion-module TSLs. `Server`/`Socket` are also mocked (socket.io is not
+actually opened); `server.to(...)`/`server.in(...)` return further mocked
+chainables (`emit`, `fetchSockets`).
 
-### `handleConnection(client: Socket)`
-
-```
-Parameter token extraction (via extractTokenFromHandshake):
-  source:
-    token present in handshake.auth.token.                    [property TokenInAuth]
-    token present in handshake.headers.authorization (Bearer).  [property TokenInHeader]
-    no token in either location.                                [error UnauthorizedException, "No token provided"] [single]
-
-Parameter jwtService.verifyAsync outcome (relevant when a token was found):
-  result:
-    verifies successfully, returns JwtAccessPayload.        [property VerifySucceeds] [if TokenInAuth or TokenInHeader]
-    throws (expired, malformed, wrong secret).                [property VerifyFails] [if TokenInAuth or TokenInHeader]
-
-Resulting test frames:
-  TokenInAuth + VerifySucceeds       → client.data.user set, connection logged, no disconnect     [single]
-  TokenInHeader + VerifySucceeds     → same as above, confirms both extraction paths work          [single]
-  no token                            → emits 'error', calls client.disconnect()                     [single]
-  token present + VerifyFails         → emits 'error', calls client.disconnect(), client.data.user NOT set  [single]
-```
+Legend: `[error]` = error case, `[single]` = only needs one representative
+test (don't combine with every other category), `[if C]` = choice only
+applies / is only meaningful under condition C.
 
 ---
 
-### `extractTokenFromHandshake(client: Socket)` (private)
+## handleConnection(client)
 
-```
-Parameter handshake.auth?.token:
-  presence:
-    present, non-empty string.        [property AuthTokenPresent] → returned directly
-    absent / undefined.               [property AuthTokenAbsent]
-
-Parameter handshake.headers?.authorization (relevant when AuthTokenAbsent):
-  presence:
-    present, "Bearer <token>" format.        [property HeaderPresent] [if AuthTokenAbsent] → token extracted after stripping "Bearer "
-    absent.                                    [property HeaderAbsent] [if AuthTokenAbsent]
-
-Resulting test frames:
-  AuthTokenPresent                              → returns auth.token, header ignored     [single]
-  AuthTokenAbsent + HeaderPresent                → returns stripped header token          [single]
-  AuthTokenAbsent + HeaderAbsent                 → throws UnauthorizedException            [single]
-```
-
----
-
-### `requireUser(client: Socket)` (private)
-
-```
-Parameter client.data.user:
-  presence:
-    set (from a prior successful handleConnection).        [property UserSet] → returns the payload
-    unset / undefined.                                       [error UnauthorizedException, "Socket not authenticated"] [single]
-```
+**Categories**
+- Token location
+  - present in `handshake.auth.token` → used, the header is ignored even
+    when also present
+  - absent from `auth`, present in `handshake.headers.authorization` →
+    used with the `'Bearer '` prefix stripped
+  - absent from both → `extractTokenFromHandshake` throws
+    UnauthorizedException, caught here → emits `{ message: 'Unauthorized'
+    }` and disconnects [error]
+- JWT verification [if a token was found]
+  - `jwtService.verifyAsync` resolves → payload stored on
+    `client.data.user`
+  - `jwtService.verifyAsync` rejects → caught → emits `{ message:
+    'Unauthorized' }` and disconnects; `client.data.user` remains unset [error]
+- Personal-channel join [if verification succeeds]
+  - `payload.currentRole` and the role-matched profile id (participant id
+    for PARTICIPANT / organizer id for ORGANIZER) both present → `client.join`
+    called with `user:{role}:{profileId}`
+  - `payload.currentRole` is null (profile not yet created) → no channel to
+    join, `client.join` NOT called [single]
+- Side effects on the happy path [single]: no `emit`/`disconnect` call.
 
 ---
 
-### `handleJoinRoom(client, data)`
+## handleDisconnect(client)
 
-```
-Parameter requireUser outcome:
-  result:
-    client is authenticated.        [property Authenticated]
-    client is not authenticated.    [error] [if not Authenticated] → caught, routed through emitError
-
-Parameter user.currentRole (relevant when Authenticated):
-  role:
-    ORGANIZER.        [property RoleOrganizer] [if Authenticated] → passes organizerProfileId, participantProfileId=null
-    PARTICIPANT.       [property RoleParticipant] [if Authenticated] → passes participantProfileId, organizerProfileId=null
-
-Parameter discussionService.authorizeRoomJoinAccess outcome (relevant when Authenticated):
-  result:
-    resolves successfully.        [property AuthorizeSucceeds] [if Authenticated]
-    throws (RoomNotFoundException / RoomAccessDeniedException / RegistrationNotFoundException).   [property AuthorizeFails] [if Authenticated]
-
-Resulting test frames:
-  not Authenticated                                    → emitError called with 'room:join', UNAUTHORIZED code   [single]
-  RoleOrganizer + AuthorizeSucceeds                     → client.join called, emits 'room:joined' with roomId    [single]
-  RoleParticipant + AuthorizeSucceeds                   → client.join called, emits 'room:joined' with roomId    [single]
-  RoleOrganizer or RoleParticipant + AuthorizeFails      → client.join NOT called, emitError called with 'room:join', resolved error code   [single per exception type — see resolveErrorCode below]
-```
+**Categories**
+- [single]: always logs, never throws, no other side effect (no emit, no
+  collaborator call).
 
 ---
 
-### `handleLeaveRoom(client, data)`
+## getPersonalChannel(role, profileId) — private
 
-```
-Parameter client.leave outcome:
-  result:
-    client was in the room, successfully leaves.        [property WasInRoom]
-    client was not in the room (leave is a no-op).       [property NotInRoom]
+Exercised indirectly via handleConnection, handleRoomReadUpdated, and
+pushChatListUpdate; covered directly here since its null-handling is shared
+logic.
 
-  [single] each. No try/catch in this handler — both cases simply resolve; nothing to assert beyond "client.leave was called with data.roomId".
-```
-
----
-
-### `handleSendMessage(client, data)`
-
-```
-Parameter requireUser outcome:
-  result:
-    client is authenticated.        [property Authenticated]
-    client is not authenticated.    [error] [if not Authenticated] → routed through emitError
-
-Parameter user.currentRole (relevant when Authenticated):
-  role:
-    ORGANIZER.        [property RoleOrganizer] [if Authenticated]
-    PARTICIPANT.       [property RoleParticipant] [if Authenticated]
-
-Parameter discussionService.sendMessage outcome (relevant when Authenticated):
-  result:
-    resolves with ReturnMessageDto.        [property SendSucceeds] [if Authenticated]
-    throws (any of the exceptions sendMessage can produce — see DiscussionService spec).   [property SendFails] [if Authenticated]
-
-Resulting test frames:
-  not Authenticated                             → emitError('message:send', UNAUTHORIZED), server.to(...).emit NOT called   [single]
-  RoleOrganizer + SendSucceeds                   → server.to(data.roomId).emit('message:new', message) called with the returned DTO   [single]
-  RoleParticipant + SendSucceeds                 → same, confirms role-branch produces correct profile id passed through   [single]
-  RoleOrganizer or RoleParticipant + SendFails    → server.to(...).emit NOT called, emitError('message:send', <resolved code>) called   [single per exception type]
-```
+**Categories**
+- role and profileId both truthy → returns `user:{role}:{profileId}`
+- role is null → returns null [single]
+- profileId is null → returns null [single]
 
 ---
 
-### `handleRegistrationCancelled(payload)`
+## extractTokenFromHandshake(client) — private
 
-```
-Parameter discussionService.findRoomByEventId outcome:
-  result:
-    a room is found for payload.eventId.        [property RoomFound] → proceeds to forceDisconnectParticipant
-    no room found.                                [property RoomNotFound] → returns early, no further action   [single]
-
-Resulting test frames:
-  RoomFound        → forceDisconnectParticipant called with (room.roomId, payload.participantProfileId), info logged   [single]
-  RoomNotFound     → forceDisconnectParticipant NOT called, method returns silently   [single]
-```
+**Categories**
+- `auth.token` present → returned as-is, header ignored even when present
+- `auth.token` absent, `headers.authorization` present → returns the value
+  with the `'Bearer '` prefix stripped
+- both absent → throws UnauthorizedException('No token provided') [error]
 
 ---
 
-### `forceDisconnectParticipant(roomId, participantProfileId)` (private)
+## requireUser(client) — private
 
-```
-Parameter server.in(roomId).fetchSockets() result:
-  socket set:
-    empty (no one connected to this room).        [property NoSockets] → loop body never executes   [single]
-    one or more sockets connected.                  [property HasSockets]
-
-Parameter each socket's data.user?.participantProfileId (relevant when HasSockets):
-  match:
-    matches the target participantProfileId.        [property Matches] [if HasSockets] → emits 'room:kicked', calls .leave(roomId)
-    does not match (a different participant/organizer connected to the same room).   [property NoMatch] [if HasSockets] → skipped, no action taken on that socket
-
-Resulting test frames:
-  NoSockets                                     → no emit, no leave calls at all                                    [single]
-  HasSockets, single socket, Matches             → that socket: emit('room:kicked', {roomId}) + leave(roomId) called   [single]
-  HasSockets, single socket, NoMatch             → that socket: neither emit nor leave called                        [single]
-  HasSockets, multiple sockets, mixed match       → only matching sockets receive emit+leave; non-matching untouched  (confirms per-socket filtering, not room-wide broadcast)
-```
+**Categories**
+- `client.data.user` set → returns it
+- `client.data.user` unset → throws UnauthorizedException('Socket not
+  authenticated') [error]
 
 ---
 
-### `resolveErrorCode(error: unknown)` (private)
+## handleJoinRoom(client, data)
 
-```
-Parameter error instance type:
-  type:
-    RoomNotFoundException.               [property] → ROOM_NOT_FOUND
-    RoomAccessDeniedException.           [property] → ROOM_ACCESS_DENIED
-    RegistrationNotFoundException.       [property] → REGISTRATION_NOT_FOUND
-    RoomReadOnlyException.               [property] → ROOM_READ_ONLY
-    MessageContentInvalidException.      [property] → MESSAGE_CONTENT_INVALID
-    AnnouncementNotAllowedException.     [property] → ANNOUNCEMENT_NOT_ALLOWED
-    UnauthorizedException.               [property] → UNAUTHORIZED
-    any other Error subtype, or non-Error thrown value (string, plain object, etc.).   [property] → UNKNOWN_ERROR
-
-  [single] each — this is a pure instanceof-chain mapping; one test case per branch is sufficient, no combination needed with other parameters. Note the chain is order-dependent only if exception classes share inheritance (they don't here — each extends a distinct NestJS HTTP exception base), so branch order shouldn't itself need separate testing.
-```
+**Categories**
+- Authentication (requireUser)
+  - authenticated → proceeds to authorization
+  - not authenticated → emitError('room:join', UnauthorizedException)
+    called; `client.join` never called [error]
+- Role → identity mapping passed to authorizeRoomJoinAccess [if authenticated]
+  - ORGANIZER → called with `(roomId, ORGANIZER, null, organizerProfileId)`
+  - PARTICIPANT → called with `(roomId, PARTICIPANT, participantProfileId,
+    null)`
+- Authorization outcome (discussionService.authorizeRoomJoinAccess)
+  - resolves → `client.join(roomId)` called, emits `room:joined { roomId }`
+  - rejects (RoomNotFoundException / RoomAccessDeniedException /
+    RegistrationNotFoundException) → `client.join` NOT called,
+    emitError('room:join', error) called with the resolved code/message [error]
 
 ---
 
-### `emitError(client, event, error)` (private)
+## handleLeaveRoom(client, data)
 
-```
-Parameter error type (for message extraction):
-  type:
-    error is an instance of Error (has .message).        [property IsError] → message = error.message
-    error is not an Error instance (thrown string, plain object, undefined).   [property NotError] → message = 'An unexpected error occurred.'
+**Categories**
+- [single]: always calls `client.leave(data.roomId)` — no auth check, no
+  branching, no error path.
 
-Resulting test frames:
-  IsError      → client.emit('error', { event, code: <resolved>, message: error.message })       [single]
-  NotError     → client.emit('error', { event, code: <resolved>, message: 'An unexpected error occurred.' })   [single]
+---
 
-Note: `code` resolution is fully covered by resolveErrorCode's own spec above; these two frames only need to vary the message-extraction branch, combined with any one representative error type to confirm the whole emitted payload shape is correct.
-```
+## handleSendMessage(client, data)
+
+**Categories**
+- Authentication (requireUser)
+  - authenticated → proceeds
+  - not authenticated → emitError('message:send', UnauthorizedException);
+    `server.to(...)` never called, pushChatListUpdate never triggered [error]
+- Role → identity mapping passed to discussionService.sendMessage [if authenticated]
+  - ORGANIZER → called with `(roomId, dto, ORGANIZER, null,
+    organizerProfileId)`
+  - PARTICIPANT → called with `(roomId, dto, PARTICIPANT,
+    participantProfileId, null)`
+- sendMessage outcome
+  - resolves → `server.to(roomId).emit('message:new', message)`, then
+    pushChatListUpdate runs
+  - rejects (RoomNotFoundException / RoomAccessDeniedException /
+    RoomReadOnlyException / MessageContentInvalidException) →
+    emitError('message:send', error); `server.to` never called,
+    pushChatListUpdate skipped, getRoomMemberIds never called [error]
+
+---
+
+## handleSendAnnouncement(client, data)
+
+**Categories**
+- Authentication (requireUser)
+  - authenticated → proceeds
+  - not authenticated → emitError('announcement:send',
+    UnauthorizedException); `server.to(...)` never called [error]
+- Role → identity mapping passed to discussionService.sendAnnouncement [if
+  authenticated] [single] (identical ORGANIZER/PARTICIPANT mapping to
+  handleSendMessage — one representative test suffices here since the
+  branch itself is shared code, already exercised on both roles by
+  handleSendMessage's own tests)
+- sendAnnouncement outcome
+  - resolves → emits BOTH `message:new` and `announcement:new` with the
+    announcement to `server.to(roomId)` (two distinct events, unlike
+    handleSendMessage's single event), then pushChatListUpdate runs
+  - rejects (AnnouncementNotAllowedException / RoomNotFoundException /
+    RoomAccessDeniedException / RoomReadOnlyException /
+    MessageContentInvalidException) → emitError('announcement:send',
+    error); no emits, pushChatListUpdate skipped [error]
+
+---
+
+## pushChatListUpdate(roomId, message) — private
+
+Exercised only via handleSendMessage/handleSendAnnouncement's success path.
+
+**Categories**
+- getRoomMemberIds(roomId) membership → one personal channel is built for
+  the organizer and one for each confirmed participant; all channels are
+  non-null in the normal case → `server.to([channels]).emit('chatList:update',
+  { roomId, lastMessage: message, lastSerialNumber: message.serialNumber })`
+- Payload correctness [single]: `lastMessage` is exactly the message object
+  resolved by sendMessage/sendAnnouncement; `lastSerialNumber` is that
+  message's `serialNumber`.
+
+---
+
+## handleRoomReadUpdated(payload) — synchronous `@OnEvent` handler
+
+**Categories**
+- payload.role
+  - PARTICIPANT → channel derived from `payload.participantProfileId`
+  - ORGANIZER → channel derived from `payload.organizerProfileId`
+- Channel resolution outcome
+  - channel resolves (role + matching profile id both present) →
+    `server.to(channel).emit('chatList:read', { roomId,
+    lastReadSerialNumber })`
+  - channel is null (defensive: role or profile id missing) → returns
+    early, no emit at all [single]
+
+---
+
+## handleRegistrationCancelled(payload) — async `@OnEvent` handler, self-catching
+
+**Categories**
+- findRoomByEventId(payload.eventId) outcome
+  - room found → proceeds to forceDisconnectParticipant(room.roomId,
+    payload.participantProfileId)
+  - room not found (null) → logs a warning and returns;
+    forceDisconnectParticipant never called [single]
+- Error containment [single]: if findRoomByEventId (or anything
+  downstream) throws, the error is caught internally, logged, and does
+  NOT propagate — the returned promise still resolves. This is the only
+  handler in the gateway that swallows errors instead of emitting to a
+  client (there is no client to emit to; it's driven by an internal event).
+
+---
+
+## forceDisconnectParticipant(roomId, participantProfileId) — private
+
+**Categories**
+- Sockets found in the room (`server.in(roomId).fetchSockets()`)
+  - empty array → returns `{ message: 'No room sockets found.' }`; no
+    `emit`/`leave` call on any socket [single]
+  - one or more sockets, none match `participantProfileId` → iterates all,
+    no `emit`/`leave` called, returns the "no participant found" message
+  - the matching socket is found → emits `room:kicked { roomId }` and
+    calls `leave(roomId)` on that socket only, returns the "disconnected"
+    message, and stops (does not keep checking remaining sockets) [single]
+  - multiple sockets, mixed match → only the matching socket receives
+    `emit`/`leave`; every other socket is left untouched
+
+---
+
+## resolveErrorCode(error) — private
+
+**Categories** (parameterized — one representative value per branch, no
+combination needed)
+- RoomNotFoundException → ROOM_NOT_FOUND
+- RoomAccessDeniedException → ROOM_ACCESS_DENIED
+- RegistrationNotFoundException → REGISTRATION_NOT_FOUND
+- RoomReadOnlyException → ROOM_READ_ONLY
+- MessageContentInvalidException → MESSAGE_CONTENT_INVALID
+- AnnouncementNotAllowedException → ANNOUNCEMENT_NOT_ALLOWED
+- UnauthorizedException → UNAUTHORIZED
+- an unrecognized `Error` instance → UNKNOWN_ERROR
+- a non-`Error` thrown value (e.g. a plain string) → UNKNOWN_ERROR [error]
+
+---
+
+## emitError(client, event, error) — private
+
+**Categories**
+- `error instanceof Error` → `message` = `error.message`
+- `error` is not an `Error` instance → `message` = the generic fallback
+  `'An unexpected error occurred.'` [error]
+- `code` is always resolved via resolveErrorCode(error) [single] (already
+  covered exhaustively above; here just confirm it's wired into the emitted
+  payload alongside `event` and `message`)
