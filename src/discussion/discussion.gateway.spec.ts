@@ -69,6 +69,7 @@ describe('DiscussionGateway', () => {
 
     gateway = module.get<DiscussionGateway>(DiscussionGateway);
     gateway.server = rig.server;
+    jest.spyOn(gateway as any, 'pushChatListUpdate');
   });
 
   // ==========================================================================
@@ -358,7 +359,7 @@ describe('DiscussionGateway', () => {
       const client = createMockSocket({ data: { user: PARTICIPANT_PAYLOAD } });
       discussionServiceMock.sendMessage.mockResolvedValue(PARTICIPANT_MESSAGE);
 
-      await gateway.handleSendMessage(client, { roomId: ROOM_ID, dto });
+      const result = await gateway.handleSendMessage(client, { roomId: ROOM_ID, dto });
 
       expect(discussionServiceMock.sendMessage).toHaveBeenCalledWith(
         ROOM_ID,
@@ -368,6 +369,12 @@ describe('DiscussionGateway', () => {
         null,
       );
       expect(rig.roomEmitMock).toHaveBeenCalledWith('message:new', PARTICIPANT_MESSAGE);
+      expect(rig.toMock).toHaveBeenCalledWith(ROOM_ID);
+      expect(rig.roomEmitMock).toHaveBeenCalledWith('chatList:update', {
+        roomId: ROOM_ID,
+        lastMessage: PARTICIPANT_MESSAGE,
+        lastSerialNumber: PARTICIPANT_MESSAGE.serialNumber,
+      });
     });
 
     it('UT-handleSendMessage-03 [error]: not authenticated — emitError(message:send, UNAUTHORIZED), server.to(...) never called', async () => {
@@ -381,6 +388,7 @@ describe('DiscussionGateway', () => {
         message: 'Socket not authenticated',
       });
       expect(rig.toMock).not.toHaveBeenCalled();
+      expect((gateway as any).pushChatListUpdate).not.toHaveBeenCalled();
     });
 
     it('UT-handleSendMessage-04 [error]: send fails — server.to(...) never called, emitError(message:send, <resolved code>) called', async () => {
@@ -391,6 +399,13 @@ describe('DiscussionGateway', () => {
 
       await gateway.handleSendMessage(client, { roomId: ROOM_ID, dto });
 
+      expect(discussionServiceMock.sendMessage).toHaveBeenCalledWith(
+        ROOM_ID,
+        dto,
+        Role.ORGANIZER,
+        null,
+        USERS.ORGANIZER_MAIN.id,
+      );
       expect(rig.toMock).not.toHaveBeenCalled();
       expect(client.emit).toHaveBeenCalledWith('error', {
         event: 'message:send',
@@ -398,6 +413,7 @@ describe('DiscussionGateway', () => {
         message: 'Message cannot be empty.',
       });
       expect(discussionServiceMock.getRoomMemberIds).not.toHaveBeenCalled();
+      expect((gateway as any).pushChatListUpdate).not.toHaveBeenCalled();
     });
   });
 

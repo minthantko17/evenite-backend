@@ -197,6 +197,34 @@ describe('DiscussionCrudService', () => {
       await expect(promise).rejects.toThrow(SaveMessageException);
       await expect(promise).rejects.toThrow('Failed to save message. Please try again.');
     });
+
+    it('UT-createMessage-08: ORGANIZER sender, regular message — creates with the claimed serial number and resolves the mapped DTO', async () => {
+      const raw = CREATE_MESSAGE_ROWS.ORGANIZER_REGULAR;
+      prismaMock.message.create.mockResolvedValueOnce(raw as any);
+
+      const result = await service.createMessage(
+        ROOMS.ROOM_MAIN.id,
+        raw.content,
+        false,
+        null,
+        USERS.ORGANIZER_MAIN.id,
+      );
+
+      const expected = mapRawToExpected(raw);
+      expect(result).toEqual(expected);
+      expect(prismaMock.message.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: {
+            roomId: ROOMS.ROOM_MAIN.id,
+            content: raw.content,
+            isAnnouncement: false,
+            senderParticipantId: null,
+            senderOrganizerId: USERS.ORGANIZER_MAIN.id,
+            serialNumber: raw.serialNumber,
+          },
+        }),
+      );
+    });
   });
 
   // ==========================================================================

@@ -127,6 +127,7 @@ describe('DiscussionService', () => {
         createdAt: expect.any(Date),
         serialNumber: ROOMS.ROOM_ACTIVE.lastSerialNumber + 1,
       });
+      console.log('room active id: ', ROOMS.ROOM_ACTIVE.id);
     });
 
     it('UT-sendMessage-03 [single]: trims surrounding whitespace before persisting, and the resolved content reflects the trimmed value', async () => {

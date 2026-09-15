@@ -330,6 +330,12 @@ export const CREATE_MESSAGE_ROWS = {
     content: 'hello world',
     serialNumber: CLAIMED_SERIAL_NUMBER,
   }),
+  ORGANIZER_REGULAR: buildRawOrganizerMessage({
+    id: uuidFrom('create-message-organizer-regular'),
+    roomId: ROOM_MAIN_ID,
+    content: 'hello from organizer',
+    serialNumber: CLAIMED_SERIAL_NUMBER,
+  }),
   ORGANIZER_ANNOUNCEMENT: buildRawOrganizerMessage({
     id: uuidFrom('create-message-organizer-announcement'),
     roomId: ROOM_MAIN_ID,

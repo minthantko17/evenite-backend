@@ -156,6 +156,7 @@ const PARTICIPANT_DATA = {
     email: 'participant1@cmu.ac.th',
     phone: '0823456781',
     lineId: 'susu_line',
+    imageUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/parti1.jpg',
   },
   PAR2: {
     id: ID.PAR2,
@@ -167,6 +168,7 @@ const PARTICIPANT_DATA = {
     email: 'participant2@cmu.ac.th',
     phone: '0823456782',
     lineId: 'chai_line',
+    imageUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/parti2.jpg',
   },
   PAR3: {
     id: ID.PAR3,
@@ -178,6 +180,7 @@ const PARTICIPANT_DATA = {
     email: 'participant3@cmu.ac.th',
     phone: '0823456783',
     lineId: 'min_line',
+    imageUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/parti3.jpg',
   },
   PAR4: {
     id: ID.PAR4,
@@ -189,6 +192,7 @@ const PARTICIPANT_DATA = {
     email: 'participant4@cmu.ac.th',
     phone: '0823456784',
     lineId: 'palm_line',
+    imageUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/parti4.jpg',
   },
   PAR5: {
     id: ID.PAR5,
@@ -200,6 +204,7 @@ const PARTICIPANT_DATA = {
     email: 'participant5@cmu.ac.th',
     phone: '0823456785',
     lineId: 'pim_line',
+    imageUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/parti5.jpg',
   },
 };
 
@@ -520,7 +525,7 @@ async function main() {
         contactEmail: 'organizer1@cmu.ac.th',
         contactPhone: '0812345671',
         contactLineId: 'camt_affairs',
-        imageUrl: null,
+        imageUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/org1.jpg',
         externalUrl: 'https://camt.cmu.ac.th',
       },
     }),
@@ -535,7 +540,7 @@ async function main() {
         contactEmail: 'organizer2@cmu.ac.th',
         contactPhone: '0812345672',
         contactLineId: 'cmu_music',
-        imageUrl: null,
+        imageUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/org2.jpg',
         externalUrl: '',
       },
     }),
@@ -550,7 +555,7 @@ async function main() {
         contactEmail: 'organizer3@cmu.ac.th',
         contactPhone: '0812345673',
         contactLineId: 'se_club',
-        imageUrl: null,
+        imageUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/org3.jpg',
         externalUrl: 'https://se.camt.cmu.ac.th',
       },
     }),
@@ -583,7 +588,7 @@ async function main() {
           contactEmail: PARTICIPANT_DATA[key].email,
           contactPhone: PARTICIPANT_DATA[key].phone,
           contactLineId: PARTICIPANT_DATA[key].lineId,
-          imageUrl: null,
+          imageUrl: PARTICIPANT_DATA[key].imageUrl,
           preferences: {
             personal: ['TECHNOLOGY'],
             event: ['SEMINAR', 'WORKSHOP'],
@@ -638,7 +643,7 @@ async function main() {
       ],
       contactName: 'CAMT Student Affairs',
       contactEmail: 'organizer1@cmu.ac.th',
-      bannerUrl: 'https://placehold.co/600x400?text=Halloween+Night',
+      bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/1_holloween.jpg',
       publishedAt: new Date('2026-09-01T00:00:00.000Z'),
     },
   });
@@ -669,7 +674,7 @@ async function main() {
       ],
       contactName: 'CAMT Student Affairs',
       contactEmail: 'organizer1@cmu.ac.th',
-      bannerUrl: 'https://placehold.co/600x400?text=New+Year+2027',
+      bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/2_new_year.jpg',
       publishedAt: new Date('2026-10-01T00:00:00.000Z'),
       remarks: { en: 'Limited seats — first come first served.', th: 'ที่นั่งจำกัด' },
     },
@@ -697,7 +702,7 @@ async function main() {
       cateringDescription: { en: 'Meals included.', th: 'รวมอาหาร' },
       contactName: 'CMU Music and Arts Club',
       contactEmail: 'organizer2@cmu.ac.th',
-      bannerUrl: 'https://placehold.co/600x400?text=Sukhothai+Trip',
+      bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/3_sukhothai.jpg',
       publishedAt: new Date('2026-09-10T00:00:00.000Z'),
     },
   });
@@ -722,7 +727,7 @@ async function main() {
       status: EventStatus.ONGOING,
       contactName: 'CMU Music and Arts Club',
       contactEmail: 'organizer2@cmu.ac.th',
-      bannerUrl: 'https://placehold.co/600x400?text=Exchange+Program',
+      bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/5_seminar_exchange.jpg',
       publishedAt: new Date('2026-08-01T00:00:00.000Z'),
       remarks: { en: 'GPA 3.0 or above required.', th: 'ต้องมี GPA 3.0 ขึ้นไป' },
     },
@@ -747,7 +752,7 @@ async function main() {
       status: EventStatus.ONGOING,
       contactName: 'CMU Music and Arts Club',
       contactEmail: 'organizer2@cmu.ac.th',
-      bannerUrl: 'https://placehold.co/600x400?text=Coding+Bootcamp',
+      bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/6_coding.jpg',
       publishedAt: new Date('2026-07-01T00:00:00.000Z'),
     },
   });
@@ -774,7 +779,7 @@ async function main() {
       cateringDescription: { en: 'Meals and snacks throughout the event.', th: 'มีอาหารตลอดงาน' },
       contactName: 'SE Department Club',
       contactEmail: 'organizer3@cmu.ac.th',
-      bannerUrl: 'https://placehold.co/600x400?text=SE+Hackathon',
+      bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/8_hackathon.jpg',
       publishedAt: new Date('2026-04-20T00:00:00.000Z'),
     },
   });
@@ -801,7 +806,7 @@ async function main() {
       cateringDescription: { en: 'Food stalls available.', th: 'มีร้านอาหาร' },
       contactName: 'SE Department Club',
       contactEmail: 'organizer3@cmu.ac.th',
-      bannerUrl: 'https://placehold.co/600x400?text=CMU+Sports+Day',
+      bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/9_sportday.jpg',
       publishedAt: new Date('2026-03-15T00:00:00.000Z'),
     },
   });
@@ -828,7 +833,7 @@ async function main() {
       cateringDescription: { en: 'Lunch provided daily.', th: 'มีอาหารกลางวันทุกวัน' },
       contactName: 'CAMT Student Affairs',
       contactEmail: 'organizer1@cmu.ac.th',
-      bannerUrl: 'https://placehold.co/600x400?text=Orientation+Week',
+      bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/10_orientation.jpg',
       publishedAt: new Date('2026-04-01T00:00:00.000Z'),
     },
   });
@@ -852,7 +857,7 @@ async function main() {
       status: EventStatus.ONGOING,
       contactName: 'CAMT Student Affairs',
       contactEmail: 'organizer1@cmu.ac.th',
-      bannerUrl: 'https://placehold.co/600x400?text=AI+Research+Seminar',
+      bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/7_ai_event.jpg',
       publishedAt: new Date('2026-05-15T00:00:00.000Z'),
     },
   });
@@ -876,7 +881,7 @@ async function main() {
       status: EventStatus.PUBLISHED,
       contactName: 'SE Department Club',
       contactEmail: 'organizer3@cmu.ac.th',
-      bannerUrl: 'https://placehold.co/600x400?text=No+Form+Event',
+      bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/11_test.jpg',
       publishedAt: new Date('2026-09-20T00:00:00.000Z'),
     },
   });
@@ -900,7 +905,7 @@ async function main() {
       status: EventStatus.DRAFT,
       contactName: 'CAMT Student Affairs',
       contactEmail: 'organizer1@cmu.ac.th',
-      bannerUrl: 'https://placehold.co/600x400?text=SE+Workshop+Draft',
+      bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/12_workshop.jpg',
     },
   });
 
@@ -923,7 +928,7 @@ async function main() {
       status: EventStatus.DRAFT,
       contactName: 'CMU Music and Arts Club',
       contactEmail: 'organizer2@cmu.ac.th',
-      bannerUrl: 'https://placehold.co/600x400?text=Music+Concert+Draft',
+      bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/13_music_concert.jpg',
     },
   });
 
@@ -946,7 +951,7 @@ async function main() {
       status: EventStatus.DRAFT,
       contactName: 'SE Department Club',
       contactEmail: 'organizer3@cmu.ac.th',
-      bannerUrl: 'https://placehold.co/600x400?text=Cultural+Festival+Draft',
+      bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/14_curtural_fes.jpg',
     },
   });
 
@@ -969,7 +974,7 @@ async function main() {
       status: EventStatus.PUBLISHED,
       contactName: 'CMU Music and Arts Club',
       contactEmail: 'organizer2@cmu.ac.th',
-      bannerUrl: 'https://placehold.co/600x400?text=CMU+Annual+Concert',
+      bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/4_concert.jpg',
       publishedAt: new Date('2026-10-01T00:00:00.000Z'),
     },
   });
