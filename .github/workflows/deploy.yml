@@ -35,7 +35,7 @@ jobs:
           username: ${{ secrets.HOST_USER_NAME }}
           key: ${{ secrets.HOST_SSH_PRIVATE_KEY }}
           port: 22
-          source: 'docker-compose-prod.yml'
+          source: 'docker-compose-prod.yml,Caddyfile'
           target: '/home/ubuntu/backend'
           overwrite: true
 
