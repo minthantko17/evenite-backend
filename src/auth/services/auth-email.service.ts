@@ -21,7 +21,13 @@ export class AuthEmailService {
       expireAt,
     );
 
-    const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${token}`;
+    const allowedOrigins = (process.env.FRONTEND_URL ?? 'http://localhost:5173')
+      .split(',')
+      .map((origin) => origin.trim());
+    const canonicalFrontendUrl =
+      allowedOrigins.find((origin) => origin.includes('www.')) ??
+      allowedOrigins[0];
+    const verificationUrl = `${canonicalFrontendUrl}/verify-email?token=${token}`;
 
     // require frontend to use button click verification
     await this.resend.emails.send({
