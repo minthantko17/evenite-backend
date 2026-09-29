@@ -12,6 +12,7 @@ import { InvalidTokenException } from './exceptions/invalid-token.exception';
 import * as bcrypt from 'bcrypt';
 import { UserNotFoundException } from './exceptions/user-not-found.exception';
 import { UserWithProfiles } from '../user/types/user.types';
+import { EmailAlreadyRegisteredException } from './exceptions/email-already-registered.exception';
 
 @Injectable()
 export class AuthService {
@@ -26,7 +27,22 @@ export class AuthService {
     const university = await this.authValidationService.checkUniversityDomain(
       dto.email,
     );
-    await this.authValidationService.checkEmailNotTaken(dto.email);
+
+    const staleUser =
+      await this.authValidationService.checkEmailAvailableOrReclaimable(
+        dto.email,
+      );
+
+    if (staleUser) {
+      const deleted = await this.authCrudService.deleteUnverifiedUser(
+        staleUser.id,
+      );
+      // Lost the race — they verified between our check and this delete.
+      if (!deleted) {
+        throw new EmailAlreadyRegisteredException();
+      }
+    }
+
     const passwordHash = await bcrypt.hash(dto.password, 12);
 
     const user = await this.authCrudService.createUser({
