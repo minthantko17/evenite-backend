@@ -782,7 +782,7 @@ async function main() {
       contactName: 'CAMT Student Affairs',
       contactEmail: 'organizer1@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/2_new_year.jpg',
-      publishedAt: new Date('2026-10-01T00:00:00.000Z'),
+      publishedAt: new Date('2026-09-02T00:00:00.000Z'),
       remarks: { en: 'Limited seats — first come first served.', th: 'ที่นั่งจำกัด' },
     },
   });
@@ -1106,7 +1106,7 @@ async function main() {
       contactName: 'CAMT Student Affairs',
       contactEmail: 'organizer1@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/15_ted_talk.jpg',
-      publishedAt: new Date('2026-10-01T00:00:00.000Z'),
+      publishedAt: new Date('2026-09-04T00:00:00.000Z'),
     },
   });
 
@@ -1204,7 +1204,7 @@ async function main() {
       contactName: 'SE Department Club',
       contactEmail: 'organizer3@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/19_startup_pitch.jpg',
-      publishedAt: new Date('2026-10-05T00:00:00.000Z'),
+      publishedAt: new Date('2026-09-11T00:00:00.000Z'),
     },
   });
 
@@ -1957,7 +1957,7 @@ async function main() {
       formFields: newYearRegFields,
       registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
       extraAnswers: { [ID.FLD_NY_TSHIRT]: ['M'] },
-      createdAt: new Date('2026-10-05T10:00:00.000Z'),
+      createdAt: new Date('2026-09-06T10:00:00.000Z'),
     },
     {
       registrationId: 'a2000002-0000-4000-8000-000000000002',
@@ -1967,7 +1967,7 @@ async function main() {
       formFields: newYearRegFields,
       registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
       extraAnswers: { [ID.FLD_NY_TSHIRT]: ['L'] },
-      createdAt: new Date('2026-10-06T10:00:00.000Z'),
+      createdAt: new Date('2026-09-07T10:00:00.000Z'),
     },
     {
       registrationId: 'a2000003-0000-4000-8000-000000000003',
@@ -1977,7 +1977,7 @@ async function main() {
       formFields: newYearRegFields,
       registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
       extraAnswers: { [ID.FLD_NY_TSHIRT]: ['S'] },
-      createdAt: new Date('2026-10-07T10:00:00.000Z'),
+      createdAt: new Date('2026-09-08T10:00:00.000Z'),
     },
     {
       registrationId: 'a2000004-0000-4000-8000-000000000004',
@@ -1987,7 +1987,7 @@ async function main() {
       formFields: newYearRegFields,
       registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
       extraAnswers: { [ID.FLD_NY_TSHIRT]: ['XL'] },
-      createdAt: new Date('2026-10-08T10:00:00.000Z'),
+      createdAt: new Date('2026-09-09T10:00:00.000Z'),
     },
     {
       registrationId: 'a2000005-0000-4000-8000-000000000005',
@@ -1997,7 +1997,7 @@ async function main() {
       formFields: newYearRegFields,
       registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
       extraAnswers: { [ID.FLD_NY_TSHIRT]: ['XXL'] },
-      createdAt: new Date('2026-10-09T10:00:00.000Z'),
+      createdAt: new Date('2026-09-10T10:00:00.000Z'),
     },
 
     // ── Sukhothai — par1 CONFIRMED, par2 CANCELLED ──────────────────────────
@@ -2129,7 +2129,7 @@ async function main() {
       formFields: tedxFields,
       registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
       extraAnswers: { [ID.FLD_TX_TOPIC]: ['AI & Society'] },
-      createdAt: new Date('2026-10-02T10:00:00.000Z'),
+      createdAt: new Date('2026-09-08T10:00:00.000Z'),
     },
     {
       registrationId: 'a8000002-0000-4000-8000-000000000002',
@@ -2139,7 +2139,7 @@ async function main() {
       formFields: tedxFields,
       registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
       extraAnswers: { [ID.FLD_TX_TOPIC]: ['Entrepreneurship'] },
-      createdAt: new Date('2026-10-03T10:00:00.000Z'),
+      createdAt: new Date('2026-09-09T10:00:00.000Z'),
     },
 
     // ── Job Fair — par3, par4 CONFIRMED ──────────────────────────────────────
@@ -2173,7 +2173,7 @@ async function main() {
       formFields: startuppitchFields,
       registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
       extraAnswers: { [ID.FLD_SP2_TEAMNAME]: 'Team Nimbus', [ID.FLD_SP2_PITCHNAME]: 'Campus Ride-Share App' },
-      createdAt: new Date('2026-10-10T10:00:00.000Z'),
+      createdAt: new Date('2026-09-15T10:00:00.000Z'),
     },
     {
       registrationId: 'aa000002-0000-4000-8000-000000000002',
@@ -2183,7 +2183,7 @@ async function main() {
       formFields: startuppitchFields,
       registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
       extraAnswers: { [ID.FLD_SP2_TEAMNAME]: 'Team GreenLoop', [ID.FLD_SP2_PITCHNAME]: 'Campus Recycling Rewards' },
-      createdAt: new Date('2026-10-11T10:00:00.000Z'),
+      createdAt: new Date('2026-09-16T10:00:00.000Z'),
     },
 
     // ── Ping River Clean-Up — par2, par4 CONFIRMED, tickets EXPIRED (concluded) ─
@@ -2405,10 +2405,10 @@ async function main() {
     { id: '81000005-0000-4000-8000-000000000005', roomId: ID.ROOM_HALLOWEEN, content: "Can't wait!", senderParticipantId: ID.PAR3, createdAt: new Date('2026-09-05T16:00:00.000Z'), serialNumber: 5 },
 
     // ── New Year ─────────────────────────────────────────────────────────────
-    { id: '82000001-0000-4000-8000-000000000001', roomId: ID.ROOM_NEW_YEAR, content: 'Countdown party details have been posted — check the agenda!', isAnnouncement: true, senderOrganizerId: org1.id, createdAt: new Date('2026-10-05T12:00:00.000Z'), serialNumber: 1 },
-    { id: '82000002-0000-4000-8000-000000000002', roomId: ID.ROOM_NEW_YEAR, content: 'So hyped!', senderParticipantId: ID.PAR1, createdAt: new Date('2026-10-05T13:00:00.000Z'), serialNumber: 2 },
-    { id: '82000003-0000-4000-8000-000000000003', roomId: ID.ROOM_NEW_YEAR, content: 'Where do we park?', senderParticipantId: ID.PAR4, createdAt: new Date('2026-10-05T14:00:00.000Z'), serialNumber: 3 },
-    { id: '82000004-0000-4000-8000-000000000004', roomId: ID.ROOM_NEW_YEAR, content: 'Parking is available at the CAMT lot.', senderOrganizerId: org1.id, createdAt: new Date('2026-10-05T15:00:00.000Z'), serialNumber: 4 },
+    { id: '82000001-0000-4000-8000-000000000001', roomId: ID.ROOM_NEW_YEAR, content: 'Countdown party details have been posted — check the agenda!', isAnnouncement: true, senderOrganizerId: org1.id, createdAt: new Date('2026-09-06T12:00:00.000Z'), serialNumber: 1 },
+    { id: '82000002-0000-4000-8000-000000000002', roomId: ID.ROOM_NEW_YEAR, content: 'So hyped!', senderParticipantId: ID.PAR1, createdAt: new Date('2026-09-06T13:00:00.000Z'), serialNumber: 2 },
+    { id: '82000003-0000-4000-8000-000000000003', roomId: ID.ROOM_NEW_YEAR, content: 'Where do we park?', senderParticipantId: ID.PAR4, createdAt: new Date('2026-09-06T14:00:00.000Z'), serialNumber: 3 },
+    { id: '82000004-0000-4000-8000-000000000004', roomId: ID.ROOM_NEW_YEAR, content: 'Parking is available at the CAMT lot.', senderOrganizerId: org1.id, createdAt: new Date('2026-09-06T15:00:00.000Z'), serialNumber: 4 },
 
     // ── Sukhothai ────────────────────────────────────────────────────────────
     { id: '83000001-0000-4000-8000-000000000001', roomId: ID.ROOM_SUKHOTHAI, content: 'Trip itinerary has been emailed to everyone.', senderOrganizerId: org2.id, createdAt: new Date('2026-09-15T12:00:00.000Z'), serialNumber: 1 },
@@ -2438,10 +2438,10 @@ async function main() {
     { id: '87000002-0000-4000-8000-000000000002', roomId: ID.ROOM_SPORTS, content: 'Go team!', senderParticipantId: ID.PAR2, createdAt: new Date('2026-04-10T08:30:00.000Z'), serialNumber: 2 },
 
     // ── TEDx ─────────────────────────────────────────────────────────────────
-    { id: '88000001-0000-4000-8000-000000000001', roomId: ID.ROOM_TEDX, content: 'Speaker lineup has been finalized — check the agenda!', isAnnouncement: true, senderOrganizerId: org1.id, createdAt: new Date('2026-10-02T12:00:00.000Z'), serialNumber: 1 },
-    { id: '88000002-0000-4000-8000-000000000002', roomId: ID.ROOM_TEDX, content: 'Can’t wait to hear the AI talk!', senderParticipantId: ID.PAR1, createdAt: new Date('2026-10-02T13:00:00.000Z'), serialNumber: 2 },
-    { id: '88000003-0000-4000-8000-000000000003', roomId: ID.ROOM_TEDX, content: 'Is there a livestream for those who can’t attend?', senderParticipantId: ID.PAR2, createdAt: new Date('2026-10-02T14:00:00.000Z'), serialNumber: 3 },
-    { id: '88000004-0000-4000-8000-000000000004', roomId: ID.ROOM_TEDX, content: 'Yes, we’ll share a livestream link closer to the date.', senderOrganizerId: org1.id, createdAt: new Date('2026-10-02T15:00:00.000Z'), serialNumber: 4 },
+    { id: '88000001-0000-4000-8000-000000000001', roomId: ID.ROOM_TEDX, content: 'Speaker lineup has been finalized — check the agenda!', isAnnouncement: true, senderOrganizerId: org1.id, createdAt: new Date('2026-09-08T12:00:00.000Z'), serialNumber: 1 },
+    { id: '88000002-0000-4000-8000-000000000002', roomId: ID.ROOM_TEDX, content: 'Can’t wait to hear the AI talk!', senderParticipantId: ID.PAR1, createdAt: new Date('2026-09-08T13:00:00.000Z'), serialNumber: 2 },
+    { id: '88000003-0000-4000-8000-000000000003', roomId: ID.ROOM_TEDX, content: 'Is there a livestream for those who can’t attend?', senderParticipantId: ID.PAR2, createdAt: new Date('2026-09-08T14:00:00.000Z'), serialNumber: 3 },
+    { id: '88000004-0000-4000-8000-000000000004', roomId: ID.ROOM_TEDX, content: 'Yes, we’ll share a livestream link closer to the date.', senderOrganizerId: org1.id, createdAt: new Date('2026-09-08T15:00:00.000Z'), serialNumber: 4 },
 
     // ── Job Fair ─────────────────────────────────────────────────────────────
     { id: '89000001-0000-4000-8000-000000000001', roomId: ID.ROOM_JOBFAIR, content: 'Bring printed copies of your resume — 40+ companies attending.', isAnnouncement: true, senderOrganizerId: org1.id, createdAt: new Date('2026-09-12T12:00:00.000Z'), serialNumber: 1 },
@@ -2449,9 +2449,9 @@ async function main() {
     { id: '89000003-0000-4000-8000-000000000003', roomId: ID.ROOM_JOBFAIR, content: 'Business casual is recommended.', senderOrganizerId: org1.id, createdAt: new Date('2026-09-12T14:00:00.000Z'), serialNumber: 3 },
 
     // ── Startup Pitch ────────────────────────────────────────────────────────
-    { id: '8a000001-0000-4000-8000-000000000001', roomId: ID.ROOM_STARTUPPITCH, content: 'Pitch decks are due by Nov 1st, 11:59pm.', isAnnouncement: true, senderOrganizerId: org3.id, createdAt: new Date('2026-10-10T12:00:00.000Z'), serialNumber: 1 },
-    { id: '8a000002-0000-4000-8000-000000000002', roomId: ID.ROOM_STARTUPPITCH, content: 'Team Nimbus is ready!', senderParticipantId: ID.PAR1, createdAt: new Date('2026-10-10T13:00:00.000Z'), serialNumber: 2 },
-    { id: '8a000003-0000-4000-8000-000000000003', roomId: ID.ROOM_STARTUPPITCH, content: 'Team GreenLoop here, excited to present.', senderParticipantId: ID.PAR3, createdAt: new Date('2026-10-10T14:00:00.000Z'), serialNumber: 3 },
+    { id: '8a000001-0000-4000-8000-000000000001', roomId: ID.ROOM_STARTUPPITCH, content: 'Pitch decks are due by Nov 1st, 11:59pm.', isAnnouncement: true, senderOrganizerId: org3.id, createdAt: new Date('2026-09-15T12:00:00.000Z'), serialNumber: 1 },
+    { id: '8a000002-0000-4000-8000-000000000002', roomId: ID.ROOM_STARTUPPITCH, content: 'Team Nimbus is ready!', senderParticipantId: ID.PAR1, createdAt: new Date('2026-09-15T13:00:00.000Z'), serialNumber: 2 },
+    { id: '8a000003-0000-4000-8000-000000000003', roomId: ID.ROOM_STARTUPPITCH, content: 'Team GreenLoop here, excited to present.', senderParticipantId: ID.PAR3, createdAt: new Date('2026-09-15T14:00:00.000Z'), serialNumber: 3 },
 
     // ── Ping River Clean-Up (CONCLUDED, past 72h grace — room is read-only) ────
     { id: '8b000001-0000-4000-8000-000000000001', roomId: ID.ROOM_CLEANUP, content: 'Thanks everyone for a great turnout today!', senderOrganizerId: org1.id, createdAt: new Date('2026-08-15T11:30:00.000Z'), serialNumber: 1 },
