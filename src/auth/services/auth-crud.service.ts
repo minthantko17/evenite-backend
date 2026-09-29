@@ -51,6 +51,25 @@ export class AuthCrudService {
     });
   }
 
+  async findUserVerificationStatusByEmail(
+    email: string,
+  ): Promise<{ id: string; isVerified: boolean } | null> {
+    return this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true, isVerified: true },
+    });
+  }
+
+  // Deletes a user only if still unverified. Guards against a race where
+  // the user verifies in the moment between the caller's check and this
+  // delete. Returns true if a row was actually deleted.
+  async deleteUnverifiedUser(id: string): Promise<boolean> {
+    const result = await this.prisma.user.deleteMany({
+      where: { id, isVerified: false },
+    });
+    return result.count > 0;
+  }
+
   // EMAIL VERIFICATION
   async findVerificationByToken(
     token: string,

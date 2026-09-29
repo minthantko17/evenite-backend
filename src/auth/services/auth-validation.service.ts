@@ -24,11 +24,18 @@ export class AuthValidationService {
     return university;
   }
 
-  async checkEmailNotTaken(email: string): Promise<void> {
-    const existingUser = await this.authCrudService.findUserByEmail(email);
-    if (existingUser) {
+  // Returns the existing user's id if there's an unverified duplicate we
+  // can reclaim; throws if the duplicate is already verified; returns
+  // null if the email is simply available.
+  async checkEmailAvailableOrReclaimable(
+    email: string,
+  ): Promise<{ id: string; isVerified: boolean } | null> {
+    const existingUser =
+      await this.authCrudService.findUserVerificationStatusByEmail(email);
+    if (existingUser?.isVerified) {
       throw new EmailAlreadyRegisteredException();
     }
+    return existingUser;
   }
 
   // Compares plain password against stored hash
