@@ -13,6 +13,10 @@ import {
 } from './services/attendance-crud.service';
 import { AttendanceValidationService } from './services/attendance-validation.service';
 import { ReturnAttendanceDto } from './dto/return-attendance.dto';
+import {
+  ReturnAttendanceListDto,
+  ReturnAttendanceListItemDto,
+} from './dto/return-attendance-list.dto';
 import { AlreadyCheckedInException } from './exceptions/already-checked-in.exception';
 import { SaveAttendanceException } from './exceptions/save-attendance.exception';
 
@@ -61,6 +65,52 @@ export class AttendanceService {
       organizerProfileId,
       CheckInMethod.MANUAL,
     );
+  }
+
+  async getAttendanceList(
+    eventId: string,
+    organizerProfileId: string,
+  ): Promise<ReturnAttendanceListDto> {
+    await this.eventValidationService.validateEventOwnership(
+      eventId,
+      organizerProfileId,
+    );
+    return this.attendanceCrudService.getAttendanceListByEvent(eventId);
+  }
+
+  // hard delete: removes the attendance record and makes the ticket usable again
+  async undoCheckIn(
+    eventId: string,
+    attendanceId: string,
+    organizerProfileId: string,
+  ): Promise<ReturnAttendanceListItemDto> {
+    await this.validateEventAccess(eventId, organizerProfileId);
+    const attendance = await this.attendanceCrudService.findAttendanceById(
+      eventId,
+      attendanceId,
+    );
+    await this.attendanceValidationService.validateNoFeedbackSubmitted(
+      attendance.ticket.eventRegistrationId,
+    );
+
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await this.attendanceCrudService.deleteAttendance(attendance.id, tx);
+        await this.attendanceCrudService.reactivateTicket(
+          attendance.ticketId,
+          tx,
+        );
+      });
+    } catch (error) {
+      this.logger.error('Failed to undo check-in', error);
+      throw new SaveAttendanceException();
+    }
+
+    return this.attendanceCrudService.mapToListItemDto({
+      ...attendance.ticket,
+      status: TicketStatus.ACTIVE,
+      attendance: null,
+    });
   }
 
   // organizer must own the event and the event must still accept check-ins

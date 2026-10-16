@@ -3,15 +3,22 @@ import {
   Attendance,
   CheckInMethod,
   Prisma,
+  RegistrationStatus,
   Ticket,
   TicketStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ParticipantSnapshotDto } from '../../registration/dto/return-registrant.dto';
 import { ReturnAttendanceDto } from '../dto/return-attendance.dto';
+import {
+  ReturnAttendanceListDto,
+  ReturnAttendanceListItemDto,
+} from '../dto/return-attendance-list.dto';
 import { AttendanceTicketNotFoundException } from '../exceptions/attendance-ticket-not-found.exception';
+import { AttendanceNotFoundException } from '../exceptions/attendance-not-found.exception';
 
 export type TicketWithAttendance = Ticket & { attendance: Attendance | null };
+export type AttendanceWithTicket = Attendance & { ticket: Ticket };
 
 @Injectable()
 export class AttendanceCrudService {
@@ -65,6 +72,43 @@ export class AttendanceCrudService {
     return ticket;
   }
 
+  // CONFIRMED registrations only: cancelled ones can't be checked in
+  async getAttendanceListByEvent(
+    eventId: string,
+  ): Promise<ReturnAttendanceListDto> {
+    const tickets = await this.prisma.ticket.findMany({
+      where: {
+        eventRegistration: { eventId, status: RegistrationStatus.CONFIRMED },
+      },
+      include: { attendance: true },
+      orderBy: { eventRegistration: { createdAt: 'asc' } },
+    });
+
+    const items = tickets.map((ticket) => this.mapToListItemDto(ticket));
+    return {
+      summary: {
+        registered: items.length,
+        checkedIn: items.filter((item) => item.attendance !== null).length,
+      },
+      items,
+    };
+  }
+
+  // attendance must belong to the event, otherwise it's reported as not found
+  async findAttendanceById(
+    eventId: string,
+    attendanceId: string,
+  ): Promise<AttendanceWithTicket> {
+    const attendance = await this.prisma.attendance.findFirst({
+      where: { id: attendanceId, eventId },
+      include: { ticket: true },
+    });
+    if (!attendance) {
+      throw new AttendanceNotFoundException();
+    }
+    return attendance;
+  }
+
   // NOTE: only flips ACTIVE -> USED, so of two concurrent check-ins on the
   // same ticket exactly one gets `true`. Call inside a transaction together
   // with createAttendance.
@@ -94,6 +138,40 @@ export class AttendanceCrudService {
         method,
       },
     });
+  }
+
+  async deleteAttendance(
+    attendanceId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<void> {
+    await this.getClient(tx).attendance.delete({ where: { id: attendanceId } });
+  }
+
+  // only flips USED -> ACTIVE (undo of markTicketUsed)
+  async reactivateTicket(
+    ticketId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<void> {
+    await this.getClient(tx).ticket.updateMany({
+      where: { id: ticketId, status: TicketStatus.USED },
+      data: { status: TicketStatus.ACTIVE },
+    });
+  }
+
+  mapToListItemDto(ticket: TicketWithAttendance): ReturnAttendanceListItemDto {
+    return {
+      registrationId: ticket.eventRegistrationId,
+      ticket: { id: ticket.id, status: ticket.status },
+      participantSnapshot:
+        ticket.participantSnapshot as unknown as ParticipantSnapshotDto,
+      attendance: ticket.attendance
+        ? {
+            id: ticket.attendance.id,
+            method: ticket.attendance.method,
+            checkedInAt: ticket.attendance.checkedInAt,
+          }
+        : null,
+    };
   }
 
   mapToReturnAttendanceDto(

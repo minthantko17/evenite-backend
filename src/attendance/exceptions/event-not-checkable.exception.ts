@@ -6,7 +6,7 @@ export class EventNotCheckableException extends UnprocessableEntityException {
     super({
       statusCode: 422,
       error: 'Unprocessable Entity',
-      message: 'Check-in is not available for concluded or cancelled events.',
+      message: 'Check-in is closed for concluded or cancelled events.',
       errorCode: AttendanceErrorCode.EVENT_NOT_CHECKABLE,
     });
   }
