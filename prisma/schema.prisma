@@ -26,7 +26,12 @@ enum TicketStatus {
   ACTIVE
   CANCELLED
   EXPIRED
-  // USED     // for Feature #6
+  USED
+}
+
+enum CheckInMethod {
+  QR_SCAN
+  MANUAL
 }
 
 enum EventStatus {
@@ -121,6 +126,7 @@ model OrganizerProfile {
   events Event[]
   sentMessages      Message[]
   roomReadStatuses  RoomReadStatus[]
+  checkedInAttendances Attendance[]
 }
 
 model EmailVerification {
@@ -166,6 +172,7 @@ model Event {
   university University       @relation(fields: [universityId], references: [id])
   forms      Form[]
   eventRegistrations EventRegistration[]
+  attendances        Attendance[]
   discussionRoom      DiscussionRoom?
 }
 
@@ -194,7 +201,22 @@ model Ticket {
   issuedAt            DateTime     @default(now())
 
   eventRegistration EventRegistration @relation(fields: [eventRegistrationId], references: [id], onDelete: Cascade)
-  // attendance Attendance?   // for Feature #6
+  attendance Attendance?
+}
+
+model Attendance {
+  id            String        @id @default(uuid())
+  ticketId      String        @unique
+  eventId       String
+  checkedInById String
+  method        CheckInMethod
+  checkedInAt   DateTime      @default(now())
+
+  ticket      Ticket           @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  event       Event            @relation(fields: [eventId], references: [id])
+  checkedInBy OrganizerProfile @relation(fields: [checkedInById], references: [id])
+
+  @@index([eventId, checkedInAt])
 }
 
 model Form {
