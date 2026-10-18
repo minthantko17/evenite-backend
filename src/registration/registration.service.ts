@@ -165,6 +165,9 @@ export class RegistrationService {
 
     // checks: registration status, event status, event startAt
     this.registrationValidationService.validateCancellable(registration, event);
+    await this.registrationValidationService.validateNotCheckedIn(
+      registration.id,
+    );
 
     let updatedRegistration: EventRegistration;
     let updatedTicket: Ticket;

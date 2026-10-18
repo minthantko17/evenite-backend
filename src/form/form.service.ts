@@ -130,6 +130,10 @@ export class FormService {
         participantProfileId,
       );
 
+    await this.formValidationService.validateParticipantAttended(
+      registration.registrationId,
+    );
+
     return this.formCrudService.createFormResponse(
       form.id,
       dto,
