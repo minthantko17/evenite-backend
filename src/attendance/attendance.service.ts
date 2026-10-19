@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   Attendance,
   CheckInMethod,
@@ -19,6 +20,10 @@ import {
 } from './dto/return-attendance-list.dto';
 import { AlreadyCheckedInException } from './exceptions/already-checked-in.exception';
 import { SaveAttendanceException } from './exceptions/save-attendance.exception';
+import type {
+  AttendanceCheckedInPayload,
+  AttendanceUndonePayload,
+} from './events/attendance.events';
 
 @Injectable()
 export class AttendanceService {
@@ -29,6 +34,7 @@ export class AttendanceService {
     private readonly attendanceCrudService: AttendanceCrudService,
     private readonly attendanceValidationService: AttendanceValidationService,
     private readonly eventValidationService: EventValidationService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async checkInByQrToken(
@@ -106,6 +112,14 @@ export class AttendanceService {
       throw new SaveAttendanceException();
     }
 
+    await this.emitUndone(
+      eventId,
+      organizerProfileId,
+      attendance.ticket.eventRegistration.participantId,
+      attendance.ticket.eventRegistrationId,
+      attendance.ticketId,
+    );
+
     return this.attendanceCrudService.mapToListItemDto({
       ...attendance.ticket,
       status: TicketStatus.ACTIVE,
@@ -168,10 +182,64 @@ export class AttendanceService {
       throw new SaveAttendanceException();
     }
 
-    return this.attendanceCrudService.mapToReturnAttendanceDto(attendance, {
-      ...ticket,
-      status: TicketStatus.USED,
-    });
+    const result = this.attendanceCrudService.mapToReturnAttendanceDto(
+      attendance,
+      { ...ticket, status: TicketStatus.USED },
+    );
+    await this.emitCheckedIn(
+      eventId,
+      organizerProfileId,
+      ticket.eventRegistration.participantId,
+      result,
+    );
+    return result;
+  }
+
+  // realtime is best-effort: a failure here must never fail the check-in
+  private async emitCheckedIn(
+    eventId: string,
+    organizerProfileId: string,
+    participantProfileId: string,
+    attendance: ReturnAttendanceDto,
+  ): Promise<void> {
+    try {
+      const counts =
+        await this.attendanceCrudService.getAttendanceSummary(eventId);
+      const payload: AttendanceCheckedInPayload = {
+        eventId,
+        organizerProfileId,
+        participantProfileId,
+        attendance,
+        counts,
+      };
+      this.eventEmitter.emit('attendance.checked-in', payload);
+    } catch (error) {
+      this.logger.warn('Failed to emit attendance.checked-in', error);
+    }
+  }
+
+  private async emitUndone(
+    eventId: string,
+    organizerProfileId: string,
+    participantProfileId: string,
+    registrationId: string,
+    ticketId: string,
+  ): Promise<void> {
+    try {
+      const counts =
+        await this.attendanceCrudService.getAttendanceSummary(eventId);
+      const payload: AttendanceUndonePayload = {
+        eventId,
+        organizerProfileId,
+        participantProfileId,
+        registrationId,
+        ticketId,
+        counts,
+      };
+      this.eventEmitter.emit('attendance.undone', payload);
+    } catch (error) {
+      this.logger.warn('Failed to emit attendance.undone', error);
+    }
   }
 
   // USED -> 409 with the original attendance, CANCELLED/EXPIRED -> 422

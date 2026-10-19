@@ -12,6 +12,7 @@ import { RegistrationModule } from './registration/registration.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { DiscussionModule } from './discussion/discussion.module';
 import { AttendanceModule } from './attendance/attendance.module';
+import { LiveModule } from './live/live.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { AttendanceModule } from './attendance/attendance.module';
     RegistrationModule,
     DiscussionModule,
     AttendanceModule,
+    LiveModule,
   ],
   controllers: [AppController],
   providers: [AppService],

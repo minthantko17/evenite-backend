@@ -13,12 +13,25 @@ import { ReturnAttendanceDto } from '../dto/return-attendance.dto';
 import {
   ReturnAttendanceListDto,
   ReturnAttendanceListItemDto,
+  ReturnAttendanceSummaryDto,
 } from '../dto/return-attendance-list.dto';
 import { AttendanceTicketNotFoundException } from '../exceptions/attendance-ticket-not-found.exception';
 import { AttendanceNotFoundException } from '../exceptions/attendance-not-found.exception';
 
-export type TicketWithAttendance = Ticket & { attendance: Attendance | null };
-export type AttendanceWithTicket = Attendance & { ticket: Ticket };
+// participantId is needed to notify the participant's own socket channel
+export type TicketWithRegistration = Ticket & {
+  eventRegistration: { participantId: string };
+};
+export type TicketWithAttendance = TicketWithRegistration & {
+  attendance: Attendance | null;
+};
+export type AttendanceWithTicket = Attendance & {
+  ticket: TicketWithRegistration;
+};
+
+const REGISTRATION_PARTICIPANT = {
+  eventRegistration: { select: { participantId: true } },
+} as const;
 
 @Injectable()
 export class AttendanceCrudService {
@@ -36,7 +49,7 @@ export class AttendanceCrudService {
   ): Promise<TicketWithAttendance> {
     const ticket = await this.prisma.ticket.findFirst({
       where: { qrToken, eventRegistration: { eventId } },
-      include: { attendance: true },
+      include: { attendance: true, ...REGISTRATION_PARTICIPANT },
     });
     if (!ticket) {
       throw new AttendanceTicketNotFoundException();
@@ -53,7 +66,7 @@ export class AttendanceCrudService {
         eventRegistrationId: registrationId,
         eventRegistration: { eventId },
       },
-      include: { attendance: true },
+      include: { attendance: true, ...REGISTRATION_PARTICIPANT },
     });
     if (!ticket) {
       throw new AttendanceTicketNotFoundException();
@@ -64,7 +77,7 @@ export class AttendanceCrudService {
   async findTicketById(ticketId: string): Promise<TicketWithAttendance> {
     const ticket = await this.prisma.ticket.findUnique({
       where: { id: ticketId },
-      include: { attendance: true },
+      include: { attendance: true, ...REGISTRATION_PARTICIPANT },
     });
     if (!ticket) {
       throw new AttendanceTicketNotFoundException();
@@ -80,7 +93,7 @@ export class AttendanceCrudService {
       where: {
         eventRegistration: { eventId, status: RegistrationStatus.CONFIRMED },
       },
-      include: { attendance: true },
+      include: { attendance: true, ...REGISTRATION_PARTICIPANT },
       orderBy: { eventRegistration: { createdAt: 'asc' } },
     });
 
@@ -94,6 +107,21 @@ export class AttendanceCrudService {
     };
   }
 
+  // live counts for dashboards and socket payloads
+  async getAttendanceSummary(
+    eventId: string,
+  ): Promise<ReturnAttendanceSummaryDto> {
+    const [registered, checkedIn] = await Promise.all([
+      this.prisma.ticket.count({
+        where: {
+          eventRegistration: { eventId, status: RegistrationStatus.CONFIRMED },
+        },
+      }),
+      this.prisma.attendance.count({ where: { eventId } }),
+    ]);
+    return { registered, checkedIn };
+  }
+
   // attendance must belong to the event, otherwise it's reported as not found
   async findAttendanceById(
     eventId: string,
@@ -101,7 +129,7 @@ export class AttendanceCrudService {
   ): Promise<AttendanceWithTicket> {
     const attendance = await this.prisma.attendance.findFirst({
       where: { id: attendanceId, eventId },
-      include: { ticket: true },
+      include: { ticket: { include: REGISTRATION_PARTICIPANT } },
     });
     if (!attendance) {
       throw new AttendanceNotFoundException();

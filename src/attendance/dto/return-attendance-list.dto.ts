@@ -1,4 +1,4 @@
-import { CheckInMethod, TicketStatus } from '@prisma/client';
+import { CheckInMethod } from '@prisma/client';
 import { ParticipantSnapshotDto } from '../../registration/dto/return-registrant.dto';
 import { ReturnAttendanceTicketDto } from './return-attendance.dto';
 
