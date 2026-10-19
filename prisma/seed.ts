@@ -6,6 +6,7 @@ import {
   Role,
   RegistrationStatus,
   TicketStatus,
+  CheckInMethod,
 } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
@@ -48,10 +49,10 @@ const ID = {
   EVT_HALLOWEEN:   'e0000001-0000-4000-8000-000000000001', // PUBLISHED, limit 100, 3 regs
   EVT_NEW_YEAR:    'e0000002-0000-4000-8000-000000000002', // PUBLISHED, limit 5, FULL (5 regs)
   EVT_SUKHOTHAI:   'e0000003-0000-4000-8000-000000000003', // PUBLISHED, limit 10, 1 conf + 1 cancel
-  EVT_EXCHANGE:    'e0000004-0000-4000-8000-000000000004', // ONGOING, limit 3, FULL (3 regs)
-  EVT_BOOTCAMP:    'e0000005-0000-4000-8000-000000000005', // ONGOING, limit 25, 2 regs
-  EVT_HACKATHON:   'e0000006-0000-4000-8000-000000000006', // CONCLUDED, limit 60, 2 regs (tickets EXPIRED)
-  EVT_SPORTS:      'e0000007-0000-4000-8000-000000000007', // CONCLUDED, no limit, 2 regs (tickets EXPIRED)
+  EVT_EXCHANGE:    'e0000004-0000-4000-8000-000000000004', // ONGOING, limit 3, FULL (3 regs, 2 checked in)
+  EVT_BOOTCAMP:    'e0000005-0000-4000-8000-000000000005', // ONGOING, limit 25, 2 regs (1 checked in)
+  EVT_HACKATHON:   'e0000006-0000-4000-8000-000000000006', // CONCLUDED, limit 60, 3 regs (2 attended, 1 no-show)
+  EVT_SPORTS:      'e0000007-0000-4000-8000-000000000007', // CONCLUDED, no limit, 2 regs (1 attended, 1 no-show)
   EVT_ORIENTATION: 'e0000008-0000-4000-8000-000000000008', // CONCLUDED, limit 200, no regs
   EVT_AI_SEMINAR:  'e0000009-0000-4000-8000-000000000009', // ONGOING, limit 50, no form (useful for FormNotFoundException test)
   EVT_NO_FORM:     'e0000010-0000-4000-8000-000000000010', // PUBLISHED, no limit, no form
@@ -67,14 +68,14 @@ const ID = {
   EVT_STARTUPPITCH:  'e0000019-0000-4000-8000-000000000019', // PUBLISHED, limit 60, 2 regs
   EVT_FOOTBALL:      'e0000020-0000-4000-8000-000000000020', // ONGOING, no limit, no form
   EVT_PHOTOEXHIBIT:  'e0000021-0000-4000-8000-000000000021', // PUBLISHED, no limit, no form
-  EVT_CLEANUP:       'e0000022-0000-4000-8000-000000000022', // CONCLUDED, limit 80, 2 regs (tickets EXPIRED, read-only)
+  EVT_CLEANUP:       'e0000022-0000-4000-8000-000000000022', // CONCLUDED, limit 80, 2 regs (both attended, read-only)
   EVT_MENTALHEALTH:  'e0000023-0000-4000-8000-000000000023', // PUBLISHED, limit 40, no regs yet
   EVT_OPENHOUSE:     'e0000024-0000-4000-8000-000000000024', // DRAFT, no form
   EVT_DATASCIENCE:   'e0000025-0000-4000-8000-000000000025', // ONGOING, limit 30, 2 regs
   EVT_CHESS:         'e0000026-0000-4000-8000-000000000026', // PUBLISHED, limit 32, no regs yet
   EVT_FOODFEST:      'e0000027-0000-4000-8000-000000000027', // PUBLISHED, no limit, no form
   EVT_ROBOTICS:      'e0000028-0000-4000-8000-000000000028', // CONCLUDED, limit 100, no form
-  EVT_FRESHMENCAMP:  'e0000029-0000-4000-8000-000000000029', // CONCLUDED, limit 300, 3 regs (tickets EXPIRED, read-only)
+  EVT_FRESHMENCAMP:  'e0000029-0000-4000-8000-000000000029', // CONCLUDED, limit 300, 3 regs (2 attended, 1 no-show, read-only)
   EVT_CHOIR:         'e0000030-0000-4000-8000-000000000030', // DRAFT, no form
   EVT_LIBRARY:       'e0000031-0000-4000-8000-000000000031', // PUBLISHED, limit 25, no regs yet
   EVT_PRIDEWEEK:     'e0000032-0000-4000-8000-000000000032', // PUBLISHED, no limit, no form
@@ -423,6 +424,7 @@ async function createFullRegistration({
   participant,
   registrationStatus,
   ticketStatus,
+  attendance,
   extraAnswers = {},
   createdAt,
 }: {
@@ -436,9 +438,17 @@ async function createFullRegistration({
   participant: (typeof PARTICIPANT_DATA)[keyof typeof PARTICIPANT_DATA];
   registrationStatus: RegistrationStatus;
   ticketStatus: TicketStatus;
+  attendance?: { method: CheckInMethod; checkedInAt: Date };
   extraAnswers?: Record<string, string | number | string[]>;
   createdAt?: Date;
 }) {
+  // a ticket is USED exactly when the participant was checked in
+  if ((ticketStatus === TicketStatus.USED) !== (attendance !== undefined)) {
+    throw new Error(
+      `Seed inconsistency: registration ${registrationId} must have attendance if and only if its ticket is USED`,
+    );
+  }
+
   // build answers map
   const answersMap: Record<string, string | number | string[] | null> = {};
   for (const field of formFields) {
@@ -503,6 +513,27 @@ async function createFullRegistration({
       participantSnapshot: snapshot,
     },
   });
+
+  // 5. create Attendance (checked in by the event's organizer); remove a stale one when re-seeding
+  if (attendance) {
+    const event = await prisma.event.findUniqueOrThrow({
+      where: { id: eventId },
+      select: { organizerId: true },
+    });
+    await prisma.attendance.upsert({
+      where: { ticketId },
+      update: { method: attendance.method, checkedInAt: attendance.checkedInAt },
+      create: {
+        ticketId,
+        eventId,
+        checkedInById: event.organizerId,
+        method: attendance.method,
+        checkedInAt: attendance.checkedInAt,
+      },
+    });
+  } else {
+    await prisma.attendance.deleteMany({ where: { ticketId } });
+  }
 
   return registration;
 }
@@ -866,7 +897,7 @@ async function main() {
 
   await prisma.event.upsert({
     where: { id: ID.EVT_HACKATHON },
-    update: { seatsTaken: 2 },
+    update: { seatsTaken: 3 },
     create: {
       ...eventBase,
       id: ID.EVT_HACKATHON,
@@ -879,7 +910,7 @@ async function main() {
       startAt: new Date('2026-05-20T09:00:00.000Z'),
       endAt: new Date('2026-05-22T17:00:00.000Z'),
       seatLimit: 60,
-      seatsTaken: 2, // par1, par2 — tickets EXPIRED (concluded)
+      seatsTaken: 3, // par1, par2 attended; par3 no-show (ticket EXPIRED)
       status: EventStatus.CONCLUDED,
       hasCatering: true,
       isCateringFree: true,
@@ -1911,6 +1942,7 @@ async function main() {
     formFields: { id: string; autoFillKey: string | null; type: FieldType; options: string[] }[];
     registrationStatus: RegistrationStatus;
     ticketStatus: TicketStatus;
+    attendance?: { method: CheckInMethod; checkedInAt: Date };
     extraAnswers?: Record<string, string | number | string[]>;
     createdAt?: Date;
   };
@@ -2029,7 +2061,8 @@ async function main() {
       formResponseId: 'c4000001-0000-4000-8000-000000000001',
       participantKey: 'PAR1', eventId: ID.EVT_EXCHANGE, formId: ID.FORM_EXCHANGE_REG,
       formFields: exchangeFields,
-      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
+      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.USED,
+      attendance: { method: CheckInMethod.QR_SCAN, checkedInAt: new Date('2026-09-01T09:12:00.000Z') },
       extraAnswers: { [ID.FLD_EX_GPA]: 3.8 },
       createdAt: new Date('2026-08-05T10:00:00.000Z'),
     },
@@ -2039,7 +2072,8 @@ async function main() {
       formResponseId: 'c4000002-0000-4000-8000-000000000002',
       participantKey: 'PAR2', eventId: ID.EVT_EXCHANGE, formId: ID.FORM_EXCHANGE_REG,
       formFields: exchangeFields,
-      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
+      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.USED,
+      attendance: { method: CheckInMethod.MANUAL, checkedInAt: new Date('2026-09-01T09:40:00.000Z') },
       extraAnswers: { [ID.FLD_EX_GPA]: 3.5 },
       createdAt: new Date('2026-08-06T10:00:00.000Z'),
     },
@@ -2061,7 +2095,8 @@ async function main() {
       formResponseId: 'c5000001-0000-4000-8000-000000000001',
       participantKey: 'PAR1', eventId: ID.EVT_BOOTCAMP, formId: ID.FORM_BOOTCAMP_REG,
       formFields: bootcampFields,
-      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
+      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.USED,
+      attendance: { method: CheckInMethod.QR_SCAN, checkedInAt: new Date('2026-08-01T09:05:00.000Z') },
       extraAnswers: { [ID.FLD_BC_EXPERIENCE]: ['Intermediate'] },
       createdAt: new Date('2026-07-10T10:00:00.000Z'),
     },
@@ -2076,14 +2111,15 @@ async function main() {
       createdAt: new Date('2026-07-11T10:00:00.000Z'),
     },
 
-    // ── Hackathon — par1, par2 CONFIRMED, tickets EXPIRED (concluded event) ─
+    // ── Hackathon — par1, par2 attended (USED); par3 no-show (EXPIRED) ─
     {
       registrationId: 'a6000001-0000-4000-8000-000000000001',
       ticketId:       'b6000001-0000-4000-8000-000000000001',
       formResponseId: 'c6000001-0000-4000-8000-000000000001',
       participantKey: 'PAR1', eventId: ID.EVT_HACKATHON, formId: ID.FORM_HACKATHON_REG,
       formFields: hackathonRegFields,
-      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.EXPIRED,
+      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.USED,
+      attendance: { method: CheckInMethod.QR_SCAN, checkedInAt: new Date('2026-05-20T08:48:00.000Z') },
       extraAnswers: { [ID.FLD_HK_TEAMNAME]: 'Team Alpha' },
       createdAt: new Date('2026-04-25T10:00:00.000Z'),
     },
@@ -2093,19 +2129,32 @@ async function main() {
       formResponseId: 'c6000002-0000-4000-8000-000000000002',
       participantKey: 'PAR2', eventId: ID.EVT_HACKATHON, formId: ID.FORM_HACKATHON_REG,
       formFields: hackathonRegFields,
-      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.EXPIRED,
+      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.USED,
+      attendance: { method: CheckInMethod.QR_SCAN, checkedInAt: new Date('2026-05-20T09:07:00.000Z') },
       extraAnswers: { [ID.FLD_HK_TEAMNAME]: 'Team Beta' },
       createdAt: new Date('2026-04-26T10:00:00.000Z'),
     },
 
-    // ── Sports Day — par2, par4 CONFIRMED, tickets EXPIRED (concluded, unlimited) ─
+    {
+      registrationId: 'a6000003-0000-4000-8000-000000000003',
+      ticketId:       'b6000003-0000-4000-8000-000000000003',
+      formResponseId: 'c6000003-0000-4000-8000-000000000003',
+      participantKey: 'PAR3', eventId: ID.EVT_HACKATHON, formId: ID.FORM_HACKATHON_REG,
+      formFields: hackathonRegFields,
+      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.EXPIRED, // no-show
+      extraAnswers: { [ID.FLD_HK_TEAMNAME]: 'Team Gamma' },
+      createdAt: new Date('2026-04-27T10:00:00.000Z'),
+    },
+
+    // ── Sports Day — par2 attended (USED); par4 no-show (EXPIRED) ─
     {
       registrationId: 'a7000001-0000-4000-8000-000000000001',
       ticketId:       'b7000001-0000-4000-8000-000000000001',
       formResponseId: 'c7000001-0000-4000-8000-000000000001',
       participantKey: 'PAR2', eventId: ID.EVT_SPORTS, formId: ID.FORM_SPORTS_REG,
       formFields: sportsFields,
-      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.EXPIRED,
+      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.USED,
+      attendance: { method: CheckInMethod.QR_SCAN, checkedInAt: new Date('2026-04-10T08:15:00.000Z') },
       extraAnswers: { [ID.FLD_SP_SPORT]: ['Football'] },
       createdAt: new Date('2026-03-20T10:00:00.000Z'),
     },
@@ -2193,7 +2242,8 @@ async function main() {
       formResponseId: 'cb000001-0000-4000-8000-000000000001',
       participantKey: 'PAR2', eventId: ID.EVT_CLEANUP, formId: ID.FORM_CLEANUP_REG,
       formFields: cleanupFields,
-      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.EXPIRED,
+      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.USED,
+      attendance: { method: CheckInMethod.QR_SCAN, checkedInAt: new Date('2026-08-15T06:52:00.000Z') },
       extraAnswers: { [ID.FLD_CU_TSHIRT]: ['M'] },
       createdAt: new Date('2026-08-01T10:00:00.000Z'),
     },
@@ -2203,7 +2253,8 @@ async function main() {
       formResponseId: 'cb000002-0000-4000-8000-000000000002',
       participantKey: 'PAR4', eventId: ID.EVT_CLEANUP, formId: ID.FORM_CLEANUP_REG,
       formFields: cleanupFields,
-      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.EXPIRED,
+      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.USED,
+      attendance: { method: CheckInMethod.MANUAL, checkedInAt: new Date('2026-08-15T07:20:00.000Z') },
       extraAnswers: { [ID.FLD_CU_TSHIRT]: ['L'] },
       createdAt: new Date('2026-08-02T10:00:00.000Z'),
     },
@@ -2237,7 +2288,8 @@ async function main() {
       formResponseId: 'cd000001-0000-4000-8000-000000000001',
       participantKey: 'PAR1', eventId: ID.EVT_FRESHMENCAMP, formId: ID.FORM_FRESHMENCAMP_REG,
       formFields: freshmencampFields,
-      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.EXPIRED,
+      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.USED,
+      attendance: { method: CheckInMethod.QR_SCAN, checkedInAt: new Date('2026-06-01T07:55:00.000Z') },
       extraAnswers: { [ID.FLD_FC_FACULTY]: 'CAMT' },
       createdAt: new Date('2026-05-15T10:00:00.000Z'),
     },
@@ -2247,7 +2299,8 @@ async function main() {
       formResponseId: 'cd000002-0000-4000-8000-000000000002',
       participantKey: 'PAR2', eventId: ID.EVT_FRESHMENCAMP, formId: ID.FORM_FRESHMENCAMP_REG,
       formFields: freshmencampFields,
-      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.EXPIRED,
+      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.USED,
+      attendance: { method: CheckInMethod.QR_SCAN, checkedInAt: new Date('2026-06-01T08:10:00.000Z') },
       extraAnswers: { [ID.FLD_FC_FACULTY]: 'CAMT' },
       createdAt: new Date('2026-05-16T10:00:00.000Z'),
     },
@@ -2276,7 +2329,7 @@ async function main() {
   console.log(`✓ Registrations + Form Responses + Tickets (${regCount} registrations)`);
 
   // ── Feedback Responses ───────────────────────────────────────────────────────
-  // Only for concluded events where participant was CONFIRMED
+  // Only for participants who attended (checked in) an ONGOING/CONCLUDED event — the API requires it
 
   type FeedbackConfig = {
     formResponseId: string;
@@ -2309,24 +2362,27 @@ async function main() {
         [ID.FLD_HKFB_COMMENT]: 'Well organized. Would join again.',
       },
     },
-    // New Year feedback — par1 only (par2-par5 have NOT submitted — useful for testing)
-    {
-      formResponseId: 'fb000003-0000-4000-8000-000000000003',
-      registrationId: 'a2000001-0000-4000-8000-000000000001',
-      formId: ID.FORM_NEW_YEAR_FB,
-      formFields: newYearFbFields,
-      answers: {
-        [ID.FLD_NYFB_OVERALL]: 5,
-        [ID.FLD_NYFB_ORG]: 4,
-        [ID.FLD_NYFB_COMMENT]: 'Had a great time!',
-      },
-    },
   ];
 
+  // an earlier version of this seed had New Year feedback, but New Year is still PUBLISHED (feedback not allowed yet)
+  await prisma.formResponse.deleteMany({
+    where: { id: 'fb000003-0000-4000-8000-000000000003' },
+  });
+
   for (const config of feedbackConfigs) {
+    const attended = await prisma.attendance.findFirst({
+      where: { ticket: { eventRegistrationId: config.registrationId } },
+      select: { id: true },
+    });
+    if (!attended) {
+      throw new Error(
+        `Seed inconsistency: feedback for registration ${config.registrationId} but the participant never checked in`,
+      );
+    }
     await createFeedbackResponse(config);
   }
   console.log(`✓ Feedback responses (${feedbackConfigs.length} responses)`);
+  console.log(`✓ Attendance records (${await prisma.attendance.count()})`);
 
   // ── Discussion Rooms ─────────────────────────────────────────────────────────
   // Every event gets a discussion room (1:1), regardless of status.
@@ -2617,20 +2673,22 @@ async function main() {
   console.log('     Halloween:      par1✓ par2✓ par3✓         (3 CONFIRMED, tickets ACTIVE)');
   console.log('     New Year:       par1✓ par2✓ par3✓ par4✓ par5✓  (5 CONFIRMED, FULL, tickets ACTIVE)');
   console.log('     Sukhothai:      par1✓ par2✗               (1 CONFIRMED, 1 CANCELLED)');
-  console.log('     Exchange:       par1✓ par2✓ par3✓         (3 CONFIRMED, FULL, tickets ACTIVE)');
-  console.log('     Bootcamp:       par1✓ par3✓               (2 CONFIRMED, tickets ACTIVE)');
-  console.log('     Hackathon:      par1✓ par2✓               (2 CONFIRMED, tickets EXPIRED)');
-  console.log('     Sports:         par2✓ par4✓               (2 CONFIRMED, tickets EXPIRED, unlimited)');
+  console.log('     Exchange:       par1✓ par2✓ par3✓         (3 CONFIRMED, FULL; par1 QR + par2 manual checked in, par3 ACTIVE)');
+  console.log('     Bootcamp:       par1✓ par3✓               (2 CONFIRMED; par1 checked in, par3 ACTIVE)');
+  console.log('     Hackathon:      par1✓ par2✓ par3✓         (3 CONFIRMED; par1, par2 attended (USED), par3 no-show (EXPIRED))');
+  console.log('     Sports:         par2✓ par4✓               (2 CONFIRMED, unlimited; par2 attended, par4 no-show)');
   console.log('     TEDx:           par1✓ par2✓               (2 CONFIRMED, tickets ACTIVE)');
   console.log('     Job Fair:       par3✓ par4✓               (2 CONFIRMED, tickets ACTIVE)');
   console.log('     Startup Pitch:  par1✓ par3✓               (2 CONFIRMED, tickets ACTIVE)');
-  console.log('     Clean-Up Day:   par2✓ par4✓               (2 CONFIRMED, tickets EXPIRED)');
-  console.log('     Data Science:   par1✓ par5✓               (2 CONFIRMED, tickets ACTIVE)');
-  console.log('     Freshmen Camp:  par1✓ par2✓ par3✓         (3 CONFIRMED, tickets EXPIRED)');
+  console.log('     Clean-Up Day:   par2✓ par4✓               (2 CONFIRMED; par2 QR + par4 manual, both attended)');
+  console.log('     Data Science:   par1✓ par5✓               (2 CONFIRMED, tickets ACTIVE, nobody checked in yet)');
+  console.log('     Freshmen Camp:  par1✓ par2✓ par3✓         (3 CONFIRMED; par1, par2 attended, par3 no-show)');
   console.log('');
-  console.log('  Feedback responses: 3');
-  console.log('     Hackathon: par1(5★), par2(4★)');
-  console.log('     New Year:  par1(5★) only — par2-5 not submitted yet');
+  console.log('  Attendance: 10 check-ins (8 QR_SCAN, 2 MANUAL), checked in by each event\'s organizer');
+  console.log('     A ticket is USED exactly when an Attendance row exists; no-shows keep EXPIRED tickets');
+  console.log('');
+  console.log('  Feedback responses: 2 (only attendees can submit — New Year is still PUBLISHED)');
+  console.log('     Hackathon: par1(5★), par2(4★) — par3 no-show, cannot submit');
   console.log('');
   console.log('  34 discussion rooms (one per event)');
   console.log('     With messages: Halloween, New Year, Sukhothai, Exchange, Bootcamp, Hackathon*, Sports*,');
@@ -2645,8 +2703,14 @@ async function main() {
   console.log('     AlreadyRegistered:      try registering par1 for Halloween again');
   console.log('     FormNotFoundException:  try registering for AI Seminar or No Form Event');
   console.log('     CancelledTicket:        par2 Sukhothai ticket');
-  console.log('     ExpiredTickets:         Hackathon, Sports Day, Clean-Up Day, Freshmen Camp tickets');
-  console.log('     FeedbackAlreadyExists:  par1 submitting New Year feedback again');
+  console.log('     ExpiredTickets:         no-shows — Hackathon par3, Sports Day par4, Freshmen Camp par3');
+  console.log('     UsedTickets:            Exchange par1/par2, Bootcamp par1, and attendees of concluded events');
+  console.log('     AlreadyCheckedIn:       organizer2 scanning Exchange par1 again (409 ALREADY_CHECKED_IN)');
+  console.log('     CheckInAvailable:       Exchange par3 or Bootcamp par3 (ACTIVE tickets, event ONGOING)');
+  console.log('     UndoCheckIn:            Exchange par1/par2, Bootcamp par1 (organizer2) — no feedback form involved');
+  console.log('     EventNotCheckable:      any check-in on a CONCLUDED event (Hackathon etc.)');
+  console.log('     FeedbackAlreadyExists:  par1 submitting Hackathon feedback again');
+  console.log('     FeedbackRequiresAttend: par3 submitting Hackathon feedback (registered but no-show)');
   console.log('     NotRegistered(feedback):par4 trying to submit Hackathon feedback');
   console.log('     ReadOnlyRoom:           Hackathon, Sports Day, Clean-Up Day, or Freshmen Camp room');
   console.log('─────────────────────────────────────────────────────────────────');
