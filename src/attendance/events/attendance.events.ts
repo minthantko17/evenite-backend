@@ -3,7 +3,7 @@ import { ReturnAttendanceSummaryDto } from '../dto/return-attendance-list.dto';
 
 // payloads of the internal EventEmitter2 events 'attendance.checked-in' and
 // 'attendance.undone', emitted after the DB transaction commits.
-// The live gateway turns them into socket messages.
+// The realtime gateway turns them into socket messages.
 
 export interface AttendanceCheckedInPayload {
   eventId: string;

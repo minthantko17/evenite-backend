@@ -23,9 +23,11 @@ import type {
 // General per-user push channel (attendance now; notifications and live
 // analytics later). Clients only connect; they receive messages on their
 // personal channel, so no room-join protocol is needed.
-@WebSocketGateway({ namespace: 'live', cors: socketCorsOptions })
-export class LiveGateway implements OnGatewayConnection, OnGatewayDisconnect {
-  private readonly logger = new Logger(LiveGateway.name);
+@WebSocketGateway({ namespace: 'realtime', cors: socketCorsOptions })
+export class RealtimeGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
+  private readonly logger = new Logger(RealtimeGateway.name);
 
   @WebSocketServer()
   server!: Server;
@@ -52,11 +54,11 @@ export class LiveGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
 
       this.logger.log(
-        `Live socket connected: ${client.id}, user: ${payload.sub}`,
+        `Realtime socket connected: ${client.id}, user: ${payload.sub}`,
       );
     } catch {
       this.logger.warn(
-        `Rejected unauthenticated live socket connection: ${client.id}`,
+        `Rejected unauthenticated realtime socket connection: ${client.id}`,
       );
       client.emit('error', { message: 'Unauthorized' });
       client.disconnect();
@@ -64,7 +66,7 @@ export class LiveGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   handleDisconnect(client: Socket): void {
-    this.logger.log(`Live socket disconnected: ${client.id}`);
+    this.logger.log(`Realtime socket disconnected: ${client.id}`);
   }
 
   // Attendance
