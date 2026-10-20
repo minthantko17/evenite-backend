@@ -17,14 +17,14 @@ export class AnalyticsTimelinePointDto {
   bucketStart!: Date;
   count!: number;
   // running total of the whole event up to and including this bucket
-  // (includes activity from before windowStart)
+  // (includes activity from before timelineStart)
   cumulative!: number;
 }
 
 export class AnalyticsTimelineDto {
   bucket!: AnalyticsBucket;
-  windowStart!: Date; // start of the first bucket
-  windowEnd!: Date; // min(now, event end), exclusive; the last bucket may be partial
+  timelineStart!: Date; // start of the first bucket
+  timelineEnd!: Date; // min(now, event end), exclusive; the last bucket may be partial
   points!: AnalyticsTimelinePointDto[];
 }
 

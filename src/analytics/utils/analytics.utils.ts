@@ -30,7 +30,7 @@ export function resolveEventEnd(
 }
 
 // timelines never show anything after "now" or after the event's end
-export function resolveWindowEnd(
+export function resolveTimelineEnd(
   event: { startAt: Date | null; endAt: Date | null },
   now: Date,
 ): Date {
@@ -66,7 +66,7 @@ export function startOfBucket(instant: Date, bucket: AnalyticsBucket): Date {
 }
 
 // every bucket start from `first` to `last` inclusive (both must already be bucket starts)
-export function buildBucketStarts(
+export function listBucketStarts(
   first: Date,
   last: Date,
   bucket: AnalyticsBucket,
@@ -78,25 +78,25 @@ export function buildBucketStarts(
   return starts;
 }
 
-// The window is half-open: [windowStart, windowEnd). So the last bucket is the one
-// containing the final moment BEFORE windowEnd. An event ending exactly on a bucket
+// The timeline is half-open: [timelineStart, timelineEnd). So the last bucket is the one
+// containing the final moment BEFORE timelineEnd. An event ending exactly on a bucket
 // boundary (e.g. 21:00) therefore doesn't get an extra empty bucket after its end.
-export function lastBucketStart(
-  windowEnd: Date,
+export function startOfLastBucket(
+  timelineEnd: Date,
   bucket: AnalyticsBucket,
 ): Date {
-  return startOfBucket(new Date(windowEnd.getTime() - 1), bucket);
+  return startOfBucket(new Date(timelineEnd.getTime() - 1), bucket);
 }
 
-// the `count` buckets ending with the one that contains the end of the window
-export function buildFixedRangeBucketStarts(
-  windowEnd: Date,
+// the `count` buckets ending with the one that contains the end of the timeline
+export function listFixedRangeBucketStarts(
+  timelineEnd: Date,
   bucket: AnalyticsBucket,
   count: number,
 ): Date[] {
-  const last = lastBucketStart(windowEnd, bucket);
+  const last = startOfLastBucket(timelineEnd, bucket);
   const first = new Date(last.getTime() - (count - 1) * BUCKET_MS[bucket]);
-  return buildBucketStarts(first, last, bucket);
+  return listBucketStarts(first, last, bucket);
 }
 
 // for "all": hourly for short activity spans, daily otherwise
@@ -104,19 +104,19 @@ export function pickBucketForSpan(spanMs: number): AnalyticsBucket {
   return spanMs <= ALL_RANGE_HOURLY_MAX_SPAN_MS ? '1h' : '1d';
 }
 
-export function emptyTimeline(windowEnd: Date): AnalyticsTimelineDto {
-  return { bucket: '1h', windowStart: windowEnd, windowEnd, points: [] };
+export function emptyTimeline(timelineEnd: Date): AnalyticsTimelineDto {
+  return { bucket: '1h', timelineStart: timelineEnd, timelineEnd, points: [] };
 }
 
 // counts timestamps per bucket and builds the running total.
-// `countBeforeWindow` = activity before the first bucket, so `cumulative`
-// reflects the whole event and not just the window.
+// `countBeforeTimeline` = activity before the first bucket, so `cumulative`
+// reflects the whole event and not just the visible timeline.
 export function fillTimeline(
   starts: Date[],
   bucket: AnalyticsBucket,
   timestamps: Date[],
-  countBeforeWindow: number,
-  windowEnd: Date,
+  countBeforeTimeline: number,
+  timelineEnd: Date,
 ): AnalyticsTimelineDto {
   const countByBucket = new Map<number, number>();
   for (const timestamp of timestamps) {
@@ -124,14 +124,14 @@ export function fillTimeline(
     countByBucket.set(key, (countByBucket.get(key) ?? 0) + 1);
   }
 
-  let cumulative = countBeforeWindow;
+  let cumulative = countBeforeTimeline;
   const points = starts.map((bucketStart) => {
     const count = countByBucket.get(bucketStart.getTime()) ?? 0;
     cumulative += count;
     return { bucketStart, count, cumulative };
   });
 
-  return { bucket, windowStart: starts[0], windowEnd, points };
+  return { bucket, timelineStart: starts[0], timelineEnd, points };
 }
 
 // 0..1 rounded to 4 decimals, null when there is nothing to divide by

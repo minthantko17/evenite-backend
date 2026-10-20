@@ -17,14 +17,14 @@ import {
 } from './dto/return-analytics.dto';
 import { buildFormFieldStats } from './utils/analytics-field-stats.utils';
 import {
-  buildBucketStarts,
-  buildFixedRangeBucketStarts,
   emptyTimeline,
   fillTimeline,
-  lastBucketStart,
+  listBucketStarts,
+  listFixedRangeBucketStarts,
   pickBucketForSpan,
-  resolveWindowEnd,
+  resolveTimelineEnd,
   startOfBucket,
+  startOfLastBucket,
   toRate,
 } from './utils/analytics.utils';
 
@@ -55,7 +55,7 @@ export class AnalyticsService {
       await this.eventValidationService.validateEventExists(eventId);
 
     const now = new Date();
-    const windowEnd = resolveWindowEnd(event, now);
+    const timelineEnd = resolveTimelineEnd(event, now);
 
     const registrationSource: TimelineSource = {
       timestamps: (from, to) =>
@@ -84,8 +84,8 @@ export class AnalyticsService {
     ] = await Promise.all([
       this.analyticsCrudService.getOverviewCounts(eventId),
       this.analyticsCrudService.getCheckInMethodCounts(eventId),
-      this.buildTimeline(registrationSource, range, windowEnd),
-      this.buildTimeline(checkInSource, range, windowEnd),
+      this.buildTimeline(registrationSource, range, timelineEnd),
+      this.buildTimeline(checkInSource, range, timelineEnd),
       this.analyticsCrudService.getFormAnswerData(
         eventId,
         FormType.REGISTRATION,
@@ -130,20 +130,20 @@ export class AnalyticsService {
   private async buildTimeline(
     source: TimelineSource,
     range: AnalyticsRange,
-    windowEnd: Date,
+    timelineEnd: Date,
   ): Promise<AnalyticsTimelineDto> {
     let bucket: AnalyticsBucket;
     let starts: Date[];
 
     if (range === AnalyticsRange.ALL) {
-      // from this stream's first activity up to the window end (exclusive)
-      const earliest = await source.earliest(windowEnd);
-      if (!earliest) return emptyTimeline(windowEnd);
+      // from this stream's first activity up to the timeline end (exclusive)
+      const earliest = await source.earliest(timelineEnd);
+      if (!earliest) return emptyTimeline(timelineEnd);
 
-      bucket = pickBucketForSpan(windowEnd.getTime() - earliest.getTime());
-      starts = buildBucketStarts(
+      bucket = pickBucketForSpan(timelineEnd.getTime() - earliest.getTime());
+      starts = listBucketStarts(
         startOfBucket(earliest, bucket),
-        lastBucketStart(windowEnd, bucket),
+        startOfLastBucket(timelineEnd, bucket),
         bucket,
       );
       // very long events: keep the most recent buckets (the cumulative base keeps the total right)
@@ -152,24 +152,24 @@ export class AnalyticsService {
       }
     } else {
       bucket = range === AnalyticsRange.LAST_24_HOURS ? '1h' : '1d';
-      starts = buildFixedRangeBucketStarts(
-        windowEnd,
+      starts = listFixedRangeBucketStarts(
+        timelineEnd,
         bucket,
         FIXED_RANGE_BUCKET_COUNT[range],
       );
     }
 
-    const windowStart = starts[0];
-    const [timestamps, countBeforeWindow] = await Promise.all([
-      source.timestamps(windowStart, windowEnd),
-      source.countBefore(windowStart),
+    const timelineStart = starts[0];
+    const [timestamps, countBeforeTimeline] = await Promise.all([
+      source.timestamps(timelineStart, timelineEnd),
+      source.countBefore(timelineStart),
     ]);
     return fillTimeline(
       starts,
       bucket,
       timestamps,
-      countBeforeWindow,
-      windowEnd,
+      countBeforeTimeline,
+      timelineEnd,
     );
   }
 }

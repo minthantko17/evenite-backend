@@ -6,7 +6,7 @@ import {
 } from '../utils/analytics-field-stats.utils';
 import { PrismaService } from '../../prisma/prisma.service';
 
-// Timeline windows are half-open [from, to), see lastBucketStart in analytics.utils.
+// Timeline ranges are half-open [timelineStart, timelineEnd), see startOfLastBucket in analytics.utils.
 // The two activity streams shown on timelines. Only plain timestamps are read;
 // bucketing happens in analytics.utils so the time zone logic lives in one place.
 @Injectable()

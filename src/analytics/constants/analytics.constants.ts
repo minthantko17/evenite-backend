@@ -15,7 +15,7 @@ export enum AnalyticsRange {
 export const HOUR_MS = 60 * 60 * 1000;
 export const DAY_MS = 24 * HOUR_MS;
 
-// fixed ranges: how many buckets end at the window end
+// fixed ranges: how many buckets end at the timeline end
 export const FIXED_RANGE_BUCKET_COUNT = {
   [AnalyticsRange.LAST_24_HOURS]: 24, // hourly
   [AnalyticsRange.LAST_7_DAYS]: 7, // daily
