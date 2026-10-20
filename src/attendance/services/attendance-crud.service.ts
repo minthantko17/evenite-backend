@@ -168,11 +168,16 @@ export class AttendanceCrudService {
     });
   }
 
+  // NOTE: returns false when the row is already gone (a concurrent undo won),
+  // so callers can treat that as "not found" instead of a server error.
   async deleteAttendance(
     attendanceId: string,
     tx?: Prisma.TransactionClient,
-  ): Promise<void> {
-    await this.getClient(tx).attendance.delete({ where: { id: attendanceId } });
+  ): Promise<boolean> {
+    const result = await this.getClient(tx).attendance.deleteMany({
+      where: { id: attendanceId },
+    });
+    return result.count === 1;
   }
 
   // only flips USED -> ACTIVE (undo of markTicketUsed)

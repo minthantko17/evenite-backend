@@ -19,9 +19,16 @@ import type {
   AttendanceCheckedInPayload,
   AttendanceUndonePayload,
 } from '../attendance/events/attendance.events';
+import type {
+  RegistrationCancelledPayload,
+  RegistrationCreatedPayload,
+} from '../registration/events/registration.events';
+import type { FeedbackSubmittedPayload } from '../form/events/form.events';
 
-// General per-user push channel (attendance now; notifications and live
-// analytics later). Clients only connect; they receive messages on their
+// why an analytics dashboard should refetch (a hint only: the client always refetches the whole payload)
+type AnalyticsChangeReason = 'attendance' | 'registration' | 'feedback';
+
+// General per-user push channel (attendance and analytics now; notifications later). Clients only connect; they receive messages on their
 // personal channel, so no room-join protocol is needed.
 @WebSocketGateway({ namespace: 'realtime', cors: socketCorsOptions })
 export class RealtimeGateway
@@ -91,6 +98,12 @@ export class RealtimeGateway
       },
     );
 
+    this.nudgeAnalytics(
+      payload.organizerProfileId,
+      payload.eventId,
+      'attendance',
+    );
+
     // participant's ticket flips to USED
     this.emitToUser(
       Role.PARTICIPANT,
@@ -108,6 +121,12 @@ export class RealtimeGateway
 
   @OnEvent('attendance.undone')
   handleAttendanceUndone(payload: AttendanceUndonePayload): void {
+    this.nudgeAnalytics(
+      payload.organizerProfileId,
+      payload.eventId,
+      'attendance',
+    );
+
     this.emitToUser(
       Role.ORGANIZER,
       payload.organizerProfileId,
@@ -131,6 +150,49 @@ export class RealtimeGateway
         checkedInAt: null,
       },
     );
+  }
+
+  // Analytics nudges
+  // A nudge carries no data: it tells an open analytics dashboard "something changed
+  // for this event", and the client refetches GET /events/:eventId/analytics (debounced
+  // client-side). Attendance nudges are sent by the attendance handlers above.
+
+  @OnEvent('registration.created')
+  handleRegistrationCreated(payload: RegistrationCreatedPayload): void {
+    this.nudgeAnalytics(
+      payload.organizerProfileId,
+      payload.eventId,
+      'registration',
+    );
+  }
+
+  @OnEvent('registration.cancelled')
+  handleRegistrationCancelled(payload: RegistrationCancelledPayload): void {
+    this.nudgeAnalytics(
+      payload.organizerProfileId,
+      payload.eventId,
+      'registration',
+    );
+  }
+
+  @OnEvent('feedback.submitted')
+  handleFeedbackSubmitted(payload: FeedbackSubmittedPayload): void {
+    this.nudgeAnalytics(
+      payload.organizerProfileId,
+      payload.eventId,
+      'feedback',
+    );
+  }
+
+  private nudgeAnalytics(
+    organizerProfileId: string,
+    eventId: string,
+    reason: AnalyticsChangeReason,
+  ): void {
+    this.emitToUser(Role.ORGANIZER, organizerProfileId, 'analytics:changed', {
+      eventId,
+      reason,
+    });
   }
 
   private emitToUser(

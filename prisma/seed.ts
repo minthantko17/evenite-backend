@@ -105,6 +105,8 @@ const ID = {
   FORM_FRESHMENCAMP_REG:  'f0000019-0000-4000-8000-000000000019',
   FORM_LIBRARY_REG:       'f0000020-0000-4000-8000-000000000020',
   FORM_GRADINFO_REG:      'f0000021-0000-4000-8000-000000000021',
+  FORM_CLEANUP_FB:        'f0000022-0000-4000-8000-000000000022',
+  FORM_FRESHMENCAMP_FB:   'f0000023-0000-4000-8000-000000000023',
 
   // Form Fields — Halloween Reg
   FLD_H_FIRSTNAME: 'ff000001-0000-4000-8000-000000000001',
@@ -150,6 +152,16 @@ const ID = {
   // Form Fields — Hackathon Feedback
   FLD_HKFB_OVERALL: 'ff000070-0000-4000-8000-000000000070',
   FLD_HKFB_COMMENT: 'ff000071-0000-4000-8000-000000000071',
+
+  // Form Fields — Clean-Up Day Feedback
+  FLD_CUFB_OVERALL:   'ff000300-0000-4000-8000-000000000300',
+  FLD_CUFB_RECOMMEND: 'ff000301-0000-4000-8000-000000000301',
+  FLD_CUFB_COMMENT:   'ff000302-0000-4000-8000-000000000302',
+
+  // Form Fields — Freshmen Camp Feedback
+  FLD_FCFB_OVERALL: 'ff000310-0000-4000-8000-000000000310',
+  FLD_FCFB_LIKED:   'ff000311-0000-4000-8000-000000000311',
+  FLD_FCFB_COMMENT: 'ff000312-0000-4000-8000-000000000312',
 
   // Form Fields — Sports Reg (minimal — just name)
   FLD_SP_FIRSTNAME: 'ff000080-0000-4000-8000-000000000080',
@@ -1735,6 +1747,36 @@ async function main() {
     await prisma.formField.upsert({ where: { id: f.id }, update: {}, create: f });
   }
 
+  // Clean-Up Day — Feedback form (both registrants attended, so both can respond)
+  await prisma.form.upsert({
+    where: { eventId_type: { eventId: ID.EVT_CLEANUP, type: FormType.FEEDBACK } },
+    update: {},
+    create: { id: ID.FORM_CLEANUP_FB, eventId: ID.EVT_CLEANUP, type: FormType.FEEDBACK, title: 'Clean-Up Day Feedback', description: 'Tell us how the clean-up went.' },
+  });
+  const cleanupFbFields = [
+    { id: ID.FLD_CUFB_OVERALL,   formId: ID.FORM_CLEANUP_FB, type: FieldType.RATING,   label: 'Overall Experience',          isRequired: true,  order: 0, options: [], autoFillKey: null },
+    { id: ID.FLD_CUFB_RECOMMEND, formId: ID.FORM_CLEANUP_FB, type: FieldType.CHOICE,   label: 'Would you join again?',       isRequired: true,  order: 1, options: ['Yes', 'Maybe', 'No'], autoFillKey: null },
+    { id: ID.FLD_CUFB_COMMENT,   formId: ID.FORM_CLEANUP_FB, type: FieldType.TEXTAREA, label: 'Any suggestions?',            isRequired: false, order: 2, options: [], autoFillKey: null },
+  ];
+  for (const f of cleanupFbFields) {
+    await prisma.formField.upsert({ where: { id: f.id }, update: {}, create: f });
+  }
+
+  // Freshmen Welcome Camp — Feedback form (par1, par2 attended; par3 was a no-show and cannot respond)
+  await prisma.form.upsert({
+    where: { eventId_type: { eventId: ID.EVT_FRESHMENCAMP, type: FormType.FEEDBACK } },
+    update: {},
+    create: { id: ID.FORM_FRESHMENCAMP_FB, eventId: ID.EVT_FRESHMENCAMP, type: FormType.FEEDBACK, title: 'Freshmen Camp Feedback', description: 'Share your camp experience.' },
+  });
+  const freshmencampFbFields = [
+    { id: ID.FLD_FCFB_OVERALL, formId: ID.FORM_FRESHMENCAMP_FB, type: FieldType.RATING,   label: 'Overall Experience',        isRequired: true,  order: 0, options: [], autoFillKey: null },
+    { id: ID.FLD_FCFB_LIKED,   formId: ID.FORM_FRESHMENCAMP_FB, type: FieldType.CHECKBOX, label: 'What did you like most?',   isRequired: false, order: 1, options: ['Games', 'Food', 'Talks', 'Meeting friends'], autoFillKey: null },
+    { id: ID.FLD_FCFB_COMMENT, formId: ID.FORM_FRESHMENCAMP_FB, type: FieldType.TEXTAREA, label: 'Anything to improve?',      isRequired: false, order: 2, options: [], autoFillKey: null },
+  ];
+  for (const f of freshmencampFbFields) {
+    await prisma.formField.upsert({ where: { id: f.id }, update: {}, create: f });
+  }
+
   // Sports Day — Registration form (minimal)
   await prisma.form.upsert({
     where: { eventId_type: { eventId: ID.EVT_SPORTS, type: FormType.REGISTRATION } },
@@ -2362,6 +2404,52 @@ async function main() {
         [ID.FLD_HKFB_COMMENT]: 'Well organized. Would join again.',
       },
     },
+    // Clean-Up Day feedback — par2 (registration ab000001) and par4 (ab000002), both attended
+    {
+      formResponseId: 'fb000004-0000-4000-8000-000000000004',
+      registrationId: 'ab000001-0000-4000-8000-000000000001',
+      formId: ID.FORM_CLEANUP_FB,
+      formFields: cleanupFbFields,
+      answers: {
+        [ID.FLD_CUFB_OVERALL]: 5,
+        [ID.FLD_CUFB_RECOMMEND]: ['Yes'],
+        [ID.FLD_CUFB_COMMENT]: 'Great cause. More bins along the riverbank next time!',
+      },
+    },
+    {
+      formResponseId: 'fb000005-0000-4000-8000-000000000005',
+      registrationId: 'ab000002-0000-4000-8000-000000000002',
+      formId: ID.FORM_CLEANUP_FB,
+      formFields: cleanupFbFields,
+      answers: {
+        [ID.FLD_CUFB_OVERALL]: 3,
+        [ID.FLD_CUFB_RECOMMEND]: ['Maybe'],
+        [ID.FLD_CUFB_COMMENT]: 'Started too early for me.',
+      },
+    },
+    // Freshmen Camp feedback — par1 (ad000001) and par2 (ad000002); par3 was a no-show
+    {
+      formResponseId: 'fb000006-0000-4000-8000-000000000006',
+      registrationId: 'ad000001-0000-4000-8000-000000000001',
+      formId: ID.FORM_FRESHMENCAMP_FB,
+      formFields: freshmencampFbFields,
+      answers: {
+        [ID.FLD_FCFB_OVERALL]: 5,
+        [ID.FLD_FCFB_LIKED]: ['Games', 'Food', 'Meeting friends'],
+        [ID.FLD_FCFB_COMMENT]: 'Loved it!',
+      },
+    },
+    {
+      formResponseId: 'fb000007-0000-4000-8000-000000000007',
+      registrationId: 'ad000002-0000-4000-8000-000000000002',
+      formId: ID.FORM_FRESHMENCAMP_FB,
+      formFields: freshmencampFbFields,
+      answers: {
+        [ID.FLD_FCFB_OVERALL]: 4,
+        [ID.FLD_FCFB_LIKED]: ['Food', 'Talks'],
+        [ID.FLD_FCFB_COMMENT]: 'More seating at the talks, please.',
+      },
+    },
   ];
 
   // an earlier version of this seed had New Year feedback, but New Year is still PUBLISHED (feedback not allowed yet)
@@ -2667,7 +2755,7 @@ async function main() {
   console.log('     DRAFT:      SE Workshop, Music Concert, Cultural Festival, Freshy Night, Open House, Choir Concert');
   console.log('     PUBLISHED:  No Form Event (0/∞ — no form)');
   console.log('');
-  console.log('  21 forms  (reg + feedback for various events)');
+  console.log('  23 forms  (reg + feedback for various events)');
   console.log('');
   console.log('  Registration summary:');
   console.log('     Halloween:      par1✓ par2✓ par3✓         (3 CONFIRMED, tickets ACTIVE)');
@@ -2687,8 +2775,10 @@ async function main() {
   console.log('  Attendance: 10 check-ins (8 QR_SCAN, 2 MANUAL), checked in by each event\'s organizer');
   console.log('     A ticket is USED exactly when an Attendance row exists; no-shows keep EXPIRED tickets');
   console.log('');
-  console.log('  Feedback responses: 2 (only attendees can submit — New Year is still PUBLISHED)');
-  console.log('     Hackathon: par1(5★), par2(4★) — par3 no-show, cannot submit');
+  console.log('  Feedback responses: 6 (only attendees can submit — New Year is still PUBLISHED)');
+  console.log('     Hackathon:     par1(5★), par2(4★) — par3 no-show, cannot submit');
+  console.log('     Clean-Up Day:  par2(5★, Yes), par4(3★, Maybe) — rating + choice + comment');
+  console.log('     Freshmen Camp: par1(5★), par2(4★) with a CHECKBOX question — par3 no-show, cannot submit');
   console.log('');
   console.log('  34 discussion rooms (one per event)');
   console.log('     With messages: Halloween, New Year, Sukhothai, Exchange, Bootcamp, Hackathon*, Sports*,');

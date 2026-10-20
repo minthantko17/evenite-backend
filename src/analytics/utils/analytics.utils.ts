@@ -38,17 +38,20 @@ export function resolveWindowEnd(
   return eventEnd.getTime() < now.getTime() ? eventEnd : now;
 }
 
+// Creating an Intl.DateTimeFormat is comparatively expensive, so build it once.
+const zoneClockFormat = new Intl.DateTimeFormat('en-GB', {
+  timeZone: ANALYTICS_TIME_ZONE,
+  hourCycle: 'h23',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+});
+
 // midnight (in ANALYTICS_TIME_ZONE) of the day containing `instant`.
 // NOTE: assumes the zone has no DST change within that day, which holds for
 // Asia/Bangkok. Revisit if the zone is ever made configurable.
 function startOfDayInZone(instant: Date): Date {
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: ANALYTICS_TIME_ZONE,
-    hourCycle: 'h23',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  }).formatToParts(instant);
+  const parts = zoneClockFormat.formatToParts(instant);
   const part = (type: string) =>
     Number(parts.find((p) => p.type === type)?.value ?? 0);
   const secondsSinceMidnight =

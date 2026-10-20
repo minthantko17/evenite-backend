@@ -20,6 +20,7 @@ import {
 } from './dto/return-attendance-list.dto';
 import { AlreadyCheckedInException } from './exceptions/already-checked-in.exception';
 import { SaveAttendanceException } from './exceptions/save-attendance.exception';
+import { AttendanceNotFoundException } from './exceptions/attendance-not-found.exception';
 import type {
   AttendanceCheckedInPayload,
   AttendanceUndonePayload,
@@ -101,13 +102,19 @@ export class AttendanceService {
 
     try {
       await this.prisma.$transaction(async (tx) => {
-        await this.attendanceCrudService.deleteAttendance(attendance.id, tx);
+        const deleted = await this.attendanceCrudService.deleteAttendance(
+          attendance.id,
+          tx,
+        );
+        // another undo removed it between our read and this delete
+        if (!deleted) throw new AttendanceNotFoundException();
         await this.attendanceCrudService.reactivateTicket(
           attendance.ticketId,
           tx,
         );
       });
     } catch (error) {
+      if (error instanceof AttendanceNotFoundException) throw error;
       this.logger.error('Failed to undo check-in', error);
       throw new SaveAttendanceException();
     }
