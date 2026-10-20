@@ -190,6 +190,7 @@ model EventRegistration {
   ticket     Ticket?
 
   @@unique([participantId, eventId])
+  @@index([eventId, status])
 }
 
 model Ticket {
@@ -262,6 +263,7 @@ model FormResponse {
 
   @@unique([id, formId])
   @@unique([eventRegistrationId, formId]) 
+  @@index([formId])
 }
 
 model FormFieldResponse {
@@ -278,6 +280,7 @@ model FormFieldResponse {
   formField    FormField    @relation(fields: [formFieldId, formId], references: [id, formId], onDelete: Cascade)
 
   @@unique([formResponseId, formFieldId])
+  @@index([formId])
 }
 
 model DiscussionRoom {
