@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { CheckInMethod, RegistrationStatus } from '@prisma/client';
+import { CheckInMethod, FormType, RegistrationStatus } from '@prisma/client';
+import {
+  FieldStatsField,
+  FieldStatsRow,
+} from '../utils/analytics-field-stats.utils';
 import { PrismaService } from '../../prisma/prisma.service';
 
 // Timeline windows are half-open [from, to), see lastBucketStart in analytics.utils.
@@ -112,5 +116,51 @@ export class AnalyticsCrudService {
       _min: { checkedInAt: true },
     });
     return result._min.checkedInAt;
+  }
+
+  // All answers of one form type for an event, ready for aggregation.
+  // Only CONFIRMED registrations count: a cancelled registration keeps its form
+  // response until the person re-registers, and must not inflate the numbers.
+  // Returns null when the event has no form of that type.
+  async getFormAnswerData(
+    eventId: string,
+    type: FormType,
+  ): Promise<{
+    fields: FieldStatsField[];
+    rows: (FieldStatsRow & { formFieldId: string })[];
+    responseCount: number;
+  } | null> {
+    const form = await this.prisma.form.findUnique({
+      where: { eventId_type: { eventId, type } },
+      select: {
+        id: true,
+        fields: {
+          orderBy: { order: 'asc' },
+          select: { id: true, label: true, type: true, options: true },
+        },
+      },
+    });
+    if (!form) return null;
+
+    const confirmed = {
+      eventRegistration: { status: RegistrationStatus.CONFIRMED },
+    };
+    const [rows, responseCount] = await Promise.all([
+      this.prisma.formFieldResponse.findMany({
+        where: { formId: form.id, formResponse: confirmed },
+        select: {
+          formFieldId: true,
+          valueText: true,
+          valueNumber: true,
+          valueDate: true,
+          valueArray: true,
+        },
+      }),
+      this.prisma.formResponse.count({
+        where: { formId: form.id, ...confirmed },
+      }),
+    ]);
+
+    return { fields: form.fields, rows, responseCount };
   }
 }

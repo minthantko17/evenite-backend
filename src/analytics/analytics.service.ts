@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { FormType } from '@prisma/client';
 import { EventValidationService } from '../event/services/event-validation.service';
 import { AnalyticsCrudService } from './services/analytics-crud.service';
 import {
@@ -9,9 +10,12 @@ import {
 } from './constants/analytics.constants';
 import {
   AnalyticsBucket,
+  AnalyticsFeedbackDto,
+  AnalyticsFieldStatsDto,
   AnalyticsTimelineDto,
   ReturnAnalyticsDto,
 } from './dto/return-analytics.dto';
+import { buildFormFieldStats } from './utils/analytics-field-stats.utils';
 import {
   buildBucketStarts,
   buildFixedRangeBucketStarts,
@@ -70,13 +74,37 @@ export class AnalyticsService {
         this.analyticsCrudService.findEarliestCheckIn(eventId, to),
     };
 
-    const [counts, checkInMethods, registrationTimeline, checkInTimeline] =
-      await Promise.all([
-        this.analyticsCrudService.getOverviewCounts(eventId),
-        this.analyticsCrudService.getCheckInMethodCounts(eventId),
-        this.buildTimeline(registrationSource, range, windowEnd),
-        this.buildTimeline(checkInSource, range, windowEnd),
-      ]);
+    const [
+      counts,
+      checkInMethods,
+      registrationTimeline,
+      checkInTimeline,
+      registrationForm,
+      feedbackForm,
+    ] = await Promise.all([
+      this.analyticsCrudService.getOverviewCounts(eventId),
+      this.analyticsCrudService.getCheckInMethodCounts(eventId),
+      this.buildTimeline(registrationSource, range, windowEnd),
+      this.buildTimeline(checkInSource, range, windowEnd),
+      this.analyticsCrudService.getFormAnswerData(
+        eventId,
+        FormType.REGISTRATION,
+      ),
+      this.analyticsCrudService.getFormAnswerData(eventId, FormType.FEEDBACK),
+    ]);
+
+    const registrationAnswers: AnalyticsFieldStatsDto[] = registrationForm
+      ? buildFormFieldStats(registrationForm.fields, registrationForm.rows)
+      : [];
+
+    // only attendees can respond, so the rate is relative to check-ins
+    const feedback: AnalyticsFeedbackDto | null = feedbackForm
+      ? {
+          responses: feedbackForm.responseCount,
+          responseRate: toRate(feedbackForm.responseCount, counts.checkedIn),
+          fields: buildFormFieldStats(feedbackForm.fields, feedbackForm.rows),
+        }
+      : null;
 
     return {
       generatedAt: now,
@@ -94,6 +122,8 @@ export class AnalyticsService {
       checkInTimeline,
       registrationTimeline,
       checkInMethods,
+      registrationAnswers,
+      feedback,
     };
   }
 
