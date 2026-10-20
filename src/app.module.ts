@@ -13,6 +13,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { DiscussionModule } from './discussion/discussion.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { RealtimeModule } from './realtime/realtime.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { RealtimeModule } from './realtime/realtime.module';
     DiscussionModule,
     AttendanceModule,
     RealtimeModule,
+    AnalyticsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
