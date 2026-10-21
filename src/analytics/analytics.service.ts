@@ -31,8 +31,8 @@ import {
 // how one timeline reads its activity from the database
 interface TimelineSource {
   timestamps: (from: Date, to: Date) => Promise<Date[]>;
-  countBefore: (before: Date) => Promise<number>;
-  earliest: (to: Date) => Promise<Date | null>;
+  countBefore: (before: Date) => Promise<number>; // total counts (reg/check-in) before the given date
+  earliest: (to: Date) => Promise<Date | null>; // time of very first reg/check-in (use only for 'all' range)
 }
 
 @Injectable()
@@ -117,7 +117,7 @@ export class AnalyticsService {
         checkedIn: counts.checkedIn,
         notCheckedIn: Math.max(counts.registered - counts.checkedIn, 0),
         attendanceRate: toRate(counts.checkedIn, counts.registered),
-        fillRate: toRate(counts.registered, event.seatLimit),
+        registerRate: toRate(counts.registered, event.seatLimit),
       },
       checkInTimeline,
       registrationTimeline,
@@ -167,7 +167,7 @@ export class AnalyticsService {
     return fillTimeline(
       starts,
       bucket,
-      timestamps,
+      timestamps, // timestamps of actual reg/checkin time
       countBeforeTimeline,
       timelineEnd,
     );

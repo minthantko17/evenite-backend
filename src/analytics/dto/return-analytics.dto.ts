@@ -10,7 +10,7 @@ export class AnalyticsOverviewDto {
   checkedIn!: number;
   notCheckedIn!: number; // registered - checkedIn (final no-shows once the event is concluded)
   attendanceRate!: number | null; // checkedIn / registered (0..1), null when nobody registered
-  fillRate!: number | null; // registered / seatLimit (0..1), null when there is no seat limit
+  registerRate!: number | null; // registered / seatLimit (0..1), null when there is no seat limit
 }
 
 export class AnalyticsTimelinePointDto {

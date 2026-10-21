@@ -127,7 +127,7 @@ export class AnalyticsCrudService {
     type: FormType,
   ): Promise<{
     fields: FieldStatsField[];
-    rows: (FieldStatsRow & { formFieldId: string })[];
+    rows: (FieldStatsRow & { formFieldId: string })[]; // stored answers for each form field
     responseCount: number;
   } | null> {
     const form = await this.prisma.form.findUnique({
