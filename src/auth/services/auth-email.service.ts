@@ -21,6 +21,9 @@ export class AuthEmailService {
       expireAt,
     );
 
+    /* TEMP: disabled — testing whether the embedded link is causing
+       Microsoft Defender Safe Links to quarantine the email. Revert this
+       comment block to restore.
     const allowedOrigins = (process.env.FRONTEND_URL ?? 'http://localhost:5173')
       .split(',')
       .map((origin) => origin.trim());
@@ -28,6 +31,7 @@ export class AuthEmailService {
       allowedOrigins.find((origin) => origin.includes('www.')) ??
       allowedOrigins[0];
     const verificationUrl = `${canonicalFrontendUrl}/verify-email?token=${token}`;
+    */
 
     // require frontend to use button click verification
     await this.resend.emails.send({
@@ -142,6 +146,10 @@ export class AuthEmailService {
                           </div>
                         </div>
 
+                        <!-- TEMP: CTA button disabled — testing whether the
+                             embedded link causes Defender Safe Links to
+                             quarantine the email. Remove this comment
+                             wrapper to restore.
                         <p
                           style="
                             margin: 0 0 24px;
@@ -153,10 +161,9 @@ export class AuthEmailService {
                           Or verify instantly using the button below:
                         </p>
 
-                        <!-- CTA Button -->
                         <div style="text-align: center; margin-bottom: 32px;">
                           <a
-                            href="${verificationUrl}"
+                            href="${'${verificationUrl}'}"
                             style="
                               display: inline-block;
                               background: #111827;
@@ -170,6 +177,7 @@ export class AuthEmailService {
                             Verify Email
                           </a>
                         </div>
+                        -->
 
                         <p
                           style="
@@ -179,7 +187,7 @@ export class AuthEmailService {
                             line-height: 1.6;
                           "
                         >
-                          This verification link and code will expire in
+                          This verification code will expire in
                           <strong>24 hours</strong>.
                         </p>
 

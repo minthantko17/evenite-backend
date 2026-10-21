@@ -27,6 +27,10 @@ import { SaveFormResponseException } from '../form/exceptions/save-form-response
 import { SaveTicketException } from './exceptions/save-ticket.exception';
 import { DeleteRegistrationException } from './exceptions/delete-registration.exception';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import type {
+  RegistrationCancelledPayload,
+  RegistrationCreatedPayload,
+} from './events/registration.events';
 
 @Injectable()
 export class RegistrationService {
@@ -140,6 +144,18 @@ export class RegistrationService {
       throw new SaveRegistrationException();
     }
 
+    // realtime is best-effort: a failure here must never fail the registration
+    try {
+      const payload: RegistrationCreatedPayload = {
+        eventId,
+        organizerProfileId: event.organizerId,
+        participantProfileId,
+      };
+      this.eventEmitter.emit('registration.created', payload);
+    } catch (error) {
+      this.logger.warn('Failed to emit registration.created', error);
+    }
+
     const eventDetail =
       await this.registrationCrudService.getEventWithOrganizer(eventId);
 
@@ -165,6 +181,9 @@ export class RegistrationService {
 
     // checks: registration status, event status, event startAt
     this.registrationValidationService.validateCancellable(registration, event);
+    await this.registrationValidationService.validateNotCheckedIn(
+      registration.id,
+    );
 
     let updatedRegistration: EventRegistration;
     let updatedTicket: Ticket;
@@ -196,10 +215,13 @@ export class RegistrationService {
     }
 
     // emit event for registration cancellation
-    this.eventEmitter.emit('registration.cancelled', {
+    // (organizerProfileId is used by the realtime gateway to refresh the organizer's analytics)
+    const cancelledPayload: RegistrationCancelledPayload = {
       eventId,
+      organizerProfileId: event.organizerId,
       participantProfileId,
-    });
+    };
+    this.eventEmitter.emit('registration.cancelled', cancelledPayload);
 
     const eventDetail =
       await this.registrationCrudService.getEventWithOrganizer(eventId);

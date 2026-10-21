@@ -11,6 +11,7 @@ import { CreateFormFieldAnswerDto } from '../dto/create-form-response.dto';
 import { ReturnFormField } from '../dto/return-form-with-fields.dto';
 import { ALLOWED_AUTOFILL_KEYS } from '../constants/form.constants';
 import { RegistrationNotFoundException } from '../../registration/exceptions/registration-not-found.exception';
+import { FeedbackRequiresAttendanceException } from '../exceptions/feedback-requires-attendance.exception';
 
 @Injectable()
 export class FormValidationService {
@@ -105,7 +106,22 @@ export class FormValidationService {
     };
   }
 
-  // (me to my future self) following are related to method for dev purposes only
+  // feedback is only for participants who were checked in at the event
+  async validateParticipantAttended(
+    registrationId: string,
+  ): Promise<{ message: string }> {
+    const attendance = await this.prisma.attendance.findFirst({
+      where: { ticket: { eventRegistrationId: registrationId } },
+      select: { id: true },
+    });
+
+    if (!attendance) {
+      throw new FeedbackRequiresAttendanceException();
+    }
+
+    return { message: 'Participant attended the event.' };
+  }
+
   validateFormFieldAnswers(
     fields: ReturnFormField[],
     answers: CreateFormFieldAnswerDto[],
