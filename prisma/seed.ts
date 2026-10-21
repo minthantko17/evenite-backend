@@ -1,5 +1,6 @@
 import {
   PrismaClient,
+  Prisma,
   EventStatus,
   FormType,
   FieldType,
@@ -10,8 +11,34 @@ import {
 } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import {
+  AS_OF,
+  DEMO_DAY,
+  EVENT_TIMES,
+  HOUR,
+  bangkokParts,
+  checkInTime,
+  feedbackTime,
+  organizerJoinedAt,
+  participantJoinedAt,
+  rand,
+  registrationTime,
+} from './seed-lib/timeline';
+import { CROWD_PARTICIPANTS, CROWD_PREFERENCES } from './seed-lib/crowd';
+import { CROWD_PLAN, FieldDef, feedbackAnswers, registrationAnswers } from './seed-lib/plan';
+import { CHAT_SCRIPTS, ChatRegistrant, buildReadStatuses, buildRoomMessages } from './seed-lib/chat';
 
 // (generated with Claude)
+//
+// Demo data for Evenite. All login passwords are 12345678.
+//   organizer1..3@cmu.ac.th      organizers (CAMT Student Affairs, CMU Music and Arts Club, SE Department Club)
+//   participant1..35@cmu.ac.th   participants (1-5 hand-written demo accounts, 6-35 a generated crowd)
+// Time: the dataset is built around the presentation week. DEMO_DAY (default 2026-11-02, Bangkok) is
+// the first demo day; everything is timestamped before it and dates shift with it:
+//   DEMO_DAY=2026-11-04 npx prisma db seed
+// The calendar, event statuses and per-person activity times live in seed-lib/timeline.ts, the crowd
+// in seed-lib/crowd.ts + plan.ts, and the discussion rooms in seed-lib/chat.ts. Re-seeding is safe:
+// everything is upserted by fixed ids and re-synced (the demo's check-in state is reset too).
 
 const prisma = new PrismaClient();
 
@@ -46,41 +73,46 @@ const ID = {
   PAR5: 'd0000005-0000-4000-8000-000000000005',
 
   // Events
-  EVT_HALLOWEEN:   'e0000001-0000-4000-8000-000000000001', // PUBLISHED, limit 100, 3 regs
-  EVT_NEW_YEAR:    'e0000002-0000-4000-8000-000000000002', // PUBLISHED, limit 5, FULL (5 regs)
-  EVT_SUKHOTHAI:   'e0000003-0000-4000-8000-000000000003', // PUBLISHED, limit 10, 1 conf + 1 cancel
-  EVT_EXCHANGE:    'e0000004-0000-4000-8000-000000000004', // ONGOING, limit 3, FULL (3 regs, 2 checked in)
-  EVT_BOOTCAMP:    'e0000005-0000-4000-8000-000000000005', // ONGOING, limit 25, 2 regs (1 checked in)
-  EVT_HACKATHON:   'e0000006-0000-4000-8000-000000000006', // CONCLUDED, limit 60, 3 regs (2 attended, 1 no-show)
-  EVT_SPORTS:      'e0000007-0000-4000-8000-000000000007', // CONCLUDED, no limit, 2 regs (1 attended, 1 no-show)
-  EVT_ORIENTATION: 'e0000008-0000-4000-8000-000000000008', // CONCLUDED, limit 200, no regs
-  EVT_AI_SEMINAR:  'e0000009-0000-4000-8000-000000000009', // ONGOING, limit 50, no form (useful for FormNotFoundException test)
-  EVT_NO_FORM:     'e0000010-0000-4000-8000-000000000010', // PUBLISHED, no limit, no form
-  EVT_DRAFT1:      'e0000011-0000-4000-8000-000000000011', // DRAFT, limit 30
-  EVT_DRAFT2:      'e0000012-0000-4000-8000-000000000012', // DRAFT, limit 150
-  EVT_DRAFT3:      'e0000013-0000-4000-8000-000000000013', // DRAFT, no limit
-  EVT_CONCERT:     'e0000014-0000-4000-8000-000000000014', // PUBLISHED, limit 300, no regs yet
+  EVT_HALLOWEEN:   'e0000001-0000-4000-8000-000000000001', // CONCLUDED Oct 31, limit 100, 28 regs
+  EVT_NEW_YEAR:    'e0000002-0000-4000-8000-000000000002', // PUBLISHED Dec 31, limit 5, 5 regs FULL
+  EVT_SUKHOTHAI:   'e0000003-0000-4000-8000-000000000003', // PUBLISHED Nov 15, limit 10, 8 regs
+  EVT_EXCHANGE:    'e0000004-0000-4000-8000-000000000004', // ONGOING Sep 1, limit 3, 3 regs FULL
+  EVT_BOOTCAMP:    'e0000005-0000-4000-8000-000000000005', // ONGOING Aug 1, limit 25, 15 regs
+  EVT_HACKATHON:   'e0000006-0000-4000-8000-000000000006', // CONCLUDED Oct 2, limit 60, 20 regs
+  EVT_SPORTS:      'e0000007-0000-4000-8000-000000000007', // CONCLUDED Sep 26, no limit, 14 regs
+  EVT_ORIENTATION: 'e0000008-0000-4000-8000-000000000008', // CONCLUDED Aug 10, limit 200, 0 regs
+  EVT_AI_SEMINAR:  'e0000009-0000-4000-8000-000000000009', // ONGOING Sep 7, limit 50, 0 regs
+  EVT_NO_FORM:     'e0000010-0000-4000-8000-000000000010', // PUBLISHED Nov 10, no limit, 0 regs
+  EVT_DRAFT1:      'e0000011-0000-4000-8000-000000000011', // DRAFT Nov 21, limit 30, 0 regs
+  EVT_DRAFT2:      'e0000012-0000-4000-8000-000000000012', // DRAFT Dec 20, limit 150, 0 regs
+  EVT_DRAFT3:      'e0000013-0000-4000-8000-000000000013', // DRAFT, no limit, 0 regs
+  EVT_CONCERT:     'e0000014-0000-4000-8000-000000000014', // PUBLISHED Nov 28, limit 300, 20 regs
 
-  EVT_TEDX:          'e0000015-0000-4000-8000-000000000015', // PUBLISHED, limit 400, 2 regs
-  EVT_JOBFAIR:       'e0000016-0000-4000-8000-000000000016', // PUBLISHED, no limit, 2 regs
-  EVT_BLOODDONATION: 'e0000017-0000-4000-8000-000000000017', // PUBLISHED, limit 150, no regs yet
-  EVT_FRESHYNIGHT:   'e0000018-0000-4000-8000-000000000018', // DRAFT, no form
-  EVT_STARTUPPITCH:  'e0000019-0000-4000-8000-000000000019', // PUBLISHED, limit 60, 2 regs
-  EVT_FOOTBALL:      'e0000020-0000-4000-8000-000000000020', // ONGOING, no limit, no form
-  EVT_PHOTOEXHIBIT:  'e0000021-0000-4000-8000-000000000021', // PUBLISHED, no limit, no form
-  EVT_CLEANUP:       'e0000022-0000-4000-8000-000000000022', // CONCLUDED, limit 80, 2 regs (both attended, read-only)
-  EVT_MENTALHEALTH:  'e0000023-0000-4000-8000-000000000023', // PUBLISHED, limit 40, no regs yet
-  EVT_OPENHOUSE:     'e0000024-0000-4000-8000-000000000024', // DRAFT, no form
-  EVT_DATASCIENCE:   'e0000025-0000-4000-8000-000000000025', // ONGOING, limit 30, 2 regs
-  EVT_CHESS:         'e0000026-0000-4000-8000-000000000026', // PUBLISHED, limit 32, no regs yet
-  EVT_FOODFEST:      'e0000027-0000-4000-8000-000000000027', // PUBLISHED, no limit, no form
-  EVT_ROBOTICS:      'e0000028-0000-4000-8000-000000000028', // CONCLUDED, limit 100, no form
-  EVT_FRESHMENCAMP:  'e0000029-0000-4000-8000-000000000029', // CONCLUDED, limit 300, 3 regs (2 attended, 1 no-show, read-only)
-  EVT_CHOIR:         'e0000030-0000-4000-8000-000000000030', // DRAFT, no form
-  EVT_LIBRARY:       'e0000031-0000-4000-8000-000000000031', // PUBLISHED, limit 25, no regs yet
-  EVT_PRIDEWEEK:     'e0000032-0000-4000-8000-000000000032', // PUBLISHED, no limit, no form
-  EVT_MUAYTHAI:      'e0000033-0000-4000-8000-000000000033', // CONCLUDED, no limit, no form
-  EVT_GRADINFO:      'e0000034-0000-4000-8000-000000000034', // ONGOING, limit 100, no regs yet
+  EVT_TEDX:          'e0000015-0000-4000-8000-000000000015', // PUBLISHED Nov 14, limit 400, 26 regs
+  EVT_JOBFAIR:       'e0000016-0000-4000-8000-000000000016', // CONCLUDED Oct 15, no limit, 20 regs
+  EVT_BLOODDONATION: 'e0000017-0000-4000-8000-000000000017', // PUBLISHED Nov 6, limit 150, 18 regs
+  EVT_FRESHYNIGHT:   'e0000018-0000-4000-8000-000000000018', // DRAFT Aug 20 2027, limit 200, 0 regs
+  EVT_STARTUPPITCH:  'e0000019-0000-4000-8000-000000000019', // PUBLISHED Nov 5, limit 60, 16 regs
+  EVT_FOOTBALL:      'e0000020-0000-4000-8000-000000000020', // ONGOING since Oct 3, no limit, 0 regs
+  EVT_PHOTOEXHIBIT:  'e0000021-0000-4000-8000-000000000021', // ONGOING Oct 26 - Nov 9, no limit, 0 regs
+  EVT_CLEANUP:       'e0000022-0000-4000-8000-000000000022', // CONCLUDED Oct 10, limit 80, 22 regs
+  EVT_MENTALHEALTH:  'e0000023-0000-4000-8000-000000000023', // CONCLUDED Oct 8, limit 40, 14 regs
+  EVT_OPENHOUSE:     'e0000024-0000-4000-8000-000000000024', // DRAFT Feb 10 2027, no limit, 0 regs
+  EVT_DATASCIENCE:   'e0000025-0000-4000-8000-000000000025', // ONGOING Sep 1, limit 30, 20 regs
+  EVT_CHESS:         'e0000026-0000-4000-8000-000000000026', // PUBLISHED Nov 8, limit 32, 20 regs
+  EVT_FOODFEST:      'e0000027-0000-4000-8000-000000000027', // PUBLISHED Nov 21, no limit, 0 regs
+  EVT_ROBOTICS:      'e0000028-0000-4000-8000-000000000028', // CONCLUDED Sep 12, limit 100, 0 regs
+  EVT_FRESHMENCAMP:  'e0000029-0000-4000-8000-000000000029', // CONCLUDED Aug 15, limit 300, 22 regs
+  EVT_CHOIR:         'e0000030-0000-4000-8000-000000000030', // DRAFT Jan 15 2027, limit 250, 0 regs
+  EVT_LIBRARY:       'e0000031-0000-4000-8000-000000000031', // PUBLISHED Nov 9, limit 25, 12 regs
+  EVT_PRIDEWEEK:     'e0000032-0000-4000-8000-000000000032', // PUBLISHED Jun 1 2027, no limit, 0 regs
+  EVT_MUAYTHAI:      'e0000033-0000-4000-8000-000000000033', // CONCLUDED Sep 19, no limit, 0 regs
+  EVT_GRADINFO:      'e0000034-0000-4000-8000-000000000034', // ONGOING Sep 10, limit 100, 10 regs
+  EVT_FUNRUN:        'e0000035-0000-4000-8000-000000000035', // CANCELLED Oct 17, limit 60, 12 regs
+  EVT_CLOUDTALK:     'e0000036-0000-4000-8000-000000000036', // PUBLISHED Nov 6, limit 80, 18 regs
+  EVT_ACOUSTIC:      'e0000037-0000-4000-8000-000000000037', // PUBLISHED Nov 7, limit 120, 22 regs
+  EVT_ALUMNI:        'e0000038-0000-4000-8000-000000000038', // PUBLISHED Nov 4, limit 60, 24 regs
+  EVT_OSS:           'e0000039-0000-4000-8000-000000000039', // ONGOING Oct 5, limit 40, 22 regs
 
   // Forms
   FORM_HALLOWEEN_REG:  'f0000001-0000-4000-8000-000000000001',
@@ -107,6 +139,14 @@ const ID = {
   FORM_GRADINFO_REG:      'f0000021-0000-4000-8000-000000000021',
   FORM_CLEANUP_FB:        'f0000022-0000-4000-8000-000000000022',
   FORM_FRESHMENCAMP_FB:   'f0000023-0000-4000-8000-000000000023',
+  FORM_FUNRUN_REG:        'f0000024-0000-4000-8000-000000000024',
+  FORM_CLOUDTALK_REG:     'f0000025-0000-4000-8000-000000000025',
+  FORM_ACOUSTIC_REG:      'f0000026-0000-4000-8000-000000000026',
+  FORM_ACOUSTIC_FB:       'f0000027-0000-4000-8000-000000000027',
+  FORM_ALUMNI_REG:        'f0000028-0000-4000-8000-000000000028',
+  FORM_ALUMNI_FB:         'f0000029-0000-4000-8000-000000000029',
+  FORM_OSS_REG:           'f0000030-0000-4000-8000-000000000030',
+  FORM_OSS_FB:            'f0000031-0000-4000-8000-000000000031',
 
   // Form Fields — Halloween Reg
   FLD_H_FIRSTNAME: 'ff000001-0000-4000-8000-000000000001',
@@ -162,6 +202,47 @@ const ID = {
   FLD_FCFB_OVERALL: 'ff000310-0000-4000-8000-000000000310',
   FLD_FCFB_LIKED:   'ff000311-0000-4000-8000-000000000311',
   FLD_FCFB_COMMENT: 'ff000312-0000-4000-8000-000000000312',
+
+  // Form Fields — Charity Fun Run Reg
+  FLD_FR_FIRSTNAME: 'ff000400-0000-4000-8000-000000000400',
+  FLD_FR_STUDENTID: 'ff000401-0000-4000-8000-000000000401',
+  FLD_FR_DISTANCE:  'ff000402-0000-4000-8000-000000000402',
+  FLD_FR_TSHIRT:    'ff000403-0000-4000-8000-000000000403',
+
+  // Form Fields — Cloud Careers Tech Talk Reg
+  FLD_CT_FIRSTNAME:  'ff000410-0000-4000-8000-000000000410',
+  FLD_CT_STUDENTID:  'ff000411-0000-4000-8000-000000000411',
+  FLD_CT_PROVIDER:   'ff000412-0000-4000-8000-000000000412',
+  FLD_CT_EXPERIENCE: 'ff000413-0000-4000-8000-000000000413',
+
+  // Form Fields — Acoustic Night Reg + Feedback
+  FLD_AC_FIRSTNAME: 'ff000420-0000-4000-8000-000000000420',
+  FLD_AC_STUDENTID: 'ff000421-0000-4000-8000-000000000421',
+  FLD_AC_SEATING:   'ff000422-0000-4000-8000-000000000422',
+  FLD_AC_GUESTS:    'ff000423-0000-4000-8000-000000000423',
+  FLD_ACFB_OVERALL: 'ff000430-0000-4000-8000-000000000430',
+  FLD_ACFB_SOUND:   'ff000431-0000-4000-8000-000000000431',
+  FLD_ACFB_FAVORITE:'ff000432-0000-4000-8000-000000000432',
+  FLD_ACFB_COMMENT: 'ff000433-0000-4000-8000-000000000433',
+
+  // Form Fields — Alumni Career Panel Reg + Feedback
+  FLD_AL_FIRSTNAME: 'ff000440-0000-4000-8000-000000000440',
+  FLD_AL_STUDENTID: 'ff000441-0000-4000-8000-000000000441',
+  FLD_AL_MAJOR:     'ff000442-0000-4000-8000-000000000442',
+  FLD_AL_INDUSTRY:  'ff000443-0000-4000-8000-000000000443',
+  FLD_ALFB_OVERALL: 'ff000450-0000-4000-8000-000000000450',
+  FLD_ALFB_USEFUL:  'ff000451-0000-4000-8000-000000000451',
+  FLD_ALFB_AGAIN:   'ff000452-0000-4000-8000-000000000452',
+  FLD_ALFB_COMMENT: 'ff000453-0000-4000-8000-000000000453',
+
+  // Form Fields — Open Source Month Reg + Feedback
+  FLD_OSS_FIRSTNAME: 'ff000460-0000-4000-8000-000000000460',
+  FLD_OSS_STUDENTID: 'ff000461-0000-4000-8000-000000000461',
+  FLD_OSS_LANGUAGE:  'ff000462-0000-4000-8000-000000000462',
+  FLD_OSS_GIT:       'ff000463-0000-4000-8000-000000000463',
+  FLD_OSSFB_OVERALL: 'ff000470-0000-4000-8000-000000000470',
+  FLD_OSSFB_CHALLENGE:'ff000471-0000-4000-8000-000000000471',
+  FLD_OSSFB_COMMENT: 'ff000472-0000-4000-8000-000000000472',
 
   // Form Fields — Sports Reg (minimal — just name)
   FLD_SP_FIRSTNAME: 'ff000080-0000-4000-8000-000000000080',
@@ -261,6 +342,11 @@ const ID = {
   ROOM_PRIDEWEEK:     '90000032-0000-4000-8000-000000000032',
   ROOM_MUAYTHAI:      '90000033-0000-4000-8000-000000000033',
   ROOM_GRADINFO:      '90000034-0000-4000-8000-000000000034',
+  ROOM_FUNRUN:        '90000035-0000-4000-8000-000000000035',
+  ROOM_CLOUDTALK:     '90000036-0000-4000-8000-000000000036',
+  ROOM_ACOUSTIC:      '90000037-0000-4000-8000-000000000037',
+  ROOM_ALUMNI:        '90000038-0000-4000-8000-000000000038',
+  ROOM_OSS:           '90000039-0000-4000-8000-000000000039',
 };
 
 // ─── PARTICIPANT PROFILE DATA ─────────────────────────────────────────────────
@@ -328,13 +414,29 @@ const PARTICIPANT_DATA = {
   },
 };
 
+type ParticipantRecord = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  nickname: string;
+  studentId: string;
+  major: string;
+  email: string;
+  phone: string;
+  lineId: string;
+  imageUrl: string;
+};
+
+// the five hand-written demo accounts plus the generated crowd (participant6..35)
+const ALL_PARTICIPANTS: Record<string, ParticipantRecord> = { ...PARTICIPANT_DATA, ...CROWD_PARTICIPANTS };
+
 // ─── HELPER: resolve answer value for a field ─────────────────────────────────
 
 function resolveAnswer(
   fieldId: string,
-  participant: (typeof PARTICIPANT_DATA)[keyof typeof PARTICIPANT_DATA],
+  participant: ParticipantRecord,
   formFields: { id: string; autoFillKey: string | null; type: FieldType; options: string[] }[],
-  extraAnswers: Record<string, string | number | string[]> = {},
+  extraAnswers: Record<string, string | number | string[] | null> = {},
 ): string | number | string[] | null {
   const field = formFields.find((f) => f.id === fieldId);
   if (!field) return null;
@@ -407,7 +509,7 @@ function mapToPrismaColumns(
 function buildSnapshot(
   formFields: { id: string; autoFillKey: string | null }[],
   answers: Record<string, string | number | string[] | null>,
-  participant: (typeof PARTICIPANT_DATA)[keyof typeof PARTICIPANT_DATA],
+  participant: ParticipantRecord,
 ): Record<string, string> {
   const snapshotKeys = ['firstName', 'lastName', 'nickname', 'studentId', 'major'];
   const result: Record<string, string> = {};
@@ -423,7 +525,9 @@ function buildSnapshot(
   return result;
 }
 
-// ─── HELPER: create full registration (reg + form response + field responses + ticket) ──
+// ─── HELPER: create full registration (reg + form response + field responses + ticket [+ attendance]) ──
+// Every timestamp is explicit: the ticket is issued and the form submitted at the moment of registration.
+// Returns null (and writes nothing) when the participant already has a registration the seed does not own.
 
 async function createFullRegistration({
   registrationId,
@@ -447,12 +551,12 @@ async function createFullRegistration({
   eventId: string;
   formId: string;
   formFields: { id: string; autoFillKey: string | null; type: FieldType; options: string[] }[];
-  participant: (typeof PARTICIPANT_DATA)[keyof typeof PARTICIPANT_DATA];
+  participant: ParticipantRecord;
   registrationStatus: RegistrationStatus;
   ticketStatus: TicketStatus;
   attendance?: { method: CheckInMethod; checkedInAt: Date };
-  extraAnswers?: Record<string, string | number | string[]>;
-  createdAt?: Date;
+  extraAnswers?: Record<string, string | number | string[] | null>;
+  createdAt: Date;
 }) {
   // a ticket is USED exactly when the participant was checked in
   if ((ticketStatus === TicketStatus.USED) !== (attendance !== undefined)) {
@@ -460,6 +564,17 @@ async function createFullRegistration({
       `Seed inconsistency: registration ${registrationId} must have attendance if and only if its ticket is USED`,
     );
   }
+  if (attendance && attendance.checkedInAt < createdAt) {
+    throw new Error(`Seed inconsistency: registration ${registrationId} is checked in before it was made`);
+  }
+
+  // someone may already have registered this participant through the app (a row with a random id):
+  // leave that registration, its ticket and its answers alone instead of colliding with them
+  const existing = await prisma.eventRegistration.findUnique({
+    where: { participantId_eventId: { participantId, eventId } },
+    select: { id: true },
+  });
+  if (existing && existing.id !== registrationId) return null;
 
   // build answers map
   const answersMap: Record<string, string | number | string[] | null> = {};
@@ -470,31 +585,31 @@ async function createFullRegistration({
   // 1. create EventRegistration
   const registration = await prisma.eventRegistration.upsert({
     where: { participantId_eventId: { participantId, eventId } },
-    update: { status: registrationStatus },
+    update: { status: registrationStatus, createdAt },
     create: {
       id: registrationId,
       participantId,
       eventId,
       status: registrationStatus,
-      ...(createdAt && { createdAt }),
+      createdAt,
     },
   });
 
-  // 2. create FormResponse
+  // 2. create FormResponse (submitted together with the registration)
   const formResponse = await prisma.formResponse.upsert({
     where: { id: formResponseId },
-    update: {},
+    update: { createdAt },
     create: {
       id: formResponseId,
       formId,
       eventRegistrationId: registration.id,
+      createdAt,
     },
   });
 
-  // 3. create FormFieldResponses
+  // 3. create FormFieldResponses (one row per form field, unanswered optional fields stay empty)
   for (const field of formFields) {
-    const value = answersMap[field.id];
-    const columns = mapToPrismaColumns(value, field.type);
+    const columns = mapToPrismaColumns(answersMap[field.id], field.type);
     await prisma.formFieldResponse.upsert({
       where: {
         formResponseId_formFieldId: {
@@ -502,7 +617,7 @@ async function createFullRegistration({
           formFieldId: field.id,
         },
       },
-      update: {},
+      update: columns,
       create: {
         formResponseId: formResponse.id,
         formFieldId: field.id,
@@ -512,17 +627,18 @@ async function createFullRegistration({
     });
   }
 
-  // 4. build snapshot and create Ticket
+  // 4. build snapshot and create Ticket (issued at registration time)
   const snapshot = buildSnapshot(formFields, answersMap, participant);
   await prisma.ticket.upsert({
     where: { id: ticketId },
-    update: { status: ticketStatus },
+    update: { status: ticketStatus, issuedAt: createdAt, participantSnapshot: snapshot },
     create: {
       id: ticketId,
       eventRegistrationId: registration.id,
       qrToken: crypto.randomUUID(),
       status: ticketStatus,
       participantSnapshot: snapshot,
+      issuedAt: createdAt,
     },
   });
 
@@ -558,26 +674,32 @@ async function createFeedbackResponse({
   formId,
   formFields,
   answers,
+  createdAt,
 }: {
   formResponseId: string;
   registrationId: string;
   formId: string;
   formFields: { id: string; autoFillKey: string | null; type: FieldType; options: string[] }[];
   answers: Record<string, string | number | string[] | null>;
-}) {
+  createdAt: Date;
+}): Promise<boolean> {
+  // feedback already submitted through the app (random id) is left alone
+  const existing = await prisma.formResponse.findFirst({ where: { eventRegistrationId: registrationId, formId }, select: { id: true } });
+  if (existing && existing.id !== formResponseId) return false;
+
   const formResponse = await prisma.formResponse.upsert({
     where: { id: formResponseId },
-    update: {},
+    update: { createdAt },
     create: {
       id: formResponseId,
       formId,
       eventRegistrationId: registrationId,
+      createdAt,
     },
   });
 
   for (const field of formFields) {
-    const value = answers[field.id] ?? null;
-    const columns = mapToPrismaColumns(value, field.type);
+    const columns = mapToPrismaColumns(answers[field.id] ?? null, field.type);
     await prisma.formFieldResponse.upsert({
       where: {
         formResponseId_formFieldId: {
@@ -585,7 +707,7 @@ async function createFeedbackResponse({
           formFieldId: field.id,
         },
       },
-      update: {},
+      update: columns,
       create: {
         formResponseId: formResponse.id,
         formFieldId: field.id,
@@ -594,6 +716,31 @@ async function createFeedbackResponse({
       },
     });
   }
+  return true;
+}
+
+// ─── HELPER: ids for generated rows ───────────────────────────────────────────
+// The hand-written rows keep their fixed ids; generated ones get ids of the form
+// <kind><event>-0c00-4000-8000-<n>, so the two ranges can never collide.
+
+const eventNumber = (eventId: string) => Number(eventId.slice(-12));
+function genId(kind: 'reg' | 'ticket' | 'response' | 'feedback' | 'message', eventId: string, n: number): string {
+  const letter = { reg: 'a', ticket: 'b', response: 'c', feedback: 'f', message: '9' }[kind];
+  const prefix = `${letter}${eventNumber(eventId).toString(16).padStart(2, '0')}00000`;
+  return `${prefix}-0c00-4000-8000-${String(n).padStart(12, '0')}`;
+}
+
+// Status + calendar of an event, taken from seed-lib/timeline.ts (the single source of truth).
+function eventTimes(key: string) {
+  const t = EVENT_TIMES[key];
+  return {
+    status: t.status,
+    createdAt: t.createdAt,
+    updatedAt: t.updatedAt,
+    publishedAt: t.publishedAt,
+    startAt: t.startAt,
+    endAt: t.endAt,
+  };
 }
 
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
@@ -659,7 +806,17 @@ async function main() {
       create: { id: ID.USER_PAR5, universityId: cmu.id, email: 'participant5@cmu.ac.th', passwordHash, currentRole: Role.PARTICIPANT, isVerified: true },
     }),
   ]);
-  console.log('✓ Users (3 organizers, 5 participants)');
+  // participant6..35: the generated crowd
+  await Promise.all(
+    Object.values(CROWD_PARTICIPANTS).map((p) =>
+      prisma.user.upsert({
+        where: { email: p.email },
+        update: {},
+        create: { id: p.userId, universityId: cmu.id, email: p.email, passwordHash, currentRole: Role.PARTICIPANT, isVerified: true },
+      }),
+    ),
+  );
+  console.log(`✓ Users (3 organizers, ${Object.keys(ALL_PARTICIPANTS).length} participants)`);
 
   // ── Organizer Profiles ──────────────────────────────────────────────────────
 
@@ -714,7 +871,7 @@ async function main() {
 
   // ── Participant Profiles ─────────────────────────────────────────────────────
 
-  const PAR_USER_MAP: Record<keyof typeof PARTICIPANT_DATA, string> = {
+  const PAR_USER_MAP: Record<string, string> = {
     PAR1: ID.USER_PAR1,
     PAR2: ID.USER_PAR2,
     PAR3: ID.USER_PAR3,
@@ -748,10 +905,51 @@ async function main() {
       }),
     ),
   );
-  console.log('✓ Participant profiles');
+  await Promise.all(
+    Object.entries(CROWD_PARTICIPANTS).map(([key, p]) =>
+      prisma.participantProfile.upsert({
+        where: { userId: p.userId },
+        update: {},
+        create: {
+          id: p.id,
+          userId: p.userId,
+          firstName: p.firstName,
+          lastName: p.lastName,
+          nickname: p.nickname,
+          studentId: p.studentId,
+          major: p.major,
+          contactEmail: p.email,
+          contactPhone: p.phone,
+          contactLineId: p.lineId,
+          imageUrl: p.imageUrl,
+          preferences: CROWD_PREFERENCES[key],
+        },
+      }),
+    ),
+  );
+
+  // Account creation dates: everyone joined well before the first event was published
+  // (the schema default would stamp them with the moment the seed runs).
+  const userIdOf: Record<string, string> = {
+    ORG1: ID.USER_ORG1, ORG2: ID.USER_ORG2, ORG3: ID.USER_ORG3,
+    ...PAR_USER_MAP,
+    ...Object.fromEntries(Object.entries(CROWD_PARTICIPANTS).map(([key, p]) => [key, p.userId])),
+  };
+  await Promise.all(
+    Object.entries(userIdOf).map(([key, userId]) => {
+      const createdAt = key.startsWith('ORG') ? organizerJoinedAt(key) : participantJoinedAt(key);
+      return Promise.all([
+        prisma.user.update({ where: { id: userId }, data: { createdAt } }),
+        key.startsWith('ORG')
+          ? prisma.organizerProfile.update({ where: { userId }, data: { createdAt } })
+          : prisma.participantProfile.update({ where: { userId }, data: { createdAt } }),
+      ]);
+    }),
+  );
+  console.log(`✓ Participant profiles (${Object.keys(ALL_PARTICIPANTS).length})`);
 
   // ── Events ───────────────────────────────────────────────────────────────────
-  // NOTE: seatsTaken set to match CONFIRMED registrations seeded below
+  // NOTE: seatsTaken is not set here: it is synced to the registrations once they exist (see "Seat counters" below)
 
   const eventBase = {
     universityId: cmu.id,
@@ -768,21 +966,18 @@ async function main() {
 
   await prisma.event.upsert({
     where: { id: ID.EVT_HALLOWEEN },
-    update: { seatsTaken: 3 },
+    update: eventTimes('EVT_HALLOWEEN'),
     create: {
       ...eventBase,
       id: ID.EVT_HALLOWEEN,
+      ...eventTimes('EVT_HALLOWEEN'),
       organizerId: org1.id,
       title: { en: 'CAMT Halloween Night 2026', th: 'คืนฮาโลวีน CAMT 2026' },
       description: { en: 'Join us for a spooky Halloween night filled with costumes, games, and surprises. Enjoy a costume contest, spooky decorations, and a lucky draw to close out the evening.', th: 'มาร่วมสนุกกับคืนฮาโลวีนสุดหลอนที่เต็มไปด้วยชุดแฟนซี เกม และเซอร์ไพรส์มากมาย พบกับการประกวดชุด การตกแต่งสุดหลอน และกิจกรรมจับรางวัลปิดท้ายค่ำคืน' },
       category: ['PARTY', 'CULTURAL'],
       location: { en: 'CAMT Auditorium', th: 'ห้องประชุมใหญ่ CAMT' },
       mapLink: 'https://maps.google.com/?q=CAMT+CMU',
-      startAt: new Date('2026-10-31T17:00:00.000Z'),
-      endAt: new Date('2026-10-31T21:00:00.000Z'),
       seatLimit: 100,
-      seatsTaken: 3, // par1, par2, par3
-      status: EventStatus.PUBLISHED,
       hasCatering: true,
       isCateringFree: true,
       cateringDescription: { en: 'Light snacks and drinks.', th: 'มีของว่างและเครื่องดื่ม' },
@@ -794,27 +989,23 @@ async function main() {
       contactName: 'CAMT Student Affairs',
       contactEmail: 'organizer1@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/1_holloween.jpg',
-      publishedAt: new Date('2026-09-01T00:00:00.000Z'),
     },
   });
 
   await prisma.event.upsert({
     where: { id: ID.EVT_NEW_YEAR },
-    update: { seatsTaken: 5 },
+    update: eventTimes('EVT_NEW_YEAR'),
     create: {
       ...eventBase,
       id: ID.EVT_NEW_YEAR,
+      ...eventTimes('EVT_NEW_YEAR'),
       organizerId: org1.id,
       title: { en: 'New Year Countdown Party 2027', th: 'ปาร์ตี้เคาท์ดาวน์ปีใหม่ 2027' },
       description: { en: 'Ring in the New Year with music, food, and a countdown to remember on the CAMT rooftop garden. Dance the night away with friends before the fireworks light up the sky at midnight.', th: 'ฉลองส่งท้ายปีเก่าต้อนรับปีใหม่ไปด้วยกันบนสวนดาดฟ้า CAMT พร้อมดนตรี อาหาร และการนับถอยหลังสุดพิเศษ เต้นรำสนุกสนานกับเพื่อนๆ ก่อนที่พลุจะจุดสว่างท้องฟ้ายามเที่ยงคืน' },
       category: ['PARTY', 'FESTIVAL'],
       location: { en: 'CAMT Rooftop Garden', th: 'สวนดาดฟ้า CAMT' },
       mapLink: 'https://maps.google.com/?q=CAMT+CMU',
-      startAt: new Date('2026-12-31T22:00:00.000Z'),
-      endAt: new Date('2027-01-01T01:00:00.000Z'),
       seatLimit: 5, // FULL — all 5 participants registered
-      seatsTaken: 5,
-      status: EventStatus.PUBLISHED,
       hasCatering: true,
       isCateringFree: false,
       cateringDescription: { en: 'Food and drinks available.', th: 'มีอาหารและเครื่องดื่มจำหน่าย' },
@@ -825,44 +1016,40 @@ async function main() {
       contactName: 'CAMT Student Affairs',
       contactEmail: 'organizer1@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/2_new_year.jpg',
-      publishedAt: new Date('2026-09-02T00:00:00.000Z'),
       remarks: { en: 'Limited seats — first come first served.', th: 'ที่นั่งจำกัด' },
     },
   });
 
   await prisma.event.upsert({
     where: { id: ID.EVT_SUKHOTHAI },
-    update: { seatsTaken: 1 },
+    update: eventTimes('EVT_SUKHOTHAI'),
     create: {
       ...eventBase,
       id: ID.EVT_SUKHOTHAI,
+      ...eventTimes('EVT_SUKHOTHAI'),
       organizerId: org2.id,
       title: { en: 'Sukhothai Excursion Trip', th: 'ทริปทัศนศึกษาสุโขทัย' },
       description: { en: 'Join a two-day excursion to explore the ancient ruins and temples of Sukhothai Historical Park, a UNESCO World Heritage Site. Transportation, meals, and a local guide are all included.', th: 'ร่วมทริปทัศนศึกษา 2 วัน 1 คืน สำรวจโบราณสถานและวัดวาอารามในอุทยานประวัติศาสตร์สุโขทัย มรดกโลกขององค์การยูเนสโก รวมค่าเดินทาง อาหาร และไกด์นำเที่ยวท้องถิ่น' },
       category: ['TRIP', 'CULTURAL'],
       location: { en: 'Sukhothai Historical Park', th: 'อุทยานประวัติศาสตร์สุโขทัย' },
       mapLink: 'https://maps.google.com/?q=Sukhothai+Historical+Park',
-      startAt: new Date('2026-11-15T06:00:00.000Z'),
-      endAt: new Date('2026-11-16T20:00:00.000Z'),
       seatLimit: 10,
-      seatsTaken: 1, // par1 CONFIRMED, par2 CANCELLED (doesn't count)
-      status: EventStatus.PUBLISHED,
       hasCatering: true,
       isCateringFree: false,
       cateringDescription: { en: 'Meals included.', th: 'รวมอาหาร' },
       contactName: 'CMU Music and Arts Club',
       contactEmail: 'organizer2@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/3_sukhothai.jpg',
-      publishedAt: new Date('2026-09-10T00:00:00.000Z'),
     },
   });
 
   await prisma.event.upsert({
     where: { id: ID.EVT_EXCHANGE },
-    update: { seatsTaken: 3 },
+    update: eventTimes('EVT_EXCHANGE'),
     create: {
       ...eventBase,
       id: ID.EVT_EXCHANGE,
+      ...eventTimes('EVT_EXCHANGE'),
       organizerId: org2.id,
       title: { en: 'Semester Exchange Program 2026', th: 'โครงการแลกเปลี่ยนนักศึกษา 2026' },
       description: { en: 'Join the semester exchange program with our partner universities abroad and gain international academic experience. Sessions cover application requirements, course transfer credits, and cultural preparation for studying overseas.', th: 'เข้าร่วมโครงการแลกเปลี่ยนภาคการศึกษากับมหาวิทยาลัยพันธมิตรในต่างประเทศ เพื่อสร้างประสบการณ์ทางวิชาการระดับนานาชาติ เซสชันครอบคลุมคุณสมบัติการสมัคร การโอนหน่วยกิต และการเตรียมตัวด้านวัฒนธรรมก่อนไปศึกษาต่อ' },
@@ -870,189 +1057,157 @@ async function main() {
       location: { en: 'Online and CAMT Building', th: 'ออนไลน์และอาคาร CAMT' },
       mapLink: '',
       isOnline: true,
-      startAt: new Date('2026-09-01T09:00:00.000Z'),
-      endAt: new Date('2026-12-31T17:00:00.000Z'),
       seatLimit: 3, // FULL — par1, par2, par3
-      seatsTaken: 3,
-      status: EventStatus.ONGOING,
       contactName: 'CMU Music and Arts Club',
       contactEmail: 'organizer2@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/5_seminar_exchange.jpg',
-      publishedAt: new Date('2026-08-01T00:00:00.000Z'),
       remarks: { en: 'GPA 3.0 or above required.', th: 'ต้องมี GPA 3.0 ขึ้นไป' },
     },
   });
 
   await prisma.event.upsert({
     where: { id: ID.EVT_BOOTCAMP },
-    update: { seatsTaken: 2 },
+    update: eventTimes('EVT_BOOTCAMP'),
     create: {
       ...eventBase,
       id: ID.EVT_BOOTCAMP,
+      ...eventTimes('EVT_BOOTCAMP'),
       organizerId: org2.id,
       title: { en: 'Coding Bootcamp Summer 2026', th: 'Coding Bootcamp ซัมเมอร์ 2026' },
       description: { en: 'An intensive coding bootcamp covering modern web development from front-end basics to full-stack deployment. Participants will build real projects and receive mentorship from industry practitioners throughout the program.', th: 'Coding Bootcamp เข้มข้นครอบคลุมการพัฒนาเว็บสมัยใหม่ ตั้งแต่พื้นฐาน Front-end ไปจนถึงการ Deploy แบบ Full-stack ผู้เข้าร่วมจะได้ลงมือทำโปรเจกต์จริงพร้อมคำแนะนำจากผู้เชี่ยวชาญในอุตสาหกรรมตลอดโครงการ' },
       category: ['WORKSHOP', 'SEMINAR'],
       location: { en: 'CAMT Computer Lab 1', th: 'ห้องแล็บคอมพิวเตอร์ 1 CAMT' },
       mapLink: '',
-      startAt: new Date('2026-08-01T09:00:00.000Z'),
-      endAt: new Date('2026-11-30T17:00:00.000Z'),
       seatLimit: 25,
-      seatsTaken: 2, // par1, par3
-      status: EventStatus.ONGOING,
       contactName: 'CMU Music and Arts Club',
       contactEmail: 'organizer2@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/6_coding.jpg',
-      publishedAt: new Date('2026-07-01T00:00:00.000Z'),
     },
   });
 
   await prisma.event.upsert({
     where: { id: ID.EVT_HACKATHON },
-    update: { seatsTaken: 3 },
+    update: eventTimes('EVT_HACKATHON'),
     create: {
       ...eventBase,
       id: ID.EVT_HACKATHON,
+      ...eventTimes('EVT_HACKATHON'),
       organizerId: org3.id,
       title: { en: 'SE Hackathon 2026', th: 'SE Hackathon 2026' },
       description: { en: '48-hour hackathon challenging SE students to design, build, and pitch a working prototype under time pressure. Teams will compete for prizes and get feedback from mentors and industry judges.', th: 'แข่งขัน Hackathon 48 ชั่วโมง ท้าทายนักศึกษา SE ให้ออกแบบ พัฒนา และนำเสนอต้นแบบที่ใช้งานได้จริงภายใต้เวลาที่จำกัด ทีมที่เข้าแข่งขันจะได้ชิงรางวัลและรับคำแนะนำจากเมนเทอร์และกรรมการจากภาคอุตสาหกรรม' },
       category: ['HACKATHON', 'COMPETITION'],
       location: { en: 'CAMT Innovation Lab', th: 'ห้อง Innovation Lab CAMT' },
       mapLink: '',
-      startAt: new Date('2026-05-20T09:00:00.000Z'),
-      endAt: new Date('2026-05-22T17:00:00.000Z'),
       seatLimit: 60,
-      seatsTaken: 3, // par1, par2 attended; par3 no-show (ticket EXPIRED)
-      status: EventStatus.CONCLUDED,
       hasCatering: true,
       isCateringFree: true,
       cateringDescription: { en: 'Meals and snacks throughout the event.', th: 'มีอาหารตลอดงาน' },
       contactName: 'SE Department Club',
       contactEmail: 'organizer3@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/8_hackathon.jpg',
-      publishedAt: new Date('2026-04-20T00:00:00.000Z'),
     },
   });
 
   await prisma.event.upsert({
     where: { id: ID.EVT_SPORTS },
-    update: { seatsTaken: 2 },
+    update: eventTimes('EVT_SPORTS'),
     create: {
       ...eventBase,
       id: ID.EVT_SPORTS,
+      ...eventTimes('EVT_SPORTS'),
       organizerId: org3.id,
       title: { en: 'CMU Sports Day 2026', th: 'กีฬาสี CMU 2026' },
       description: { en: 'The annual CMU Sports Day brings faculties together for a full day of athletic competitions, cheerleading, and team spirit. Come support your faculty team or just enjoy the festive atmosphere around the sports complex.', th: 'งานกีฬาสีประจำปีของ มช. รวมทุกคณะไว้ด้วยกันเพื่อร่วมการแข่งขันกีฬา การเชียร์ และความสามัคคีตลอดทั้งวัน มาร่วมเชียร์ทีมคณะของคุณหรือเพลิดเพลินกับบรรยากาศแห่งความสนุกสนานรอบศูนย์กีฬา' },
       category: ['SPORT'],
       location: { en: 'CMU Sports Complex', th: 'ศูนย์กีฬา มช.' },
       mapLink: '',
-      startAt: new Date('2026-04-10T08:00:00.000Z'),
-      endAt: new Date('2026-04-10T18:00:00.000Z'),
       seatLimit: null, // unlimited
-      seatsTaken: 2,   // par2, par4 — tickets EXPIRED (concluded)
-      status: EventStatus.CONCLUDED,
       hasCatering: true,
       isCateringFree: true,
       cateringDescription: { en: 'Food stalls available.', th: 'มีร้านอาหาร' },
       contactName: 'SE Department Club',
       contactEmail: 'organizer3@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/9_sportday.jpg',
-      publishedAt: new Date('2026-03-15T00:00:00.000Z'),
     },
   });
 
   await prisma.event.upsert({
     where: { id: ID.EVT_ORIENTATION },
-    update: {},
+    update: eventTimes('EVT_ORIENTATION'),
     create: {
       ...eventBase,
       id: ID.EVT_ORIENTATION,
+      ...eventTimes('EVT_ORIENTATION'),
       organizerId: org1.id,
       title: { en: 'Orientation Week 2026', th: 'สัปดาห์ปฐมนิเทศ 2026' },
       description: { en: "Orientation Week welcomes new students with campus tours, faculty introductions, and workshops on academic life at CMU. It's the perfect opportunity to meet classmates and get settled before the semester begins.", th: 'สัปดาห์ปฐมนิเทศต้อนรับนักศึกษาใหม่ด้วยการนำชมมหาวิทยาลัย แนะนำคณาจารย์ และเวิร์กชอปเกี่ยวกับชีวิตทางวิชาการใน มช. เป็นโอกาสดีในการทำความรู้จักเพื่อนใหม่และเตรียมความพร้อมก่อนเปิดภาคการศึกษา' },
       category: ['ORIENTATION'],
       location: { en: 'CAMT Main Hall', th: 'ห้องโถงหลัก CAMT' },
       mapLink: '',
-      startAt: new Date('2026-05-01T09:00:00.000Z'),
-      endAt: new Date('2026-05-07T17:00:00.000Z'),
       seatLimit: 200,
-      seatsTaken: 0, // no registrations seeded
-      status: EventStatus.CONCLUDED,
       hasCatering: true,
       isCateringFree: true,
       cateringDescription: { en: 'Lunch provided daily.', th: 'มีอาหารกลางวันทุกวัน' },
       contactName: 'CAMT Student Affairs',
       contactEmail: 'organizer1@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/10_orientation.jpg',
-      publishedAt: new Date('2026-04-01T00:00:00.000Z'),
     },
   });
 
   await prisma.event.upsert({
     where: { id: ID.EVT_AI_SEMINAR },
-    update: {},
+    update: eventTimes('EVT_AI_SEMINAR'),
     create: {
       ...eventBase,
       id: ID.EVT_AI_SEMINAR,
+      ...eventTimes('EVT_AI_SEMINAR'),
       organizerId: org1.id,
       title: { en: 'AI Research Seminar Series', th: 'ชุดสัมมนาการวิจัย AI' },
       description: { en: 'An ongoing seminar series exploring the latest developments in artificial intelligence research, from machine learning theory to real-world applications. Guest speakers from academia and industry will share their work across multiple sessions.', th: 'ชุดสัมมนาต่อเนื่องที่สำรวจความก้าวหน้าล่าสุดด้านการวิจัยปัญญาประดิษฐ์ ตั้งแต่ทฤษฎี Machine Learning ไปจนถึงการประยุกต์ใช้จริง วิทยากรรับเชิญจากแวดวงวิชาการและอุตสาหกรรมจะมาร่วมแบ่งปันผลงานตลอดหลายเซสชัน' },
       category: ['SEMINAR', 'LECTURE'],
       location: { en: 'CAMT Building Room 202', th: 'ห้อง 202 อาคาร CAMT' },
       mapLink: '',
-      startAt: new Date('2026-06-01T09:00:00.000Z'),
-      endAt: new Date('2026-11-30T17:00:00.000Z'),
       seatLimit: 50,
-      seatsTaken: 0, // NO registration form — useful for FormNotFoundException test
-      status: EventStatus.ONGOING,
       contactName: 'CAMT Student Affairs',
       contactEmail: 'organizer1@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/7_ai_event.jpg',
-      publishedAt: new Date('2026-05-15T00:00:00.000Z'),
     },
   });
 
   await prisma.event.upsert({
     where: { id: ID.EVT_NO_FORM },
-    update: {},
+    update: eventTimes('EVT_NO_FORM'),
     create: {
       ...eventBase,
       id: ID.EVT_NO_FORM,
+      ...eventTimes('EVT_NO_FORM'),
       organizerId: org3.id,
       title: { en: 'Test Published Event — No Form', th: 'กิจกรรมทดสอบ — ไม่มีฟอร์ม' },
       description: { en: 'A published test event with no registration form, used for verifying flows that should gracefully handle events without a form. No sign-up is required to view this listing.', th: 'กิจกรรมทดสอบที่เผยแพร่แล้วโดยไม่มีฟอร์มลงทะเบียน ใช้สำหรับทดสอบการทำงานของระบบในกรณีที่กิจกรรมไม่มีฟอร์ม ไม่จำเป็นต้องลงทะเบียนเพื่อดูรายการนี้' },
       category: ['OTHER'],
       location: { en: 'CAMT Building Room 301', th: 'ห้อง 301 อาคาร CAMT' },
       mapLink: '',
-      startAt: new Date('2026-10-20T09:00:00.000Z'),
-      endAt: new Date('2026-10-20T12:00:00.000Z'),
       seatLimit: null,
-      seatsTaken: 0,
-      status: EventStatus.PUBLISHED,
       contactName: 'SE Department Club',
       contactEmail: 'organizer3@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/11_test.jpg',
-      publishedAt: new Date('2026-09-20T00:00:00.000Z'),
     },
   });
 
   await prisma.event.upsert({
     where: { id: ID.EVT_DRAFT1 },
-    update: {},
+    update: eventTimes('EVT_DRAFT1'),
     create: {
       ...eventBase,
       id: ID.EVT_DRAFT1,
+      ...eventTimes('EVT_DRAFT1'),
       organizerId: org1.id,
       title: { en: 'SE Workshop Draft', th: 'เวิร์กชอป SE ฉบับร่าง' },
       description: { en: 'A draft workshop for SE students still being planned by the organizing team. Final schedule, speakers, and registration details will be added once the workshop moves out of draft status.', th: 'เวิร์กชอปฉบับร่างสำหรับนักศึกษา SE ที่ทีมผู้จัดยังอยู่ระหว่างการวางแผน กำหนดการ วิทยากร และรายละเอียดการลงทะเบียนที่แน่นอนจะถูกเพิ่มเติมเมื่อกิจกรรมพร้อมเผยแพร่' },
       category: ['WORKSHOP'],
       location: { en: 'CAMT Building Room 101', th: 'ห้อง 101 อาคาร CAMT' },
       mapLink: '',
-      startAt: new Date('2026-11-15T09:00:00.000Z'),
-      endAt: new Date('2026-11-15T12:00:00.000Z'),
       seatLimit: 30,
-      seatsTaken: 0,
-      status: EventStatus.DRAFT,
       contactName: 'CAMT Student Affairs',
       contactEmail: 'organizer1@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/12_workshop.jpg',
@@ -1061,21 +1216,18 @@ async function main() {
 
   await prisma.event.upsert({
     where: { id: ID.EVT_DRAFT2 },
-    update: {},
+    update: eventTimes('EVT_DRAFT2'),
     create: {
       ...eventBase,
       id: ID.EVT_DRAFT2,
+      ...eventTimes('EVT_DRAFT2'),
       organizerId: org2.id,
       title: { en: 'Music Concert Draft', th: 'คอนเสิร์ตดนตรีฉบับร่าง' },
       description: { en: "A draft listing for the upcoming annual music concert, with the lineup and venue details still being finalized. Check back soon for the full program once it's published.", th: 'รายการฉบับร่างสำหรับคอนเสิร์ตดนตรีประจำปีที่กำลังจะมาถึง โดยรายชื่อศิลปินและสถานที่จัดงานยังอยู่ระหว่างการสรุป โปรดติดตามรายละเอียดฉบับเต็มเมื่อเผยแพร่' },
       category: ['CULTURAL', 'FESTIVAL'],
       location: { en: 'CMU Auditorium', th: 'หอประชุม มช.' },
       mapLink: '',
-      startAt: new Date('2026-12-20T18:00:00.000Z'),
-      endAt: new Date('2026-12-20T21:00:00.000Z'),
       seatLimit: 150,
-      seatsTaken: 0,
-      status: EventStatus.DRAFT,
       contactName: 'CMU Music and Arts Club',
       contactEmail: 'organizer2@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/13_music_concert.jpg',
@@ -1084,21 +1236,18 @@ async function main() {
 
   await prisma.event.upsert({
     where: { id: ID.EVT_DRAFT3 },
-    update: {},
+    update: eventTimes('EVT_DRAFT3'),
     create: {
       ...eventBase,
       id: ID.EVT_DRAFT3,
+      ...eventTimes('EVT_DRAFT3'),
       organizerId: org3.id,
       title: { en: 'Cultural Festival Draft', th: 'เทศกาลวัฒนธรรมฉบับร่าง' },
       description: { en: 'A draft listing for an upcoming cultural festival celebrating the diversity of student life at CMU. Activities, performers, and dates are still being confirmed by the organizing club.', th: 'รายการฉบับร่างสำหรับเทศกาลวัฒนธรรมที่กำลังจะมาถึง เพื่อเฉลิมฉลองความหลากหลายของชีวิตนักศึกษาใน มช. กิจกรรม ผู้แสดง และวันจัดงานยังอยู่ระหว่างการยืนยันโดยชมรมผู้จัด' },
       category: ['CULTURAL', 'FESTIVAL'],
       location: { en: 'CMU Cultural Center', th: 'ศูนย์วัฒนธรรม มช.' },
       mapLink: '',
-      startAt: null,
-      endAt: null,
       seatLimit: null,
-      seatsTaken: 0,
-      status: EventStatus.DRAFT,
       contactName: 'SE Department Club',
       contactEmail: 'organizer3@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/14_curtural_fes.jpg',
@@ -1107,120 +1256,101 @@ async function main() {
 
   await prisma.event.upsert({
     where: { id: ID.EVT_CONCERT },
-    update: {},
+    update: eventTimes('EVT_CONCERT'),
     create: {
       ...eventBase,
       id: ID.EVT_CONCERT,
+      ...eventTimes('EVT_CONCERT'),
       organizerId: org2.id,
       title: { en: 'CMU Annual Concert 2026', th: 'คอนเสิร์ตประจำปี CMU 2026' },
       description: { en: 'The CMU Annual Concert showcases student musicians and performing arts groups from across campus. Enjoy an evening of live music, from classical ensembles to contemporary student bands.', th: 'คอนเสิร์ตประจำปีของ มช. นำเสนอผลงานของนักดนตรีและกลุ่มศิลปะการแสดงจากทั่วมหาวิทยาลัย ร่วมสัมผัสค่ำคืนแห่งดนตรีสด ตั้งแต่วงดนตรีคลาสสิกไปจนถึงวงดนตรีร่วมสมัยของนักศึกษา' },
       category: ['CULTURAL', 'FESTIVAL'],
       location: { en: 'CMU Main Auditorium', th: 'หอประชุมใหญ่ มช.' },
       mapLink: 'https://maps.google.com/?q=CMU+Auditorium',
-      startAt: new Date('2026-11-28T18:00:00.000Z'),
-      endAt: new Date('2026-11-28T21:00:00.000Z'),
       seatLimit: 300,
-      seatsTaken: 0, // no registrations yet — open for registration
-      status: EventStatus.PUBLISHED,
       contactName: 'CMU Music and Arts Club',
       contactEmail: 'organizer2@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/4_concert.jpg',
-      publishedAt: new Date('2026-10-01T00:00:00.000Z'),
     },
   });
 
   await prisma.event.upsert({
     where: { id: ID.EVT_TEDX },
-    update: { seatsTaken: 2 },
+    update: eventTimes('EVT_TEDX'),
     create: {
       ...eventBase,
       id: ID.EVT_TEDX,
+      ...eventTimes('EVT_TEDX'),
       organizerId: org1.id,
       title: { en: 'TEDxChiangMaiUniversity 2026', th: 'TEDx มหาวิทยาลัยเชียงใหม่ 2026' },
       description: { en: 'A day of ideas worth spreading, featuring student and faculty speakers sharing insights on technology, sustainability, and society. Expect thought-provoking talks, live performances, and networking between sessions.', th: 'วันแห่งไอเดียที่ควรค่าแก่การเผยแพร่ โดยนักศึกษาและคณาจารย์ร่วมแบ่งปันมุมมองด้านเทคโนโลยี ความยั่งยืน และสังคม พบกับการบรรยายที่กระตุ้นความคิด การแสดงสด และช่วงเวลาเครือข่ายระหว่างเซสชัน' },
       category: ['SEMINAR', 'LECTURE'],
       location: { en: 'CMU Convention Center', th: 'ศูนย์ประชุมนานาชาติ มช.' },
       mapLink: 'https://maps.google.com/?q=CMU+Convention+Center',
-      startAt: new Date('2026-11-14T09:00:00.000Z'),
-      endAt: new Date('2026-11-14T17:00:00.000Z'),
       seatLimit: 400,
-      seatsTaken: 2,
-      status: EventStatus.PUBLISHED,
       contactName: 'CAMT Student Affairs',
       contactEmail: 'organizer1@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/15_ted_talk.jpg',
-      publishedAt: new Date('2026-09-04T00:00:00.000Z'),
     },
   });
 
   await prisma.event.upsert({
     where: { id: ID.EVT_JOBFAIR },
-    update: { seatsTaken: 2 },
+    update: eventTimes('EVT_JOBFAIR'),
     create: {
       ...eventBase,
       id: ID.EVT_JOBFAIR,
+      ...eventTimes('EVT_JOBFAIR'),
       organizerId: org1.id,
       title: { en: 'CMU Job & Internship Fair 2026', th: 'งานนัดพบแรงงานและฝึกงาน มช. 2026' },
       description: { en: 'Meet recruiters from top companies hiring students and new graduates across a wide range of industries. Bring your resume for on-the-spot interviews and learn about internship and full-time opportunities.', th: 'พบกับบริษัทชั้นนำที่เปิดรับนักศึกษาและบัณฑิตใหม่ในหลากหลายอุตสาหกรรม นำเรซูเม่มาสัมภาษณ์งานได้ทันทีในงาน พร้อมเรียนรู้โอกาสฝึกงานและตำแหน่งงานประจำ' },
       category: ['NETWORKING', 'CAREER_FAIR', 'INTERNSHIP'],
       location: { en: 'CMU Convention Center', th: 'ศูนย์ประชุมนานาชาติ มช.' },
       mapLink: 'https://maps.google.com/?q=CMU+Convention+Center',
-      startAt: new Date('2026-10-10T09:00:00.000Z'),
-      endAt: new Date('2026-10-10T16:00:00.000Z'),
       seatLimit: null,
-      seatsTaken: 2,
-      status: EventStatus.PUBLISHED,
       contactName: 'CAMT Student Affairs',
       contactEmail: 'organizer1@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/16_job_fair.jpg',
-      publishedAt: new Date('2026-09-10T00:00:00.000Z'),
     },
   });
 
   await prisma.event.upsert({
     where: { id: ID.EVT_BLOODDONATION },
-    update: {},
+    update: eventTimes('EVT_BLOODDONATION'),
     create: {
       ...eventBase,
       id: ID.EVT_BLOODDONATION,
+      ...eventTimes('EVT_BLOODDONATION'),
       organizerId: org1.id,
       title: { en: 'CMU Blood Donation Day', th: 'วันบริจาคโลหิต มช.' },
       description: { en: 'Donate blood with the Thai Red Cross and help save lives across the region — every drop counts. Walk-ins are welcome, but registering in advance helps us manage donation slots efficiently.', th: 'ร่วมบริจาคโลหิตกับสภากาชาดไทยเพื่อช่วยชีวิตผู้คนในภูมิภาค ทุกหยดมีความหมาย เดินเข้าร่วมได้ทันทีโดยไม่ต้องนัดหมาย แต่การลงทะเบียนล่วงหน้าจะช่วยให้เราจัดคิวบริจาคได้อย่างมีประสิทธิภาพ' },
       category: ['VOLUNTEER'],
       location: { en: 'CMU Student Union Building', th: 'อาคารกิจกรรมนักศึกษา มช.' },
       mapLink: '',
-      startAt: new Date('2026-10-03T09:00:00.000Z'),
-      endAt: new Date('2026-10-03T15:00:00.000Z'),
       seatLimit: 150,
-      seatsTaken: 0, // no regs yet — open for registration
-      status: EventStatus.PUBLISHED,
       hasCatering: true,
       isCateringFree: true,
       cateringDescription: { en: 'Juice and snacks provided after donation.', th: 'มีน้ำผลไม้และของว่างหลังบริจาค' },
       contactName: 'CAMT Student Affairs',
       contactEmail: 'organizer1@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/17_blood_donatioin.jpg',
-      publishedAt: new Date('2026-09-15T00:00:00.000Z'),
     },
   });
 
   await prisma.event.upsert({
     where: { id: ID.EVT_FRESHYNIGHT },
-    update: {},
+    update: eventTimes('EVT_FRESHYNIGHT'),
     create: {
       ...eventBase,
       id: ID.EVT_FRESHYNIGHT,
+      ...eventTimes('EVT_FRESHYNIGHT'),
       organizerId: org1.id,
       title: { en: 'CAMT Freshy Night 2027', th: 'CAMT Freshy Night 2027' },
       description: { en: 'A welcome party for incoming CAMT freshmen to kick off the new academic year with music, games, and new friendships. This listing is still in draft — full program details will be announced soon.', th: 'งานปาร์ตี้ต้อนรับน้องใหม่ CAMT เพื่อเปิดตัวปีการศึกษาใหม่ด้วยดนตรี เกม และมิตรภาพใหม่ๆ รายการนี้ยังอยู่ในสถานะฉบับร่าง รายละเอียดกำหนดการฉบับเต็มจะประกาศเร็วๆ นี้' },
       category: ['PARTY'],
       location: { en: 'CAMT Auditorium', th: 'ห้องประชุมใหญ่ CAMT' },
       mapLink: '',
-      startAt: new Date('2027-08-20T18:00:00.000Z'),
-      endAt: new Date('2027-08-20T22:00:00.000Z'),
       seatLimit: 200,
-      seatsTaken: 0,
-      status: EventStatus.DRAFT,
       contactName: 'CAMT Student Affairs',
       contactEmail: 'organizer1@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/18_freshman_night.jpg',
@@ -1229,144 +1359,121 @@ async function main() {
 
   await prisma.event.upsert({
     where: { id: ID.EVT_STARTUPPITCH },
-    update: { seatsTaken: 2 },
+    update: eventTimes('EVT_STARTUPPITCH'),
     create: {
       ...eventBase,
       id: ID.EVT_STARTUPPITCH,
+      ...eventTimes('EVT_STARTUPPITCH'),
       organizerId: org3.id,
       title: { en: 'CMU Startup Pitch Competition 2026', th: 'การแข่งขันพิตช์สตาร์ทอัพ มช. 2026' },
       description: { en: 'Student teams pitch their startup ideas to a panel of investors and industry mentors for a chance to win seed funding. Each team gets ten minutes to present, followed by a Q&A round with the judges.', th: 'ทีมนักศึกษานำเสนอไอเดียสตาร์ทอัพต่อคณะกรรมการนักลงทุนและเมนเทอร์จากภาคอุตสาหกรรม เพื่อลุ้นรับเงินทุนตั้งต้น แต่ละทีมมีเวลานำเสนอ 10 นาที ตามด้วยช่วงถาม-ตอบกับกรรมการ' },
       category: ['COMPETITION', 'NETWORKING'],
       location: { en: 'CAMT Innovation Lab', th: 'ห้อง Innovation Lab CAMT' },
       mapLink: '',
-      startAt: new Date('2026-11-05T13:00:00.000Z'),
-      endAt: new Date('2026-11-05T17:00:00.000Z'),
       seatLimit: 60,
-      seatsTaken: 2,
-      status: EventStatus.PUBLISHED,
       contactName: 'SE Department Club',
       contactEmail: 'organizer3@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/19_startup_pitch.jpg',
-      publishedAt: new Date('2026-09-11T00:00:00.000Z'),
     },
   });
 
   await prisma.event.upsert({
     where: { id: ID.EVT_FOOTBALL },
-    update: {},
+    update: eventTimes('EVT_FOOTBALL'),
     create: {
       ...eventBase,
       id: ID.EVT_FOOTBALL,
+      ...eventTimes('EVT_FOOTBALL'),
       organizerId: org3.id,
       title: { en: 'CMU Intramural Football Championship', th: 'ฟุตบอลเชื่อมสัมพันธ์ มช.' },
       description: { en: 'Faculty vs. faculty football tournament running through October, with matches held every weekend at the CMU Sports Complex. Come cheer on your faculty team as they compete for the championship trophy.', th: 'การแข่งขันฟุตบอลระหว่างคณะตลอดเดือนตุลาคม จัดการแข่งขันทุกสุดสัปดาห์ที่ศูนย์กีฬา มช. มาร่วมเชียร์ทีมคณะของคุณในการชิงถ้วยรางวัลแชมป์' },
       category: ['SPORT', 'COMPETITION'],
       location: { en: 'CMU Sports Complex', th: 'ศูนย์กีฬา มช.' },
       mapLink: '',
-      startAt: new Date('2026-09-01T00:00:00.000Z'),
-      endAt: new Date('2026-10-15T00:00:00.000Z'),
       seatLimit: null,
-      seatsTaken: 0,
-      status: EventStatus.ONGOING,
       contactName: 'SE Department Club',
       contactEmail: 'organizer3@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/20_football.jpg',
-      publishedAt: new Date('2026-08-20T00:00:00.000Z'),
     },
   });
 
   await prisma.event.upsert({
     where: { id: ID.EVT_PHOTOEXHIBIT },
-    update: {},
+    update: eventTimes('EVT_PHOTOEXHIBIT'),
     create: {
       ...eventBase,
       id: ID.EVT_PHOTOEXHIBIT,
+      ...eventTimes('EVT_PHOTOEXHIBIT'),
       organizerId: org2.id,
       title: { en: 'Student Photography Exhibition: "Chiang Mai Through Our Lens"', th: 'นิทรรศการภาพถ่ายนักศึกษา "เชียงใหม่ในมุมมองของเรา"' },
       description: { en: 'A week-long exhibition of student photography capturing everyday life and landscapes around Chiang Mai. Stop by the art museum to view the selected works and vote for your favorite piece.', th: 'นิทรรศการภาพถ่ายฝีมือนักศึกษาที่บอกเล่าวิถีชีวิตและทิวทัศน์รอบเชียงใหม่ ตลอดระยะเวลาหนึ่งสัปดาห์ แวะชมผลงานที่ได้รับคัดเลือกที่หอศิลปวัฒนธรรมและร่วมโหวตผลงานที่คุณชื่นชอบ' },
       category: ['CULTURAL', 'CLUB_ACTIVITY'],
       location: { en: 'CMU Art Museum', th: 'หอศิลปวัฒนธรรม มช.' },
       mapLink: '',
-      startAt: new Date('2026-10-20T10:00:00.000Z'),
-      endAt: new Date('2026-10-27T18:00:00.000Z'),
       seatLimit: null,
-      seatsTaken: 0,
-      status: EventStatus.PUBLISHED,
       contactName: 'CMU Music and Arts Club',
       contactEmail: 'organizer2@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/21_photo_exhitbition.jpg',
-      publishedAt: new Date('2026-09-20T00:00:00.000Z'),
     },
   });
 
   await prisma.event.upsert({
     where: { id: ID.EVT_CLEANUP },
-    update: { seatsTaken: 2 },
+    update: eventTimes('EVT_CLEANUP'),
     create: {
       ...eventBase,
       id: ID.EVT_CLEANUP,
+      ...eventTimes('EVT_CLEANUP'),
       organizerId: org1.id,
       title: { en: 'Ping River Clean-Up Day', th: 'วันทำความสะอาดแม่น้ำปิง' },
       description: { en: 'Volunteer clean-up along the Ping River, organized together with the local community to protect the waterway. Gloves, bags, and refreshments will be provided — just bring your energy and a good pair of shoes.', th: 'กิจกรรมอาสาทำความสะอาดริมแม่น้ำปิงร่วมกับชุมชนท้องถิ่น เพื่อร่วมกันดูแลรักษาแหล่งน้ำ ทางผู้จัดเตรียมถุงมือ ถุงขยะ และเครื่องดื่มไว้ให้ เพียงแค่เตรียมพลังและรองเท้าที่เหมาะสมมา' },
       category: ['VOLUNTEER'],
       location: { en: 'Ping River Promenade', th: 'ทางเดินริมแม่น้ำปิง' },
       mapLink: '',
-      startAt: new Date('2026-08-15T07:00:00.000Z'),
-      endAt: new Date('2026-08-15T12:00:00.000Z'),
       seatLimit: 80,
-      seatsTaken: 2, // par2, par4 — tickets EXPIRED (concluded)
-      status: EventStatus.CONCLUDED,
       hasCatering: true,
       isCateringFree: true,
       cateringDescription: { en: 'Water and snacks provided.', th: 'มีน้ำดื่มและของว่าง' },
       contactName: 'CAMT Student Affairs',
       contactEmail: 'organizer1@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/22_river_clean.jpg',
-      publishedAt: new Date('2026-07-20T00:00:00.000Z'),
     },
   });
 
   await prisma.event.upsert({
     where: { id: ID.EVT_MENTALHEALTH },
-    update: {},
+    update: eventTimes('EVT_MENTALHEALTH'),
     create: {
       ...eventBase,
       id: ID.EVT_MENTALHEALTH,
+      ...eventTimes('EVT_MENTALHEALTH'),
       organizerId: org1.id,
       title: { en: 'Mental Health Awareness Workshop', th: 'เวิร์กชอปสร้างความตระหนักด้านสุขภาพจิต' },
       description: { en: 'A workshop on stress management and mental wellness designed to help students navigate the pressures of university life. Led by a licensed counselor, the session includes practical coping techniques and an open discussion.', th: 'เวิร์กชอปการจัดการความเครียดและสุขภาพจิต ออกแบบมาเพื่อช่วยนักศึกษารับมือกับความกดดันในชีวิตมหาวิทยาลัย นำโดยนักให้คำปรึกษาที่มีใบอนุญาต พร้อมเทคนิคการรับมือที่นำไปใช้ได้จริงและช่วงเวลาพูดคุยแบบเปิด' },
       category: ['WORKSHOP'],
       location: { en: 'CAMT Building Room 205', th: 'ห้อง 205 อาคาร CAMT' },
       mapLink: '',
-      startAt: new Date('2026-10-08T13:00:00.000Z'),
-      endAt: new Date('2026-10-08T16:00:00.000Z'),
       seatLimit: 40,
-      seatsTaken: 0, // no regs yet — open for registration
-      status: EventStatus.PUBLISHED,
       contactName: 'CAMT Student Affairs',
       contactEmail: 'organizer1@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/23_mental_health.jpg',
-      publishedAt: new Date('2026-09-18T00:00:00.000Z'),
     },
   });
 
   await prisma.event.upsert({
     where: { id: ID.EVT_OPENHOUSE },
-    update: {},
+    update: eventTimes('EVT_OPENHOUSE'),
     create: {
       ...eventBase,
       id: ID.EVT_OPENHOUSE,
+      ...eventTimes('EVT_OPENHOUSE'),
       organizerId: org1.id,
       title: { en: 'CMU Open House 2027', th: 'มช. เปิดบ้าน 2027' },
       description: { en: 'An open house for prospective students to explore CMU\'s faculties, meet current students, and learn about admission requirements. This listing is still in draft while the program schedule is being finalized.', th: 'งานเปิดบ้านสำหรับนักเรียนที่สนใจเข้าศึกษาต่อ เพื่อสำรวจคณะต่างๆ ของ มช. พบปะนักศึกษาปัจจุบัน และเรียนรู้เกี่ยวกับเกณฑ์การรับสมัคร รายการนี้ยังอยู่ในสถานะฉบับร่างระหว่างการสรุปกำหนดการ' },
       category: ['ORIENTATION'],
       location: { en: 'CMU Main Campus', th: 'มหาวิทยาลัยเชียงใหม่' },
       mapLink: '',
-      startAt: new Date('2027-02-10T09:00:00.000Z'),
-      endAt: new Date('2027-02-10T16:00:00.000Z'),
       seatLimit: null,
-      seatsTaken: 0,
-      status: EventStatus.DRAFT,
       contactName: 'CMU Student Affairs',
       contactEmail: 'organizer1@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/24_cmu_openhouse.jpg',
@@ -1375,147 +1482,124 @@ async function main() {
 
   await prisma.event.upsert({
     where: { id: ID.EVT_DATASCIENCE },
-    update: { seatsTaken: 2 },
+    update: eventTimes('EVT_DATASCIENCE'),
     create: {
       ...eventBase,
       id: ID.EVT_DATASCIENCE,
+      ...eventTimes('EVT_DATASCIENCE'),
       organizerId: org3.id,
       title: { en: 'Data Science Bootcamp Fall 2026', th: 'Data Science Bootcamp ฤดูใบไม้ร่วง 2026' },
       description: { en: "A hands-on bootcamp covering Python programming, statistics, and the fundamentals of machine learning over several weeks. Participants will work on a capstone project using real-world datasets to apply what they've learned.", th: 'บูตแคมป์ภาคปฏิบัติที่ครอบคลุมการเขียนโปรแกรม Python สถิติ และพื้นฐาน Machine Learning ตลอดหลายสัปดาห์ ผู้เข้าร่วมจะได้ทำโปรเจกต์ปิดท้ายโดยใช้ชุดข้อมูลจริงเพื่อประยุกต์ใช้สิ่งที่ได้เรียนรู้' },
       category: ['WORKSHOP', 'SEMINAR'],
       location: { en: 'CAMT Computer Lab 2', th: 'ห้องแล็บคอมพิวเตอร์ 2 CAMT' },
       mapLink: '',
-      startAt: new Date('2026-09-01T09:00:00.000Z'),
-      endAt: new Date('2026-12-15T17:00:00.000Z'),
       seatLimit: 30,
-      seatsTaken: 2,
-      status: EventStatus.ONGOING,
       contactName: 'SE Department Club',
       contactEmail: 'organizer3@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/25_data_science.jpg',
-      publishedAt: new Date('2026-08-15T00:00:00.000Z'),
     },
   });
 
   await prisma.event.upsert({
     where: { id: ID.EVT_CHESS },
-    update: {},
+    update: eventTimes('EVT_CHESS'),
     create: {
       ...eventBase,
       id: ID.EVT_CHESS,
+      ...eventTimes('EVT_CHESS'),
       organizerId: org3.id,
       title: { en: 'CMU Chess Club Open Tournament', th: 'การแข่งขันหมากรุกสากล มช. เปิด' },
       description: { en: 'An open Swiss-format chess tournament welcoming players of all skill levels, from casual enthusiasts to competitive rated players. Prizes will be awarded to top finishers across multiple divisions.', th: 'การแข่งขันหมากรุกสากลระบบสวิสแบบเปิด เปิดรับผู้เล่นทุกระดับฝีมือ ตั้งแต่ผู้เล่นทั่วไปไปจนถึงนักแข่งขันที่มีคะแนนเรตติ้ง มีรางวัลมอบให้ผู้ที่ทำผลงานได้ดีที่สุดในแต่ละรุ่น' },
       category: ['COMPETITION'],
       location: { en: 'CMU Student Union Building', th: 'อาคารกิจกรรมนักศึกษา มช.' },
       mapLink: '',
-      startAt: new Date('2026-10-25T09:00:00.000Z'),
-      endAt: new Date('2026-10-25T18:00:00.000Z'),
       seatLimit: 32,
-      seatsTaken: 0, // no regs yet — open for registration
-      status: EventStatus.PUBLISHED,
       contactName: 'SE Department Club',
       contactEmail: 'organizer3@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/26_chess.jpg',
-      publishedAt: new Date('2026-09-25T00:00:00.000Z'),
     },
   });
 
   await prisma.event.upsert({
     where: { id: ID.EVT_FOODFEST },
-    update: {},
+    update: eventTimes('EVT_FOODFEST'),
     create: {
       ...eventBase,
       id: ID.EVT_FOODFEST,
+      ...eventTimes('EVT_FOODFEST'),
       organizerId: org2.id,
       title: { en: 'CMU International Food Festival', th: 'เทศกาลอาหารนานาชาติ มช.' },
       description: { en: 'Food stalls run by student clubs and international student associations, offering dishes from around the world. Come hungry and explore a variety of cuisines while enjoying live performances on the main stage.', th: 'ร้านอาหารจากชมรมนักศึกษาและสมาคมนักศึกษาต่างชาติ นำเสนอเมนูอาหารจากทั่วทุกมุมโลก มาพร้อมความหิวและสำรวจความหลากหลายของอาหาร พร้อมชมการแสดงสดบนเวทีหลัก' },
       category: ['FESTIVAL', 'CULTURAL'],
       location: { en: 'CMU Art and Culture Square', th: 'ลานวัฒนธรรม มช.' },
       mapLink: '',
-      startAt: new Date('2026-11-21T11:00:00.000Z'),
-      endAt: new Date('2026-11-21T21:00:00.000Z'),
       seatLimit: null,
-      seatsTaken: 0,
-      status: EventStatus.PUBLISHED,
       hasCatering: true,
       isCateringFree: false,
       cateringDescription: { en: 'Food available for purchase from stalls.', th: 'มีอาหารจำหน่ายตามร้านค้า' },
       contactName: 'CMU Music and Arts Club',
       contactEmail: 'organizer2@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/27_food.jpg',
-      publishedAt: new Date('2026-10-01T00:00:00.000Z'),
     },
   });
 
   await prisma.event.upsert({
     where: { id: ID.EVT_ROBOTICS },
-    update: {},
+    update: eventTimes('EVT_ROBOTICS'),
     create: {
       ...eventBase,
       id: ID.EVT_ROBOTICS,
+      ...eventTimes('EVT_ROBOTICS'),
       organizerId: org3.id,
       title: { en: 'CAMT Robotics Showcase 2026', th: 'งานแสดงหุ่นยนต์ CAMT 2026' },
       description: { en: 'Student robotics teams demonstrate the projects they built over the past semester, from autonomous rovers to robotic arms. Come see live demos and ask the teams about their design and engineering process.', th: 'ทีมหุ่นยนต์นักศึกษาสาธิตผลงานที่พัฒนาขึ้นตลอดภาคการศึกษาที่ผ่านมา ตั้งแต่รถสำรวจอัตโนมัติไปจนถึงแขนกล มาชมการสาธิตสดและพูดคุยกับทีมงานเกี่ยวกับกระบวนการออกแบบและวิศวกรรม' },
       category: ['CLUB_ACTIVITY'],
       location: { en: 'CAMT Innovation Lab', th: 'ห้อง Innovation Lab CAMT' },
       mapLink: '',
-      startAt: new Date('2026-06-10T09:00:00.000Z'),
-      endAt: new Date('2026-06-10T17:00:00.000Z'),
       seatLimit: 100,
-      seatsTaken: 0,
-      status: EventStatus.CONCLUDED,
       contactName: 'SE Department Club',
       contactEmail: 'organizer3@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/28_robotic.jpeg',
-      publishedAt: new Date('2026-05-10T00:00:00.000Z'),
     },
   });
 
   await prisma.event.upsert({
     where: { id: ID.EVT_FRESHMENCAMP },
-    update: { seatsTaken: 3 },
+    update: eventTimes('EVT_FRESHMENCAMP'),
     create: {
       ...eventBase,
       id: ID.EVT_FRESHMENCAMP,
+      ...eventTimes('EVT_FRESHMENCAMP'),
       organizerId: org1.id,
       title: { en: 'CAMT Freshmen Welcome Camp 2026', th: 'ค่ายต้อนรับน้องใหม่ CAMT 2026' },
       description: { en: "A three-day welcome camp for incoming first-year CAMT students, packed with team-building activities, campus tours, and senior mentorship sessions. It's the best way to make friends before classes officially begin.", th: 'ค่ายต้อนรับน้องใหม่ 3 วันสำหรับนักศึกษาชั้นปีที่ 1 CAMT เต็มไปด้วยกิจกรรมสร้างทีม การนำชมมหาวิทยาลัย และเซสชันให้คำแนะนำจากรุ่นพี่ เป็นวิธีที่ดีที่สุดในการสร้างมิตรภาพก่อนเปิดเทอมอย่างเป็นทางการ' },
       category: ['ORIENTATION'],
       location: { en: 'CAMT Building and Grounds', th: 'อาคารและบริเวณ CAMT' },
       mapLink: '',
-      startAt: new Date('2026-06-01T08:00:00.000Z'),
-      endAt: new Date('2026-06-03T17:00:00.000Z'),
       seatLimit: 300,
-      seatsTaken: 3, // par1, par2, par3 — tickets EXPIRED (concluded)
-      status: EventStatus.CONCLUDED,
       hasCatering: true,
       isCateringFree: true,
       cateringDescription: { en: 'All meals provided during the camp.', th: 'มีอาหารครบทุกมื้อตลอดค่าย' },
       contactName: 'CAMT Student Affairs',
       contactEmail: 'organizer1@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/29_camping.jpg',
-      publishedAt: new Date('2026-05-01T00:00:00.000Z'),
     },
   });
 
   await prisma.event.upsert({
     where: { id: ID.EVT_CHOIR },
-    update: {},
+    update: eventTimes('EVT_CHOIR'),
     create: {
       ...eventBase,
       id: ID.EVT_CHOIR,
+      ...eventTimes('EVT_CHOIR'),
       organizerId: org2.id,
       title: { en: 'CMU Choir Winter Concert 2027', th: 'คอนเสิร์ตประสานเสียง มช. ฤดูหนาว 2027' },
       description: { en: 'A winter concert by the CMU Choir featuring a mix of classical choral pieces and contemporary arrangements. This listing is still in draft while the program is being arranged with the choir director.', th: 'คอนเสิร์ตประสานเสียงฤดูหนาวของคณะนักร้องประสานเสียง มช. นำเสนอบทเพลงคลาสสิกผสมผสานกับเพลงเรียบเรียงร่วมสมัย รายการนี้ยังอยู่ในสถานะฉบับร่างระหว่างจัดรายการร่วมกับผู้ควบคุมวง' },
       category: ['CULTURAL', 'CLUB_ACTIVITY'],
       location: { en: 'CMU Main Auditorium', th: 'หอประชุมใหญ่ มช.' },
       mapLink: '',
-      startAt: new Date('2027-01-15T18:00:00.000Z'),
-      endAt: new Date('2027-01-15T20:00:00.000Z'),
       seatLimit: 250,
-      seatsTaken: 0,
-      status: EventStatus.DRAFT,
       contactName: 'CMU Music and Arts Club',
       contactEmail: 'organizer2@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/30_choir.jpg',
@@ -1524,101 +1608,218 @@ async function main() {
 
   await prisma.event.upsert({
     where: { id: ID.EVT_LIBRARY },
-    update: {},
+    update: eventTimes('EVT_LIBRARY'),
     create: {
       ...eventBase,
       id: ID.EVT_LIBRARY,
+      ...eventTimes('EVT_LIBRARY'),
       organizerId: org1.id,
       title: { en: 'Library Research Skills Workshop', th: 'เวิร์กชอปทักษะการสืบค้นงานวิจัยห้องสมุด' },
       description: { en: 'Learn how to use library databases, search academic journals, and manage citations effectively with tools like Zotero and EndNote. Ideal for students starting a thesis or major research project.', th: 'เรียนรู้การใช้ฐานข้อมูลห้องสมุด การสืบค้นวารสารวิชาการ และการจัดการการอ้างอิงอย่างมีประสิทธิภาพด้วยเครื่องมือ เช่น Zotero และ EndNote เหมาะสำหรับนักศึกษาที่กำลังเริ่มทำวิทยานิพนธ์หรือโครงงานวิจัยหลัก' },
       category: ['WORKSHOP'],
       location: { en: 'CMU Central Library, Room 3', th: 'ห้อง 3 สำนักหอสมุด มช.' },
       mapLink: '',
-      startAt: new Date('2026-10-14T13:00:00.000Z'),
-      endAt: new Date('2026-10-14T15:00:00.000Z'),
       seatLimit: 25,
-      seatsTaken: 0, // no regs yet — open for registration
-      status: EventStatus.PUBLISHED,
       contactName: 'CAMT Student Affairs',
       contactEmail: 'organizer1@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/31_lib_research_ws.jpg',
-      publishedAt: new Date('2026-09-20T00:00:00.000Z'),
     },
   });
 
   await prisma.event.upsert({
     where: { id: ID.EVT_PRIDEWEEK },
-    update: {},
+    update: eventTimes('EVT_PRIDEWEEK'),
     create: {
       ...eventBase,
       id: ID.EVT_PRIDEWEEK,
+      ...eventTimes('EVT_PRIDEWEEK'),
       organizerId: org2.id,
       title: { en: 'CMU Pride Week Celebration', th: 'สัปดาห์ไพรด์ มช.' },
       description: { en: 'A week of talks, art, and performances celebrating the LGBTQ+ community at CMU and promoting awareness and inclusion on campus. Events run daily at the Art and Culture Square, open to all students and staff.', th: 'สัปดาห์แห่งการเสวนา ศิลปะ และการแสดง เพื่อเฉลิมฉลองชุมชน LGBTQ+ ใน มช. และส่งเสริมความตระหนักรู้และการยอมรับความหลากหลายในรั้วมหาวิทยาลัย มีกิจกรรมทุกวันที่ลานวัฒนธรรม เปิดให้นักศึกษาและบุคลากรทุกคนเข้าร่วม' },
       category: ['CULTURAL', 'FESTIVAL'],
       location: { en: 'CMU Art and Culture Square', th: 'ลานวัฒนธรรม มช.' },
       mapLink: '',
-      startAt: new Date('2027-06-01T00:00:00.000Z'),
-      endAt: new Date('2027-06-07T23:59:00.000Z'),
       seatLimit: null,
-      seatsTaken: 0,
-      status: EventStatus.PUBLISHED,
       contactName: 'John Doe',
       contactEmail: 'organizer2@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/32_pride.jpg',
-      publishedAt: new Date('2026-10-01T00:00:00.000Z'),
     },
   });
 
   await prisma.event.upsert({
     where: { id: ID.EVT_MUAYTHAI },
-    update: {},
+    update: eventTimes('EVT_MUAYTHAI'),
     create: {
       ...eventBase,
       id: ID.EVT_MUAYTHAI,
+      ...eventTimes('EVT_MUAYTHAI'),
       organizerId: org3.id,
       title: { en: 'CMU Muay Thai Exhibition Match', th: 'การแข่งขันมวยไทยอุ่นเครื่อง มช.' },
       description: { en: "Exhibition matches by the CMU Muay Thai club, showcasing traditional techniques alongside modern training methods. A great chance to experience Thailand's national sport up close, right on campus.", th: 'การแข่งขันอุ่นเครื่องโดยชมรมมวยไทย มช. นำเสนอเทคนิคดั้งเดิมควบคู่กับวิธีการฝึกซ้อมสมัยใหม่ เป็นโอกาสดีในการสัมผัสกีฬาประจำชาติของไทยอย่างใกล้ชิดภายในรั้วมหาวิทยาลัย' },
       category: ['SPORT', 'CULTURAL'],
       location: { en: 'CMU Sports Complex', th: 'ศูนย์กีฬา มช.' },
       mapLink: '',
-      startAt: new Date('2026-07-12T18:00:00.000Z'),
-      endAt: new Date('2026-07-12T21:00:00.000Z'),
       seatLimit: null,
-      seatsTaken: 0,
-      status: EventStatus.CONCLUDED,
       contactName: 'SE Department Club',
       contactEmail: 'organizer3@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/33_muay_thai.jpg',
-      publishedAt: new Date('2026-06-12T00:00:00.000Z'),
     },
   });
 
   await prisma.event.upsert({
     where: { id: ID.EVT_GRADINFO },
-    update: {},
+    update: eventTimes('EVT_GRADINFO'),
     create: {
       ...eventBase,
       id: ID.EVT_GRADINFO,
+      ...eventTimes('EVT_GRADINFO'),
       organizerId: org1.id,
       title: { en: 'Graduate School Info Session', th: 'เซสชันแนะนำหลักสูตรบัณฑิตศึกษา' },
       description: { en: "Learn about CMU's graduate programs, covering Master's and PhD tracks across faculties, admission requirements, and available scholarships. Faculty representatives will be on hand to answer questions about each program.", th: 'เรียนรู้เกี่ยวกับหลักสูตรบัณฑิตศึกษาของ มช. ทั้งระดับปริญญาโทและเอกในทุกคณะ เกณฑ์การรับสมัคร และทุนการศึกษาที่มี ตัวแทนจากคณะต่างๆ จะพร้อมตอบคำถามเกี่ยวกับแต่ละหลักสูตร' },
       category: ['SEMINAR'],
       location: { en: 'CAMT Building Room 101', th: 'ห้อง 101 อาคาร CAMT' },
       mapLink: '',
-      startAt: new Date('2026-09-10T09:00:00.000Z'),
-      endAt: new Date('2026-11-30T17:00:00.000Z'),
       seatLimit: 100,
-      seatsTaken: 0, // no regs yet — open for registration
-      status: EventStatus.ONGOING,
       contactName: 'CAMT Student Affairs',
       contactEmail: 'organizer1@cmu.ac.th',
       bannerUrl: 'https://yormcjfdvmqapksvdbrm.supabase.co/storage/v1/object/public/evenite-images/seeds/34_graduate.jpg',
-      publishedAt: new Date('2026-08-25T00:00:00.000Z'),
     },
   });
 
-  console.log('✓ Events (34 total — various statuses and seat limits)');
+
+  // ── Events added for the presentation (ids e0000035+) ───────────────────────
+
+  // Called off mid-event because of a thunderstorm. Some runners had already been checked in, which is
+  // exactly what the API leaves behind when an organizer cancels an event after check-in started:
+  // registrations CANCELLED, already-USED tickets stay USED (so a USED ticket can sit on a CANCELLED registration).
+  await prisma.event.upsert({
+    where: { id: ID.EVT_FUNRUN },
+    update: eventTimes('EVT_FUNRUN'),
+    create: {
+      ...eventBase,
+      id: ID.EVT_FUNRUN,
+      ...eventTimes('EVT_FUNRUN'),
+      organizerId: org2.id,
+      title: { en: 'CMU Charity Fun Run 2026', th: 'วิ่งการกุศล มช. 2026' },
+      description: { en: 'A charity fun run around the CMU campus with 3 km, 5 km and 10 km routes. Walkers are welcome. Proceeds support the student scholarship fund, and every finisher gets a medal.', th: 'งานวิ่งการกุศลรอบมหาวิทยาลัยเชียงใหม่ ระยะ 3 กม. 5 กม. และ 10 กม. เดินได้ รายได้สมทบทุนการศึกษานักศึกษา ผู้เข้าเส้นชัยทุกคนรับเหรียญที่ระลึก' },
+      category: ['SPORT', 'VOLUNTEER'],
+      location: { en: 'CMU Main Gate Plaza', th: 'ลานหน้าประตูใหญ่ มช.' },
+      mapLink: '',
+      seatLimit: 60,
+      hasCatering: true,
+      isCateringFree: true,
+      cateringDescription: { en: 'Water, bananas and a finisher medal.', th: 'น้ำดื่ม กล้วย และเหรียญสำหรับผู้เข้าเส้นชัย' },
+      agenda: [
+        { time: '05:00', activity: { en: 'Race kit pickup', th: 'รับอุปกรณ์วิ่ง' } },
+        { time: '05:30', activity: { en: 'Gates open', th: 'เปิดประตูพื้นที่งาน' } },
+        { time: '06:30', activity: { en: 'Flag-off', th: 'ปล่อยตัวนักวิ่ง' } },
+        { time: '09:00', activity: { en: 'Course cut-off', th: 'ปิดเส้นทางวิ่ง' } },
+      ],
+      contactName: 'CMU Music and Arts Club',
+      contactEmail: 'organizer2@cmu.ac.th',
+      bannerUrl: 'https://placehold.co/600x400?text=Charity+Fun+Run',
+    },
+  });
+
+  await prisma.event.upsert({
+    where: { id: ID.EVT_CLOUDTALK },
+    update: eventTimes('EVT_CLOUDTALK'),
+    create: {
+      ...eventBase,
+      id: ID.EVT_CLOUDTALK,
+      ...eventTimes('EVT_CLOUDTALK'),
+      organizerId: org3.id,
+      title: { en: 'Cloud Careers Tech Talk', th: 'Cloud Careers Tech Talk: เส้นทางอาชีพสายคลาวด์' },
+      description: { en: 'Engineers from local cloud and DevOps teams share how they got started, what they look for in interns, and how to build a cloud portfolio as a student. Includes a live Q&A.', th: 'วิศวกรจากทีม Cloud และ DevOps ในเชียงใหม่มาแบ่งปันเส้นทางการเริ่มงาน สิ่งที่มองหาในนักศึกษาฝึกงาน และวิธีสร้างพอร์ตโฟลิโอสายคลาวด์ พร้อมช่วงถาม-ตอบสด' },
+      category: ['SEMINAR', 'NETWORKING'],
+      location: { en: 'CAMT Auditorium', th: 'ห้องประชุมใหญ่ CAMT' },
+      mapLink: '',
+      seatLimit: 80,
+      agenda: [
+        { time: '15:00', activity: { en: 'Talks', th: 'บรรยาย' } },
+        { time: '16:30', activity: { en: 'Live Q&A', th: 'ถาม-ตอบสด' } },
+      ],
+      contactName: 'SE Department Club',
+      contactEmail: 'organizer3@cmu.ac.th',
+      bannerUrl: 'https://placehold.co/600x400?text=Cloud+Careers+Talk',
+    },
+  });
+
+  await prisma.event.upsert({
+    where: { id: ID.EVT_ACOUSTIC },
+    update: eventTimes('EVT_ACOUSTIC'),
+    create: {
+      ...eventBase,
+      id: ID.EVT_ACOUSTIC,
+      ...eventTimes('EVT_ACOUSTIC'),
+      organizerId: org2.id,
+      title: { en: 'Acoustic Night on the Library Lawn', th: 'ค่ำคืนอะคูสติกที่ลานหญ้าหอสมุด' },
+      description: { en: 'An open-air evening of student acoustic bands and solo performers on the Central Library lawn. Bring a blanket and enjoy an easy-going night of music.', th: 'ค่ำคืนดนตรีอะคูสติกกลางแจ้งจากวงดนตรีและศิลปินเดี่ยวของนักศึกษา ที่ลานหญ้าหอสมุดกลาง เตรียมผ้าปูนั่งมาสนุกกับเสียงเพลงสบายๆ' },
+      category: ['CULTURAL', 'CLUB_ACTIVITY'],
+      location: { en: 'CMU Central Library Lawn', th: 'ลานหญ้าหอสมุดกลาง มช.' },
+      mapLink: '',
+      seatLimit: 120,
+      agenda: [
+        { time: '18:00', activity: { en: 'Gates open', th: 'เปิดประตู' } },
+        { time: '18:30', activity: { en: 'Opening act', th: 'วงเปิดการแสดง' } },
+        { time: '20:00', activity: { en: 'Open mic', th: 'Open mic' } },
+        { time: '21:00', activity: { en: 'Headline set', th: 'การแสดงหลัก' } },
+      ],
+      contactName: 'CMU Music and Arts Club',
+      contactEmail: 'organizer2@cmu.ac.th',
+      bannerUrl: 'https://placehold.co/600x400?text=Acoustic+Night',
+    },
+  });
+
+  await prisma.event.upsert({
+    where: { id: ID.EVT_ALUMNI },
+    update: eventTimes('EVT_ALUMNI'),
+    create: {
+      ...eventBase,
+      id: ID.EVT_ALUMNI,
+      ...eventTimes('EVT_ALUMNI'),
+      organizerId: org1.id,
+      title: { en: 'CAMT Alumni Career Panel', th: 'เสวนาศิษย์เก่า CAMT: เส้นทางสู่การทำงาน' },
+      description: { en: 'CAMT alumni working in software, data and startups talk about their first jobs, interviews and lessons learned. Includes a resume clinic and a networking hour.', th: 'ศิษย์เก่า CAMT ที่ทำงานด้านซอฟต์แวร์ ข้อมูล และสตาร์ทอัป มาเล่าประสบการณ์งานแรก การสัมภาษณ์ และบทเรียนที่ได้ พร้อมคลินิกตรวจเรซูเม่และช่วงเครือข่าย' },
+      category: ['LECTURE', 'NETWORKING'],
+      location: { en: 'CAMT Auditorium', th: 'ห้องประชุมใหญ่ CAMT' },
+      mapLink: '',
+      seatLimit: 60,
+      hasCatering: true,
+      isCateringFree: true,
+      cateringDescription: { en: 'Light snacks and drinks.', th: 'มีของว่างและเครื่องดื่ม' },
+      agenda: [
+        { time: '17:30', activity: { en: 'Panel talks', th: 'เสวนาแลกเปลี่ยนประสบการณ์' } },
+        { time: '18:30', activity: { en: 'Resume clinic', th: 'คลินิกตรวจเรซูเม่' } },
+        { time: '19:15', activity: { en: 'Networking hour', th: 'ช่วงเครือข่าย' } },
+      ],
+      contactName: 'CAMT Student Affairs',
+      contactEmail: 'organizer1@cmu.ac.th',
+      bannerUrl: 'https://placehold.co/600x400?text=Alumni+Career+Panel',
+    },
+  });
+
+  await prisma.event.upsert({
+    where: { id: ID.EVT_OSS },
+    update: eventTimes('EVT_OSS'),
+    create: {
+      ...eventBase,
+      id: ID.EVT_OSS,
+      ...eventTimes('EVT_OSS'),
+      organizerId: org3.id,
+      title: { en: 'Open Source Contribution Month', th: 'เดือนแห่งการร่วมพัฒนาโอเพนซอร์ส' },
+      description: { en: 'Two months of guided open-source contribution: mentors help you pick a project, make your first pull request and get through code review. Weekly office hours and a showcase at the end.', th: 'สองเดือนแห่งการร่วมพัฒนาโอเพนซอร์สพร้อมพี่เลี้ยง ช่วยเลือกโปรเจกต์ ส่ง Pull Request แรก และผ่านการรีวิวโค้ด มี Office Hours ทุกสัปดาห์และงานแสดงผลงานตอนท้าย' },
+      category: ['WORKSHOP', 'CLUB_ACTIVITY'],
+      location: { en: 'CAMT Computer Lab 2 and online', th: 'ห้องปฏิบัติการคอมพิวเตอร์ 2 CAMT และออนไลน์' },
+      mapLink: '',
+      seatLimit: 40,
+      contactName: 'SE Department Club',
+      contactEmail: 'organizer3@cmu.ac.th',
+      bannerUrl: 'https://placehold.co/600x400?text=Open+Source+Month',
+    },
+  });
+
+  console.log(`✓ Events (${Object.keys(EVENT_TIMES).length} total — drafts, upcoming, ongoing, concluded and one cancelled)`);
 
   // ── Forms and Fields ─────────────────────────────────────────────────────────
 
@@ -1969,37 +2170,128 @@ async function main() {
     await prisma.formField.upsert({ where: { id: f.id }, update: {}, create: f });
   }
 
+
+  // ── Forms for the events added for the presentation ─────────────────────────
+
+  const upsertForm = (id: string, eventId: string, type: FormType, title: string, description: string) =>
+    prisma.form.upsert({
+      where: { eventId_type: { eventId, type } },
+      update: {},
+      create: { id, eventId, type, title, description },
+    });
+  const upsertFields = async (fields: { id: string }[]) => {
+    for (const f of fields) {
+      await prisma.formField.upsert({ where: { id: f.id }, update: {}, create: f as never });
+    }
+  };
+
+  // Charity Fun Run — registration
+  await upsertForm(ID.FORM_FUNRUN_REG, ID.EVT_FUNRUN, FormType.REGISTRATION, 'Charity Fun Run Registration', 'Choose your distance and shirt size.');
+  const funrunFields = [
+    { id: ID.FLD_FR_FIRSTNAME, formId: ID.FORM_FUNRUN_REG, type: FieldType.TEXT,   label: 'First Name',    isRequired: true, order: 0, options: [], autoFillKey: 'firstName' },
+    { id: ID.FLD_FR_STUDENTID, formId: ID.FORM_FUNRUN_REG, type: FieldType.TEXT,   label: 'Student ID',    isRequired: true, order: 1, options: [], autoFillKey: 'studentId' },
+    { id: ID.FLD_FR_DISTANCE,  formId: ID.FORM_FUNRUN_REG, type: FieldType.CHOICE, label: 'Distance',      isRequired: true, order: 2, options: ['3 km (fun run)', '5 km', '10 km'], autoFillKey: null },
+    { id: ID.FLD_FR_TSHIRT,    formId: ID.FORM_FUNRUN_REG, type: FieldType.CHOICE, label: 'T-Shirt Size',  isRequired: true, order: 3, options: ['S', 'M', 'L', 'XL'], autoFillKey: null },
+  ];
+  await upsertFields(funrunFields);
+
+  // Cloud Careers Tech Talk — registration
+  await upsertForm(ID.FORM_CLOUDTALK_REG, ID.EVT_CLOUDTALK, FormType.REGISTRATION, 'Cloud Careers Talk Registration', 'Tell us a little about your cloud experience.');
+  const cloudtalkFields = [
+    { id: ID.FLD_CT_FIRSTNAME,  formId: ID.FORM_CLOUDTALK_REG, type: FieldType.TEXT,   label: 'First Name',               isRequired: true,  order: 0, options: [], autoFillKey: 'firstName' },
+    { id: ID.FLD_CT_STUDENTID,  formId: ID.FORM_CLOUDTALK_REG, type: FieldType.TEXT,   label: 'Student ID',               isRequired: true,  order: 1, options: [], autoFillKey: 'studentId' },
+    { id: ID.FLD_CT_PROVIDER,   formId: ID.FORM_CLOUDTALK_REG, type: FieldType.CHOICE, label: 'Cloud Provider You Use',   isRequired: false, order: 2, options: ['AWS', 'Azure', 'Google Cloud', 'None yet'], autoFillKey: null },
+    { id: ID.FLD_CT_EXPERIENCE, formId: ID.FORM_CLOUDTALK_REG, type: FieldType.CHOICE, label: 'Experience Level',         isRequired: true,  order: 3, options: ['Beginner', 'Intermediate', 'Advanced'], autoFillKey: null },
+  ];
+  await upsertFields(cloudtalkFields);
+
+  // Acoustic Night — registration + feedback
+  await upsertForm(ID.FORM_ACOUSTIC_REG, ID.EVT_ACOUSTIC, FormType.REGISTRATION, 'Acoustic Night Registration', 'Pick your spot on the lawn.');
+  const acousticFields = [
+    { id: ID.FLD_AC_FIRSTNAME, formId: ID.FORM_ACOUSTIC_REG, type: FieldType.TEXT,   label: 'First Name',         isRequired: true,  order: 0, options: [], autoFillKey: 'firstName' },
+    { id: ID.FLD_AC_STUDENTID, formId: ID.FORM_ACOUSTIC_REG, type: FieldType.TEXT,   label: 'Student ID',         isRequired: true,  order: 1, options: [], autoFillKey: 'studentId' },
+    { id: ID.FLD_AC_SEATING,   formId: ID.FORM_ACOUSTIC_REG, type: FieldType.CHOICE, label: 'Seating Preference', isRequired: true,  order: 2, options: ['Front rows', 'Middle', 'Lawn blanket'], autoFillKey: null },
+    { id: ID.FLD_AC_GUESTS,    formId: ID.FORM_ACOUSTIC_REG, type: FieldType.CHOICE, label: 'Bringing Guests',    isRequired: false, order: 3, options: ['Just me', '+1 friend', '+2 friends'], autoFillKey: null },
+  ];
+  await upsertFields(acousticFields);
+  await upsertForm(ID.FORM_ACOUSTIC_FB, ID.EVT_ACOUSTIC, FormType.FEEDBACK, 'Acoustic Night Feedback', 'How was the night?');
+  const acousticFbFields = [
+    { id: ID.FLD_ACFB_OVERALL,  formId: ID.FORM_ACOUSTIC_FB, type: FieldType.RATING,   label: 'Overall Experience', isRequired: true,  order: 0, options: [], autoFillKey: null },
+    { id: ID.FLD_ACFB_SOUND,    formId: ID.FORM_ACOUSTIC_FB, type: FieldType.RATING,   label: 'Sound & Stage',      isRequired: true,  order: 1, options: [], autoFillKey: null },
+    { id: ID.FLD_ACFB_FAVORITE, formId: ID.FORM_ACOUSTIC_FB, type: FieldType.CHOICE,   label: 'Favorite Part',      isRequired: false, order: 2, options: ['Opening act', 'Headline set', 'Open mic', 'Atmosphere'], autoFillKey: null },
+    { id: ID.FLD_ACFB_COMMENT,  formId: ID.FORM_ACOUSTIC_FB, type: FieldType.TEXTAREA, label: 'Comments',           isRequired: false, order: 3, options: [], autoFillKey: null },
+  ];
+  await upsertFields(acousticFbFields);
+
+  // Alumni Career Panel — registration + feedback
+  await upsertForm(ID.FORM_ALUMNI_REG, ID.EVT_ALUMNI, FormType.REGISTRATION, 'Alumni Career Panel Registration', 'Register for the panel and the resume clinic.');
+  const alumniFields = [
+    { id: ID.FLD_AL_FIRSTNAME, formId: ID.FORM_ALUMNI_REG, type: FieldType.TEXT,   label: 'First Name',                        isRequired: true, order: 0, options: [], autoFillKey: 'firstName' },
+    { id: ID.FLD_AL_STUDENTID, formId: ID.FORM_ALUMNI_REG, type: FieldType.TEXT,   label: 'Student ID',                        isRequired: true, order: 1, options: [], autoFillKey: 'studentId' },
+    { id: ID.FLD_AL_MAJOR,     formId: ID.FORM_ALUMNI_REG, type: FieldType.TEXT,   label: 'Major',                             isRequired: true, order: 2, options: [], autoFillKey: 'major' },
+    { id: ID.FLD_AL_INDUSTRY,  formId: ID.FORM_ALUMNI_REG, type: FieldType.CHOICE, label: 'Industry You Want To Hear About',   isRequired: true, order: 3, options: ['Software', 'Data & AI', 'Product', 'Startups'], autoFillKey: null },
+  ];
+  await upsertFields(alumniFields);
+  await upsertForm(ID.FORM_ALUMNI_FB, ID.EVT_ALUMNI, FormType.FEEDBACK, 'Alumni Career Panel Feedback', 'Help us plan the next one.');
+  const alumniFbFields = [
+    { id: ID.FLD_ALFB_OVERALL, formId: ID.FORM_ALUMNI_FB, type: FieldType.RATING,   label: 'Overall Experience',   isRequired: true,  order: 0, options: [], autoFillKey: null },
+    { id: ID.FLD_ALFB_USEFUL,  formId: ID.FORM_ALUMNI_FB, type: FieldType.CHOICE,   label: 'Most Useful Part',     isRequired: false, order: 1, options: ['Panel talks', 'Resume clinic', 'Networking hour'], autoFillKey: null },
+    { id: ID.FLD_ALFB_AGAIN,   formId: ID.FORM_ALUMNI_FB, type: FieldType.CHOICE,   label: 'Would you attend again?', isRequired: true, order: 2, options: ['Yes', 'Maybe', 'No'], autoFillKey: null },
+    { id: ID.FLD_ALFB_COMMENT, formId: ID.FORM_ALUMNI_FB, type: FieldType.TEXTAREA, label: 'Comments',             isRequired: false, order: 3, options: [], autoFillKey: null },
+  ];
+  await upsertFields(alumniFbFields);
+
+  // Open Source Contribution Month — registration + feedback (feedback is open while the programme runs)
+  await upsertForm(ID.FORM_OSS_REG, ID.EVT_OSS, FormType.REGISTRATION, 'Open Source Month Registration', 'Tell us about your setup.');
+  const ossFields = [
+    { id: ID.FLD_OSS_FIRSTNAME, formId: ID.FORM_OSS_REG, type: FieldType.TEXT,   label: 'First Name',         isRequired: true, order: 0, options: [], autoFillKey: 'firstName' },
+    { id: ID.FLD_OSS_STUDENTID, formId: ID.FORM_OSS_REG, type: FieldType.TEXT,   label: 'Student ID',         isRequired: true, order: 1, options: [], autoFillKey: 'studentId' },
+    { id: ID.FLD_OSS_LANGUAGE,  formId: ID.FORM_OSS_REG, type: FieldType.CHOICE, label: 'Preferred Language', isRequired: true, order: 2, options: ['Python', 'TypeScript', 'Go', 'Rust'], autoFillKey: null },
+    { id: ID.FLD_OSS_GIT,       formId: ID.FORM_OSS_REG, type: FieldType.CHOICE, label: 'Git Experience',     isRequired: true, order: 3, options: ['Beginner', 'Intermediate', 'Advanced'], autoFillKey: null },
+  ];
+  await upsertFields(ossFields);
+  await upsertForm(ID.FORM_OSS_FB, ID.EVT_OSS, FormType.FEEDBACK, 'Open Source Month Feedback', 'How is the programme going so far?');
+  const ossFbFields = [
+    { id: ID.FLD_OSSFB_OVERALL,   formId: ID.FORM_OSS_FB, type: FieldType.RATING,   label: 'Overall Experience', isRequired: true,  order: 0, options: [], autoFillKey: null },
+    { id: ID.FLD_OSSFB_CHALLENGE, formId: ID.FORM_OSS_FB, type: FieldType.CHOICE,   label: 'Biggest Challenge',  isRequired: false, order: 1, options: ['Finding a first issue', 'Setting up the project', 'Code review', 'Finding time'], autoFillKey: null },
+    { id: ID.FLD_OSSFB_COMMENT,   formId: ID.FORM_OSS_FB, type: FieldType.TEXTAREA, label: 'Comments',           isRequired: false, order: 2, options: [], autoFillKey: null },
+  ];
+  await upsertFields(ossFbFields);
+
   console.log('✓ Forms and fields');
 
   // ── Registrations, Form Responses, Tickets ───────────────────────────────────
-  // Generated from config — each entry creates: EventRegistration + FormResponse + FormFieldResponses + Ticket
+  // Hand-written registrations (the five demo accounts). Each entry creates: EventRegistration + FormResponse
+  // + FormFieldResponses + Ticket [+ Attendance]. Their timestamps are NOT written here: registration and
+  // check-in times come from seed-lib/timeline.ts, so they always fit the event's calendar. The crowd
+  // (participant6..35) registrations are generated further below.
 
   type RegConfig = {
     registrationId: string;
     ticketId: string;
     formResponseId: string;
-    participantKey: keyof typeof PARTICIPANT_DATA;
+    participantKey: string;
     eventId: string;
     formId: string;
     formFields: { id: string; autoFillKey: string | null; type: FieldType; options: string[] }[];
     registrationStatus: RegistrationStatus;
     ticketStatus: TicketStatus;
-    attendance?: { method: CheckInMethod; checkedInAt: Date };
-    extraAnswers?: Record<string, string | number | string[]>;
-    createdAt?: Date;
+    // present exactly when ticketStatus is USED; the check-in time is derived from the event timeline
+    attendance?: { method: CheckInMethod };
+    extraAnswers?: Record<string, string | number | string[] | null>;
   };
 
   const registrationConfigs: RegConfig[] = [
-    // ── Halloween — par1, par2, par3 CONFIRMED ──────────────────────────────
+    // ── Halloween (concluded) — par1 + par2 attended, par3 no-show ─────────
     {
       registrationId: 'a1000001-0000-4000-8000-000000000001',
       ticketId:       'b1000001-0000-4000-8000-000000000001',
       formResponseId: 'c1000001-0000-4000-8000-000000000001',
       participantKey: 'PAR1', eventId: ID.EVT_HALLOWEEN, formId: ID.FORM_HALLOWEEN_REG,
       formFields: halloweenFields,
-      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
+      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.USED,
+      attendance: { method: CheckInMethod.QR_SCAN },
       extraAnswers: { [ID.FLD_H_YEAR]: ['Year 3'], [ID.FLD_H_DIET]: ['Vegetarian'] },
-      createdAt: new Date('2026-09-05T10:00:00.000Z'),
     },
     {
       registrationId: 'a1000002-0000-4000-8000-000000000002',
@@ -2007,9 +2299,9 @@ async function main() {
       formResponseId: 'c1000002-0000-4000-8000-000000000002',
       participantKey: 'PAR2', eventId: ID.EVT_HALLOWEEN, formId: ID.FORM_HALLOWEEN_REG,
       formFields: halloweenFields,
-      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
+      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.USED,
+      attendance: { method: CheckInMethod.MANUAL },
       extraAnswers: { [ID.FLD_H_YEAR]: ['Year 4'], [ID.FLD_H_DIET]: ['None'] },
-      createdAt: new Date('2026-09-06T11:00:00.000Z'),
     },
     {
       registrationId: 'a1000003-0000-4000-8000-000000000003',
@@ -2017,9 +2309,8 @@ async function main() {
       formResponseId: 'c1000003-0000-4000-8000-000000000003',
       participantKey: 'PAR3', eventId: ID.EVT_HALLOWEEN, formId: ID.FORM_HALLOWEEN_REG,
       formFields: halloweenFields,
-      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
+      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.EXPIRED,
       extraAnswers: { [ID.FLD_H_YEAR]: ['Year 3'], [ID.FLD_H_DIET]: ['None'] },
-      createdAt: new Date('2026-09-07T09:00:00.000Z'),
     },
 
     // ── New Year — ALL 5 participants CONFIRMED (event FULL, seatLimit=5) ───
@@ -2031,7 +2322,6 @@ async function main() {
       formFields: newYearRegFields,
       registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
       extraAnswers: { [ID.FLD_NY_TSHIRT]: ['M'] },
-      createdAt: new Date('2026-09-06T10:00:00.000Z'),
     },
     {
       registrationId: 'a2000002-0000-4000-8000-000000000002',
@@ -2041,7 +2331,6 @@ async function main() {
       formFields: newYearRegFields,
       registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
       extraAnswers: { [ID.FLD_NY_TSHIRT]: ['L'] },
-      createdAt: new Date('2026-09-07T10:00:00.000Z'),
     },
     {
       registrationId: 'a2000003-0000-4000-8000-000000000003',
@@ -2051,7 +2340,6 @@ async function main() {
       formFields: newYearRegFields,
       registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
       extraAnswers: { [ID.FLD_NY_TSHIRT]: ['S'] },
-      createdAt: new Date('2026-09-08T10:00:00.000Z'),
     },
     {
       registrationId: 'a2000004-0000-4000-8000-000000000004',
@@ -2061,7 +2349,6 @@ async function main() {
       formFields: newYearRegFields,
       registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
       extraAnswers: { [ID.FLD_NY_TSHIRT]: ['XL'] },
-      createdAt: new Date('2026-09-09T10:00:00.000Z'),
     },
     {
       registrationId: 'a2000005-0000-4000-8000-000000000005',
@@ -2071,7 +2358,6 @@ async function main() {
       formFields: newYearRegFields,
       registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
       extraAnswers: { [ID.FLD_NY_TSHIRT]: ['XXL'] },
-      createdAt: new Date('2026-09-10T10:00:00.000Z'),
     },
 
     // ── Sukhothai — par1 CONFIRMED, par2 CANCELLED ──────────────────────────
@@ -2083,7 +2369,6 @@ async function main() {
       formFields: sukhothaiFields,
       registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
       extraAnswers: { [ID.FLD_SK_DIETARY]: ['None'] },
-      createdAt: new Date('2026-09-15T10:00:00.000Z'),
     },
     {
       registrationId: 'a3000002-0000-4000-8000-000000000002',
@@ -2093,7 +2378,6 @@ async function main() {
       formFields: sukhothaiFields,
       registrationStatus: RegistrationStatus.CANCELLED, ticketStatus: TicketStatus.CANCELLED,
       extraAnswers: { [ID.FLD_SK_DIETARY]: ['Vegetarian'] },
-      createdAt: new Date('2026-09-16T10:00:00.000Z'),
     },
 
     // ── Exchange — par1, par2, par3 CONFIRMED (event FULL, seatLimit=3) ─────
@@ -2104,9 +2388,8 @@ async function main() {
       participantKey: 'PAR1', eventId: ID.EVT_EXCHANGE, formId: ID.FORM_EXCHANGE_REG,
       formFields: exchangeFields,
       registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.USED,
-      attendance: { method: CheckInMethod.QR_SCAN, checkedInAt: new Date('2026-09-01T09:12:00.000Z') },
+      attendance: { method: CheckInMethod.QR_SCAN },
       extraAnswers: { [ID.FLD_EX_GPA]: 3.8 },
-      createdAt: new Date('2026-08-05T10:00:00.000Z'),
     },
     {
       registrationId: 'a4000002-0000-4000-8000-000000000002',
@@ -2115,9 +2398,8 @@ async function main() {
       participantKey: 'PAR2', eventId: ID.EVT_EXCHANGE, formId: ID.FORM_EXCHANGE_REG,
       formFields: exchangeFields,
       registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.USED,
-      attendance: { method: CheckInMethod.MANUAL, checkedInAt: new Date('2026-09-01T09:40:00.000Z') },
+      attendance: { method: CheckInMethod.MANUAL },
       extraAnswers: { [ID.FLD_EX_GPA]: 3.5 },
-      createdAt: new Date('2026-08-06T10:00:00.000Z'),
     },
     {
       registrationId: 'a4000003-0000-4000-8000-000000000003',
@@ -2127,7 +2409,6 @@ async function main() {
       formFields: exchangeFields,
       registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
       extraAnswers: { [ID.FLD_EX_GPA]: 3.2 },
-      createdAt: new Date('2026-08-07T10:00:00.000Z'),
     },
 
     // ── Bootcamp — par1 CONFIRMED, par3 CONFIRMED ───────────────────────────
@@ -2138,9 +2419,8 @@ async function main() {
       participantKey: 'PAR1', eventId: ID.EVT_BOOTCAMP, formId: ID.FORM_BOOTCAMP_REG,
       formFields: bootcampFields,
       registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.USED,
-      attendance: { method: CheckInMethod.QR_SCAN, checkedInAt: new Date('2026-08-01T09:05:00.000Z') },
+      attendance: { method: CheckInMethod.QR_SCAN },
       extraAnswers: { [ID.FLD_BC_EXPERIENCE]: ['Intermediate'] },
-      createdAt: new Date('2026-07-10T10:00:00.000Z'),
     },
     {
       registrationId: 'a5000002-0000-4000-8000-000000000002',
@@ -2150,7 +2430,6 @@ async function main() {
       formFields: bootcampFields,
       registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
       extraAnswers: { [ID.FLD_BC_EXPERIENCE]: ['Beginner'] },
-      createdAt: new Date('2026-07-11T10:00:00.000Z'),
     },
 
     // ── Hackathon — par1, par2 attended (USED); par3 no-show (EXPIRED) ─
@@ -2161,9 +2440,8 @@ async function main() {
       participantKey: 'PAR1', eventId: ID.EVT_HACKATHON, formId: ID.FORM_HACKATHON_REG,
       formFields: hackathonRegFields,
       registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.USED,
-      attendance: { method: CheckInMethod.QR_SCAN, checkedInAt: new Date('2026-05-20T08:48:00.000Z') },
+      attendance: { method: CheckInMethod.QR_SCAN },
       extraAnswers: { [ID.FLD_HK_TEAMNAME]: 'Team Alpha' },
-      createdAt: new Date('2026-04-25T10:00:00.000Z'),
     },
     {
       registrationId: 'a6000002-0000-4000-8000-000000000002',
@@ -2172,9 +2450,8 @@ async function main() {
       participantKey: 'PAR2', eventId: ID.EVT_HACKATHON, formId: ID.FORM_HACKATHON_REG,
       formFields: hackathonRegFields,
       registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.USED,
-      attendance: { method: CheckInMethod.QR_SCAN, checkedInAt: new Date('2026-05-20T09:07:00.000Z') },
+      attendance: { method: CheckInMethod.QR_SCAN },
       extraAnswers: { [ID.FLD_HK_TEAMNAME]: 'Team Beta' },
-      createdAt: new Date('2026-04-26T10:00:00.000Z'),
     },
 
     {
@@ -2185,7 +2462,6 @@ async function main() {
       formFields: hackathonRegFields,
       registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.EXPIRED, // no-show
       extraAnswers: { [ID.FLD_HK_TEAMNAME]: 'Team Gamma' },
-      createdAt: new Date('2026-04-27T10:00:00.000Z'),
     },
 
     // ── Sports Day — par2 attended (USED); par4 no-show (EXPIRED) ─
@@ -2196,9 +2472,8 @@ async function main() {
       participantKey: 'PAR2', eventId: ID.EVT_SPORTS, formId: ID.FORM_SPORTS_REG,
       formFields: sportsFields,
       registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.USED,
-      attendance: { method: CheckInMethod.QR_SCAN, checkedInAt: new Date('2026-04-10T08:15:00.000Z') },
+      attendance: { method: CheckInMethod.QR_SCAN },
       extraAnswers: { [ID.FLD_SP_SPORT]: ['Football'] },
-      createdAt: new Date('2026-03-20T10:00:00.000Z'),
     },
     {
       registrationId: 'a7000002-0000-4000-8000-000000000002',
@@ -2208,7 +2483,6 @@ async function main() {
       formFields: sportsFields,
       registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.EXPIRED,
       extraAnswers: { [ID.FLD_SP_SPORT]: ['Basketball'] },
-      createdAt: new Date('2026-03-21T10:00:00.000Z'),
     },
 
     // ── TEDx — par1, par2 CONFIRMED ──────────────────────────────────────────
@@ -2220,7 +2494,6 @@ async function main() {
       formFields: tedxFields,
       registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
       extraAnswers: { [ID.FLD_TX_TOPIC]: ['AI & Society'] },
-      createdAt: new Date('2026-09-08T10:00:00.000Z'),
     },
     {
       registrationId: 'a8000002-0000-4000-8000-000000000002',
@@ -2230,19 +2503,18 @@ async function main() {
       formFields: tedxFields,
       registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
       extraAnswers: { [ID.FLD_TX_TOPIC]: ['Entrepreneurship'] },
-      createdAt: new Date('2026-09-09T10:00:00.000Z'),
     },
 
-    // ── Job Fair — par3, par4 CONFIRMED ──────────────────────────────────────
+    // ── Job Fair (concluded) — par3 attended, par4 no-show ──────────────────
     {
       registrationId: 'a9000001-0000-4000-8000-000000000001',
       ticketId:       'b9000001-0000-4000-8000-000000000001',
       formResponseId: 'c9000001-0000-4000-8000-000000000001',
       participantKey: 'PAR3', eventId: ID.EVT_JOBFAIR, formId: ID.FORM_JOBFAIR_REG,
       formFields: jobfairFields,
-      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
+      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.USED,
+      attendance: { method: CheckInMethod.QR_SCAN },
       extraAnswers: { [ID.FLD_JF_INDUSTRY]: ['Tech'] },
-      createdAt: new Date('2026-09-12T10:00:00.000Z'),
     },
     {
       registrationId: 'a9000002-0000-4000-8000-000000000002',
@@ -2250,9 +2522,8 @@ async function main() {
       formResponseId: 'c9000002-0000-4000-8000-000000000002',
       participantKey: 'PAR4', eventId: ID.EVT_JOBFAIR, formId: ID.FORM_JOBFAIR_REG,
       formFields: jobfairFields,
-      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
+      registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.EXPIRED,
       extraAnswers: { [ID.FLD_JF_INDUSTRY]: ['Engineering'] },
-      createdAt: new Date('2026-09-13T10:00:00.000Z'),
     },
 
     // ── Startup Pitch — par1, par3 CONFIRMED ─────────────────────────────────
@@ -2264,7 +2535,6 @@ async function main() {
       formFields: startuppitchFields,
       registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
       extraAnswers: { [ID.FLD_SP2_TEAMNAME]: 'Team Nimbus', [ID.FLD_SP2_PITCHNAME]: 'Campus Ride-Share App' },
-      createdAt: new Date('2026-09-15T10:00:00.000Z'),
     },
     {
       registrationId: 'aa000002-0000-4000-8000-000000000002',
@@ -2274,7 +2544,6 @@ async function main() {
       formFields: startuppitchFields,
       registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
       extraAnswers: { [ID.FLD_SP2_TEAMNAME]: 'Team GreenLoop', [ID.FLD_SP2_PITCHNAME]: 'Campus Recycling Rewards' },
-      createdAt: new Date('2026-09-16T10:00:00.000Z'),
     },
 
     // ── Ping River Clean-Up — par2, par4 CONFIRMED, tickets EXPIRED (concluded) ─
@@ -2285,9 +2554,8 @@ async function main() {
       participantKey: 'PAR2', eventId: ID.EVT_CLEANUP, formId: ID.FORM_CLEANUP_REG,
       formFields: cleanupFields,
       registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.USED,
-      attendance: { method: CheckInMethod.QR_SCAN, checkedInAt: new Date('2026-08-15T06:52:00.000Z') },
+      attendance: { method: CheckInMethod.QR_SCAN },
       extraAnswers: { [ID.FLD_CU_TSHIRT]: ['M'] },
-      createdAt: new Date('2026-08-01T10:00:00.000Z'),
     },
     {
       registrationId: 'ab000002-0000-4000-8000-000000000002',
@@ -2296,9 +2564,8 @@ async function main() {
       participantKey: 'PAR4', eventId: ID.EVT_CLEANUP, formId: ID.FORM_CLEANUP_REG,
       formFields: cleanupFields,
       registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.USED,
-      attendance: { method: CheckInMethod.MANUAL, checkedInAt: new Date('2026-08-15T07:20:00.000Z') },
+      attendance: { method: CheckInMethod.MANUAL },
       extraAnswers: { [ID.FLD_CU_TSHIRT]: ['L'] },
-      createdAt: new Date('2026-08-02T10:00:00.000Z'),
     },
 
     // ── Data Science Bootcamp — par1, par5 CONFIRMED ─────────────────────────
@@ -2310,7 +2577,6 @@ async function main() {
       formFields: datascienceFields,
       registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
       extraAnswers: { [ID.FLD_DS_EXPERIENCE]: ['Intermediate'] },
-      createdAt: new Date('2026-08-20T10:00:00.000Z'),
     },
     {
       registrationId: 'ac000002-0000-4000-8000-000000000002',
@@ -2320,7 +2586,6 @@ async function main() {
       formFields: datascienceFields,
       registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.ACTIVE,
       extraAnswers: { [ID.FLD_DS_EXPERIENCE]: ['Beginner'] },
-      createdAt: new Date('2026-08-21T10:00:00.000Z'),
     },
 
     // ── Freshmen Welcome Camp — par1, par2, par3 CONFIRMED, tickets EXPIRED (concluded) ─
@@ -2331,9 +2596,8 @@ async function main() {
       participantKey: 'PAR1', eventId: ID.EVT_FRESHMENCAMP, formId: ID.FORM_FRESHMENCAMP_REG,
       formFields: freshmencampFields,
       registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.USED,
-      attendance: { method: CheckInMethod.QR_SCAN, checkedInAt: new Date('2026-06-01T07:55:00.000Z') },
+      attendance: { method: CheckInMethod.QR_SCAN },
       extraAnswers: { [ID.FLD_FC_FACULTY]: 'CAMT' },
-      createdAt: new Date('2026-05-15T10:00:00.000Z'),
     },
     {
       registrationId: 'ad000002-0000-4000-8000-000000000002',
@@ -2342,9 +2606,8 @@ async function main() {
       participantKey: 'PAR2', eventId: ID.EVT_FRESHMENCAMP, formId: ID.FORM_FRESHMENCAMP_REG,
       formFields: freshmencampFields,
       registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.USED,
-      attendance: { method: CheckInMethod.QR_SCAN, checkedInAt: new Date('2026-06-01T08:10:00.000Z') },
+      attendance: { method: CheckInMethod.QR_SCAN },
       extraAnswers: { [ID.FLD_FC_FACULTY]: 'CAMT' },
-      createdAt: new Date('2026-05-16T10:00:00.000Z'),
     },
     {
       registrationId: 'ad000003-0000-4000-8000-000000000003',
@@ -2354,21 +2617,165 @@ async function main() {
       formFields: freshmencampFields,
       registrationStatus: RegistrationStatus.CONFIRMED, ticketStatus: TicketStatus.EXPIRED,
       extraAnswers: { [ID.FLD_FC_FACULTY]: 'Engineering' },
-      createdAt: new Date('2026-05-17T10:00:00.000Z'),
     },
   ];
 
-  // Execute all registrations
-  let regCount = 0;
+  // ── Registration engine ──────────────────────────────────────────────────────
+
+  const eventKeyById: Record<string, string> = Object.fromEntries(
+    Object.entries(ID).filter(([key]) => key.startsWith('EVT_')).map(([key, id]) => [id as string, key]),
+  );
+  // registration and feedback forms by event (the crowd answers these)
+  const REG_FORMS: Record<string, { formId: string; fields: FieldDef[] }> = {
+    EVT_HALLOWEEN: { formId: ID.FORM_HALLOWEEN_REG, fields: halloweenFields },
+    EVT_NEW_YEAR: { formId: ID.FORM_NEW_YEAR_REG, fields: newYearRegFields },
+    EVT_SUKHOTHAI: { formId: ID.FORM_SUKHOTHAI_REG, fields: sukhothaiFields },
+    EVT_EXCHANGE: { formId: ID.FORM_EXCHANGE_REG, fields: exchangeFields },
+    EVT_BOOTCAMP: { formId: ID.FORM_BOOTCAMP_REG, fields: bootcampFields },
+    EVT_HACKATHON: { formId: ID.FORM_HACKATHON_REG, fields: hackathonRegFields },
+    EVT_SPORTS: { formId: ID.FORM_SPORTS_REG, fields: sportsFields },
+    EVT_CONCERT: { formId: ID.FORM_CONCERT_REG, fields: concertFields },
+    EVT_TEDX: { formId: ID.FORM_TEDX_REG, fields: tedxFields },
+    EVT_JOBFAIR: { formId: ID.FORM_JOBFAIR_REG, fields: jobfairFields },
+    EVT_BLOODDONATION: { formId: ID.FORM_BLOODDONATION_REG, fields: blooddonationFields },
+    EVT_STARTUPPITCH: { formId: ID.FORM_STARTUPPITCH_REG, fields: startuppitchFields },
+    EVT_CLEANUP: { formId: ID.FORM_CLEANUP_REG, fields: cleanupFields },
+    EVT_MENTALHEALTH: { formId: ID.FORM_MENTALHEALTH_REG, fields: mentalhealthFields },
+    EVT_DATASCIENCE: { formId: ID.FORM_DATASCIENCE_REG, fields: datascienceFields },
+    EVT_CHESS: { formId: ID.FORM_CHESS_REG, fields: chessFields },
+    EVT_FRESHMENCAMP: { formId: ID.FORM_FRESHMENCAMP_REG, fields: freshmencampFields },
+    EVT_LIBRARY: { formId: ID.FORM_LIBRARY_REG, fields: libraryFields },
+    EVT_GRADINFO: { formId: ID.FORM_GRADINFO_REG, fields: gradinfoFields },
+    EVT_FUNRUN: { formId: ID.FORM_FUNRUN_REG, fields: funrunFields },
+    EVT_CLOUDTALK: { formId: ID.FORM_CLOUDTALK_REG, fields: cloudtalkFields },
+    EVT_ACOUSTIC: { formId: ID.FORM_ACOUSTIC_REG, fields: acousticFields },
+    EVT_ALUMNI: { formId: ID.FORM_ALUMNI_REG, fields: alumniFields },
+    EVT_OSS: { formId: ID.FORM_OSS_REG, fields: ossFields },
+  };
+  const FB_FORMS: Record<string, { formId: string; fields: FieldDef[] }> = {
+    EVT_HACKATHON: { formId: ID.FORM_HACKATHON_FB, fields: hackathonFbFields },
+    EVT_CLEANUP: { formId: ID.FORM_CLEANUP_FB, fields: cleanupFbFields },
+    EVT_FRESHMENCAMP: { formId: ID.FORM_FRESHMENCAMP_FB, fields: freshmencampFbFields },
+    EVT_ACOUSTIC: { formId: ID.FORM_ACOUSTIC_FB, fields: acousticFbFields },
+    EVT_ALUMNI: { formId: ID.FORM_ALUMNI_FB, fields: alumniFbFields },
+    EVT_OSS: { formId: ID.FORM_OSS_FB, fields: ossFbFields },
+  };
+
+  // everything created below is logged here; feedback and the discussion rooms are built from it
+  type RegRecord = {
+    eventKey: string;
+    parKey: string;
+    registrationId: string;
+    regAt: Date;
+    registrationStatus: RegistrationStatus;
+    ticketStatus: TicketStatus;
+    checkedInAt: Date | null;
+  };
+  const regLog: RegRecord[] = [];
+  const handWritten = new Map<string, Set<string>>(); // eventKey -> participants with a hand-written registration
+  const handConfirmed: Record<string, number> = {};
+
+  // 1. the hand-written registrations (demo accounts participant1..5)
   for (const config of registrationConfigs) {
-    await createFullRegistration({
+    const eventKey = eventKeyById[config.eventId];
+    const regAt = registrationTime(eventKey, config.participantKey);
+    const checkedInAt = config.attendance ? checkInTime(eventKey, config.participantKey, regAt) : null;
+    if (config.attendance && !checkedInAt) {
+      throw new Error(`No valid check-in time for ${eventKey}/${config.participantKey}: the event timeline leaves no room for it`);
+    }
+    const created = await createFullRegistration({
       ...config,
-      participantId: PARTICIPANT_DATA[config.participantKey].id,
-      participant: PARTICIPANT_DATA[config.participantKey],
+      participantId: ALL_PARTICIPANTS[config.participantKey].id,
+      participant: ALL_PARTICIPANTS[config.participantKey],
+      createdAt: regAt,
+      attendance: config.attendance && { method: config.attendance.method, checkedInAt: checkedInAt! },
     });
-    regCount++;
+    if (!created) continue; // already registered through the app
+    regLog.push({ eventKey, parKey: config.participantKey, registrationId: config.registrationId, regAt, registrationStatus: config.registrationStatus, ticketStatus: config.ticketStatus, checkedInAt });
+    (handWritten.get(eventKey) ?? handWritten.set(eventKey, new Set()).get(eventKey)!).add(config.participantKey);
+    if (config.registrationStatus === RegistrationStatus.CONFIRMED) handConfirmed[eventKey] = (handConfirmed[eventKey] ?? 0) + 1;
   }
-  console.log(`✓ Registrations + Form Responses + Tickets (${regCount} registrations)`);
+  const handWrittenCount = regLog.length;
+
+  // 2. the crowd: CROWD_PLAN (seed-lib/plan.ts) says how many people register for each event. Who they are,
+  //    when they register, whether they show up and how they check in are all derived from the event timeline.
+  //    Outcome by event status:
+  //      PUBLISHED  tickets stay ACTIVE                 CONCLUDED  USED if they came, otherwise EXPIRED (no-show)
+  //      ONGOING    USED once checked in, else ACTIVE   CANCELLED  registrations CANCELLED; tickets already USED stay USED
+  const allParKeys = Object.keys(ALL_PARTICIPANTS);
+  for (const [eventKey, plan] of Object.entries(CROWD_PLAN)) {
+    const eventId = ID[eventKey as keyof typeof ID] as string;
+    const event = EVENT_TIMES[eventKey];
+    const form = REG_FORMS[eventKey];
+    const confirmedNeeded = plan.total - (handConfirmed[eventKey] ?? 0);
+    const chosen = allParKeys
+      .filter((key) => !handWritten.get(eventKey)?.has(key))
+      .sort((a, b) => rand('rank', eventKey, a) - rand('rank', eventKey, b))
+      .slice(0, confirmedNeeded + (plan.participantCancelled ?? 0));
+
+    for (const [index, parKey] of chosen.entries()) {
+      const participant = ALL_PARTICIPANTS[parKey];
+      const parNumber = Number(parKey.slice(3));
+      const cancelledByParticipant = index >= confirmedNeeded; // the extra ones cancelled their own registration
+      const regAt = registrationTime(eventKey, parKey);
+      const cameIn = !cancelledByParticipant && event.status !== EventStatus.PUBLISHED && rand('attend', eventKey, parKey) < plan.attendRate;
+      const checkedInAt = cameIn ? checkInTime(eventKey, parKey, regAt) : null;
+
+      let registrationStatus: RegistrationStatus = RegistrationStatus.CONFIRMED;
+      let ticketStatus: TicketStatus;
+      if (cancelledByParticipant) {
+        registrationStatus = RegistrationStatus.CANCELLED;
+        ticketStatus = TicketStatus.CANCELLED;
+      } else if (event.status === EventStatus.CANCELLED) {
+        registrationStatus = RegistrationStatus.CANCELLED; // cancelling an event cancels every registration...
+        ticketStatus = checkedInAt ? TicketStatus.USED : TicketStatus.CANCELLED; // ...but only ACTIVE tickets, never USED ones
+      } else if (checkedInAt) {
+        ticketStatus = TicketStatus.USED;
+      } else {
+        ticketStatus = event.status === EventStatus.CONCLUDED ? TicketStatus.EXPIRED : TicketStatus.ACTIVE;
+      }
+
+      const registrationId = genId('reg', eventId, parNumber);
+      const created = await createFullRegistration({
+        registrationId,
+        ticketId: genId('ticket', eventId, parNumber),
+        formResponseId: genId('response', eventId, parNumber),
+        participantId: participant.id,
+        eventId,
+        formId: form.formId,
+        formFields: form.fields,
+        participant,
+        registrationStatus,
+        ticketStatus,
+        attendance: checkedInAt
+          ? { method: rand('method', eventKey, parKey) < plan.qrShare ? CheckInMethod.QR_SCAN : CheckInMethod.MANUAL, checkedInAt }
+          : undefined,
+        extraAnswers: registrationAnswers(form.fields, { eventKey, parKey, studentId: participant.studentId, ordinal: index }),
+        createdAt: regAt,
+      });
+      if (!created) continue; // already registered through the app
+      regLog.push({ eventKey, parKey, registrationId, regAt, registrationStatus, ticketStatus, checkedInAt });
+    }
+  }
+  console.log(`✓ Registrations + Form Responses + Tickets (${regLog.length} registrations: ${handWrittenCount} hand-written + ${regLog.length - handWrittenCount} generated)`);
+
+  // ── Seat counters ────────────────────────────────────────────────────────────
+  // Event.seatsTaken mirrors the app: +1 per registration, -1 when a participant cancels. Cancelling a whole
+  // event does not release seats, so a CANCELLED event keeps the count it had when it was cancelled.
+  const seatEvents = await prisma.event.findMany({ select: { id: true, status: true, seatLimit: true } });
+  for (const event of seatEvents) {
+    const [confirmed, total] = await Promise.all([
+      prisma.eventRegistration.count({ where: { eventId: event.id, status: RegistrationStatus.CONFIRMED } }),
+      prisma.eventRegistration.count({ where: { eventId: event.id } }),
+    ]);
+    const seatsTaken = event.status === EventStatus.CANCELLED ? total : confirmed;
+    if (event.seatLimit !== null && seatsTaken > event.seatLimit) {
+      throw new Error(`Seed inconsistency: event ${event.id} has ${seatsTaken} seats taken but a limit of ${event.seatLimit}`);
+    }
+    // updatedAt must be passed explicitly: @updatedAt would otherwise stamp the moment the seed runs
+    await prisma.event.update({ where: { id: event.id }, data: { seatsTaken, updatedAt: EVENT_TIMES[eventKeyById[event.id]].updatedAt } });
+  }
+  console.log('✓ Seat counters synced');
 
   // ── Feedback Responses ───────────────────────────────────────────────────────
   // Only for participants who attended (checked in) an ONGOING/CONCLUDED event — the API requires it
@@ -2457,353 +2864,268 @@ async function main() {
     where: { id: 'fb000003-0000-4000-8000-000000000003' },
   });
 
+  // hand-written responses first: their registrations exist by now, so we know when each person checked in
+  const handFeedback = new Set(feedbackConfigs.map((c) => c.registrationId));
+  let feedbackCount = 0;
   for (const config of feedbackConfigs) {
-    const attended = await prisma.attendance.findFirst({
-      where: { ticket: { eventRegistrationId: config.registrationId } },
-      select: { id: true },
-    });
-    if (!attended) {
-      throw new Error(
-        `Seed inconsistency: feedback for registration ${config.registrationId} but the participant never checked in`,
-      );
+    const record = regLog.find((r) => r.registrationId === config.registrationId);
+    if (!record?.checkedInAt) {
+      throw new Error(`Seed inconsistency: feedback for registration ${config.registrationId} but the participant never checked in`);
     }
-    await createFeedbackResponse(config);
+    const createdAt = feedbackTime(record.eventKey, record.parKey, record.checkedInAt);
+    if (!createdAt) throw new Error(`No room for feedback from ${record.parKey} on ${record.eventKey} before the demo`);
+    if (await createFeedbackResponse({ ...config, createdAt })) feedbackCount++;
   }
-  console.log(`✓ Feedback responses (${feedbackConfigs.length} responses)`);
+
+  // then the crowd: a share of the attendees of every event that has a feedback form (CROWD_PLAN.feedbackRate)
+  for (const [eventKey, form] of Object.entries(FB_FORMS)) {
+    const eventId = ID[eventKey as keyof typeof ID] as string;
+    for (const record of regLog) {
+      if (record.eventKey !== eventKey || !record.checkedInAt || handFeedback.has(record.registrationId)) continue;
+      if (rand('fbresp', eventKey, record.parKey) >= (CROWD_PLAN[eventKey]?.feedbackRate ?? 0)) continue;
+      const createdAt = feedbackTime(eventKey, record.parKey, record.checkedInAt);
+      if (!createdAt) continue;
+      const created = await createFeedbackResponse({
+        formResponseId: genId('feedback', eventId, Number(record.parKey.slice(3))),
+        registrationId: record.registrationId,
+        formId: form.formId,
+        formFields: form.fields,
+        answers: feedbackAnswers(form.fields, { eventKey, parKey: record.parKey }),
+        createdAt,
+      });
+      if (created) feedbackCount++;
+    }
+  }
+  console.log(`✓ Feedback responses (${feedbackCount})`);
   console.log(`✓ Attendance records (${await prisma.attendance.count()})`);
 
   // ── Discussion Rooms ─────────────────────────────────────────────────────────
-  // Every event gets a discussion room (1:1), regardless of status.
+  // Every event gets a discussion room (1:1), regardless of status. A room is created together with its event.
 
-  const roomByEventId: Record<string, string> = {
-    [ID.EVT_HALLOWEEN]:   ID.ROOM_HALLOWEEN,
-    [ID.EVT_NEW_YEAR]:    ID.ROOM_NEW_YEAR,
-    [ID.EVT_SUKHOTHAI]:   ID.ROOM_SUKHOTHAI,
-    [ID.EVT_EXCHANGE]:    ID.ROOM_EXCHANGE,
-    [ID.EVT_BOOTCAMP]:    ID.ROOM_BOOTCAMP,
-    [ID.EVT_HACKATHON]:   ID.ROOM_HACKATHON,
-    [ID.EVT_SPORTS]:      ID.ROOM_SPORTS,
-    [ID.EVT_ORIENTATION]: ID.ROOM_ORIENTATION,
-    [ID.EVT_AI_SEMINAR]:  ID.ROOM_AI_SEMINAR,
-    [ID.EVT_NO_FORM]:     ID.ROOM_NO_FORM,
-    [ID.EVT_DRAFT1]:      ID.ROOM_DRAFT1,
-    [ID.EVT_DRAFT2]:      ID.ROOM_DRAFT2,
-    [ID.EVT_DRAFT3]:      ID.ROOM_DRAFT3,
-    [ID.EVT_CONCERT]:     ID.ROOM_CONCERT,
-
-    [ID.EVT_TEDX]:          ID.ROOM_TEDX,
-    [ID.EVT_JOBFAIR]:       ID.ROOM_JOBFAIR,
-    [ID.EVT_BLOODDONATION]: ID.ROOM_BLOODDONATION,
-    [ID.EVT_FRESHYNIGHT]:   ID.ROOM_FRESHYNIGHT,
-    [ID.EVT_STARTUPPITCH]:  ID.ROOM_STARTUPPITCH,
-    [ID.EVT_FOOTBALL]:      ID.ROOM_FOOTBALL,
-    [ID.EVT_PHOTOEXHIBIT]:  ID.ROOM_PHOTOEXHIBIT,
-    [ID.EVT_CLEANUP]:       ID.ROOM_CLEANUP,
-    [ID.EVT_MENTALHEALTH]:  ID.ROOM_MENTALHEALTH,
-    [ID.EVT_OPENHOUSE]:     ID.ROOM_OPENHOUSE,
-    [ID.EVT_DATASCIENCE]:   ID.ROOM_DATASCIENCE,
-    [ID.EVT_CHESS]:         ID.ROOM_CHESS,
-    [ID.EVT_FOODFEST]:      ID.ROOM_FOODFEST,
-    [ID.EVT_ROBOTICS]:      ID.ROOM_ROBOTICS,
-    [ID.EVT_FRESHMENCAMP]:  ID.ROOM_FRESHMENCAMP,
-    [ID.EVT_CHOIR]:         ID.ROOM_CHOIR,
-    [ID.EVT_LIBRARY]:       ID.ROOM_LIBRARY,
-    [ID.EVT_PRIDEWEEK]:     ID.ROOM_PRIDEWEEK,
-    [ID.EVT_MUAYTHAI]:      ID.ROOM_MUAYTHAI,
-    [ID.EVT_GRADINFO]:      ID.ROOM_GRADINFO,
-  };
-
+  const roomByEventId: Record<string, string> = {};
+  for (const key of Object.keys(EVENT_TIMES)) {
+    const roomId = ID[`ROOM_${key.slice(4)}` as keyof typeof ID] as string | undefined;
+    if (!roomId) throw new Error(`No room id defined for ${key}`);
+    roomByEventId[ID[key as keyof typeof ID] as string] = roomId;
+  }
   await Promise.all(
-    Object.entries(roomByEventId).map(([eventId, roomId]) =>
-      prisma.discussionRoom.upsert({
+    Object.entries(roomByEventId).map(([eventId, roomId]) => {
+      const createdAt = EVENT_TIMES[eventKeyById[eventId]].createdAt;
+      return prisma.discussionRoom.upsert({
         where: { eventId },
-        update: {},
-        create: { id: roomId, eventId },
-      }),
-    ),
+        update: { createdAt },
+        create: { id: roomId, eventId, createdAt },
+      });
+    }),
   );
-  console.log(`✓ Discussion rooms (${Object.keys(roomByEventId).length} — one per event)`);
+  console.log(`✓ Discussion rooms (${Object.keys(roomByEventId).length}, one per event)`);
 
-  // ── Discussion Messages ──────────────────────────────────────────────────────
-  // Only seeded for rooms whose event has confirmed registrations to chat with.
-  // Note: Hackathon and Sports Day concluded well outside the 72h read-only grace
-  // period, so their rooms are already read-only — useful for testing that state.
+  // ── Discussion Messages + read positions ─────────────────────────────────────
+  // Conversations are written in seed-lib/chat.ts. Only registrants can be in a room, so rooms of events
+  // nobody registered for stay empty. CONCLUDED rooms stop at the 72 h grace period after the event and the
+  // CANCELLED event's room at the cancellation, matching what the app lets people write.
+  // The messages and read positions in these rooms are replaced wholesale on every run, so serial numbers
+  // always run 1..n in time order.
 
-  type MessageConfig = {
-    id: string;
-    roomId: string;
-    content: string;
-    isAnnouncement?: boolean;
-    senderParticipantId?: string;
-    senderOrganizerId?: string;
-    createdAt: Date;
-    serialNumber: number;
-  };
+  const roomIds = Object.values(roomByEventId);
+  await prisma.roomReadStatus.deleteMany({ where: { roomId: { in: roomIds } } });
+  await prisma.message.deleteMany({ where: { roomId: { in: roomIds } } });
 
-  const messageConfigs: MessageConfig[] = [
-    // ── Halloween ────────────────────────────────────────────────────────────
-    { id: '81000001-0000-4000-8000-000000000001', roomId: ID.ROOM_HALLOWEEN, content: 'Welcome to the Halloween Night discussion room! Costume contest signup closes Oct 25.', isAnnouncement: true, senderOrganizerId: org1.id, createdAt: new Date('2026-09-05T12:00:00.000Z'), serialNumber: 1 },
-    { id: '81000002-0000-4000-8000-000000000002', roomId: ID.ROOM_HALLOWEEN, content: 'Excited for this!', senderParticipantId: ID.PAR1, createdAt: new Date('2026-09-05T13:00:00.000Z'), serialNumber: 2 },
-    { id: '81000003-0000-4000-8000-000000000003', roomId: ID.ROOM_HALLOWEEN, content: 'What should we wear?', senderParticipantId: ID.PAR2, createdAt: new Date('2026-09-05T14:00:00.000Z'), serialNumber: 3 },
-    { id: '81000004-0000-4000-8000-000000000004', roomId: ID.ROOM_HALLOWEEN, content: 'Costumes encouraged but not required!', senderOrganizerId: org1.id, createdAt: new Date('2026-09-05T15:00:00.000Z'), serialNumber: 4 },
-    { id: '81000005-0000-4000-8000-000000000005', roomId: ID.ROOM_HALLOWEEN, content: "Can't wait!", senderParticipantId: ID.PAR3, createdAt: new Date('2026-09-05T16:00:00.000Z'), serialNumber: 5 },
+  const organizerOfEvent = new Map((await prisma.event.findMany({ select: { id: true, organizerId: true } })).map((e) => [e.id, e.organizerId]));
+  const messageRows: Prisma.MessageCreateManyInput[] = [];
+  const readRows: Prisma.RoomReadStatusCreateManyInput[] = [];
+  const lastSerialByRoom: Record<string, number> = {};
 
-    // ── New Year ─────────────────────────────────────────────────────────────
-    { id: '82000001-0000-4000-8000-000000000001', roomId: ID.ROOM_NEW_YEAR, content: 'Countdown party details have been posted — check the agenda!', isAnnouncement: true, senderOrganizerId: org1.id, createdAt: new Date('2026-09-06T12:00:00.000Z'), serialNumber: 1 },
-    { id: '82000002-0000-4000-8000-000000000002', roomId: ID.ROOM_NEW_YEAR, content: 'So hyped!', senderParticipantId: ID.PAR1, createdAt: new Date('2026-09-06T13:00:00.000Z'), serialNumber: 2 },
-    { id: '82000003-0000-4000-8000-000000000003', roomId: ID.ROOM_NEW_YEAR, content: 'Where do we park?', senderParticipantId: ID.PAR4, createdAt: new Date('2026-09-06T14:00:00.000Z'), serialNumber: 3 },
-    { id: '82000004-0000-4000-8000-000000000004', roomId: ID.ROOM_NEW_YEAR, content: 'Parking is available at the CAMT lot.', senderOrganizerId: org1.id, createdAt: new Date('2026-09-06T15:00:00.000Z'), serialNumber: 4 },
-
-    // ── Sukhothai ────────────────────────────────────────────────────────────
-    { id: '83000001-0000-4000-8000-000000000001', roomId: ID.ROOM_SUKHOTHAI, content: 'Trip itinerary has been emailed to everyone.', senderOrganizerId: org2.id, createdAt: new Date('2026-09-15T12:00:00.000Z'), serialNumber: 1 },
-    { id: '83000002-0000-4000-8000-000000000002', roomId: ID.ROOM_SUKHOTHAI, content: 'Looking forward to it!', senderParticipantId: ID.PAR1, createdAt: new Date('2026-09-15T13:00:00.000Z'), serialNumber: 2 },
-
-    // ── Exchange ─────────────────────────────────────────────────────────────
-    { id: '84000001-0000-4000-8000-000000000001', roomId: ID.ROOM_EXCHANGE, content: 'Orientation session has been moved online.', isAnnouncement: true, senderOrganizerId: org2.id, createdAt: new Date('2026-08-05T12:00:00.000Z'), serialNumber: 1 },
-    { id: '84000002-0000-4000-8000-000000000002', roomId: ID.ROOM_EXCHANGE, content: 'Thanks for the update.', senderParticipantId: ID.PAR2, createdAt: new Date('2026-08-05T13:00:00.000Z'), serialNumber: 2 },
-    { id: '84000003-0000-4000-8000-000000000003', roomId: ID.ROOM_EXCHANGE, content: 'Noted, thanks.', senderParticipantId: ID.PAR1, createdAt: new Date('2026-08-05T14:00:00.000Z'), serialNumber: 3 },
-    { id: '84000004-0000-4000-8000-000000000004', roomId: ID.ROOM_EXCHANGE, content: 'Let us know if you have any questions.', senderOrganizerId: org2.id, createdAt: new Date('2026-08-05T15:00:00.000Z'), serialNumber: 4 },
-    { id: '84000005-0000-4000-8000-000000000005', roomId: ID.ROOM_EXCHANGE, content: "When's the first session?", senderParticipantId: ID.PAR3, createdAt: new Date('2026-08-05T16:00:00.000Z'), serialNumber: 5 },
-
-    // ── Bootcamp ─────────────────────────────────────────────────────────────
-    { id: '85000001-0000-4000-8000-000000000001', roomId: ID.ROOM_BOOTCAMP, content: 'Welcome to the bootcamp cohort!', senderOrganizerId: org2.id, createdAt: new Date('2026-07-10T12:00:00.000Z'), serialNumber: 1 },
-    { id: '85000002-0000-4000-8000-000000000002', roomId: ID.ROOM_BOOTCAMP, content: 'Excited to start!', senderParticipantId: ID.PAR1, createdAt: new Date('2026-07-10T13:00:00.000Z'), serialNumber: 2 },
-    { id: '85000003-0000-4000-8000-000000000003', roomId: ID.ROOM_BOOTCAMP, content: 'Same here!', senderParticipantId: ID.PAR3, createdAt: new Date('2026-07-10T14:00:00.000Z'), serialNumber: 3 },
-    { id: '85000004-0000-4000-8000-000000000004', roomId: ID.ROOM_BOOTCAMP, content: 'Lab access codes were sent via email.', isAnnouncement: true, senderOrganizerId: org2.id, createdAt: new Date('2026-07-10T15:00:00.000Z'), serialNumber: 4 },
-
-    // ── Hackathon (CONCLUDED, past 72h grace — room is read-only) ──────────────
-    { id: '86000001-0000-4000-8000-000000000001', roomId: ID.ROOM_HACKATHON, content: 'Good luck to all teams!', senderOrganizerId: org3.id, createdAt: new Date('2026-05-20T09:30:00.000Z'), serialNumber: 1 },
-    { id: '86000002-0000-4000-8000-000000000002', roomId: ID.ROOM_HACKATHON, content: 'Team Alpha ready!', senderParticipantId: ID.PAR1, createdAt: new Date('2026-05-20T09:45:00.000Z'), serialNumber: 2 },
-    { id: '86000003-0000-4000-8000-000000000003', roomId: ID.ROOM_HACKATHON, content: "Team Beta here, let's go!", senderParticipantId: ID.PAR2, createdAt: new Date('2026-05-20T10:00:00.000Z'), serialNumber: 3 },
-    { id: '86000004-0000-4000-8000-000000000004', roomId: ID.ROOM_HACKATHON, content: 'Submissions close at 5pm on the 22nd.', senderOrganizerId: org3.id, createdAt: new Date('2026-05-20T10:15:00.000Z'), serialNumber: 4 },
-
-    // ── Sports Day (CONCLUDED, past 72h grace — room is read-only) ─────────────
-    { id: '87000001-0000-4000-8000-000000000001', roomId: ID.ROOM_SPORTS, content: 'Good luck at Sports Day!', senderOrganizerId: org3.id, createdAt: new Date('2026-04-10T08:15:00.000Z'), serialNumber: 1 },
-    { id: '87000002-0000-4000-8000-000000000002', roomId: ID.ROOM_SPORTS, content: 'Go team!', senderParticipantId: ID.PAR2, createdAt: new Date('2026-04-10T08:30:00.000Z'), serialNumber: 2 },
-
-    // ── TEDx ─────────────────────────────────────────────────────────────────
-    { id: '88000001-0000-4000-8000-000000000001', roomId: ID.ROOM_TEDX, content: 'Speaker lineup has been finalized — check the agenda!', isAnnouncement: true, senderOrganizerId: org1.id, createdAt: new Date('2026-09-08T12:00:00.000Z'), serialNumber: 1 },
-    { id: '88000002-0000-4000-8000-000000000002', roomId: ID.ROOM_TEDX, content: 'Can’t wait to hear the AI talk!', senderParticipantId: ID.PAR1, createdAt: new Date('2026-09-08T13:00:00.000Z'), serialNumber: 2 },
-    { id: '88000003-0000-4000-8000-000000000003', roomId: ID.ROOM_TEDX, content: 'Is there a livestream for those who can’t attend?', senderParticipantId: ID.PAR2, createdAt: new Date('2026-09-08T14:00:00.000Z'), serialNumber: 3 },
-    { id: '88000004-0000-4000-8000-000000000004', roomId: ID.ROOM_TEDX, content: 'Yes, we’ll share a livestream link closer to the date.', senderOrganizerId: org1.id, createdAt: new Date('2026-09-08T15:00:00.000Z'), serialNumber: 4 },
-
-    // ── Job Fair ─────────────────────────────────────────────────────────────
-    { id: '89000001-0000-4000-8000-000000000001', roomId: ID.ROOM_JOBFAIR, content: 'Bring printed copies of your resume — 40+ companies attending.', isAnnouncement: true, senderOrganizerId: org1.id, createdAt: new Date('2026-09-12T12:00:00.000Z'), serialNumber: 1 },
-    { id: '89000002-0000-4000-8000-000000000002', roomId: ID.ROOM_JOBFAIR, content: 'Is there a dress code?', senderParticipantId: ID.PAR3, createdAt: new Date('2026-09-12T13:00:00.000Z'), serialNumber: 2 },
-    { id: '89000003-0000-4000-8000-000000000003', roomId: ID.ROOM_JOBFAIR, content: 'Business casual is recommended.', senderOrganizerId: org1.id, createdAt: new Date('2026-09-12T14:00:00.000Z'), serialNumber: 3 },
-
-    // ── Startup Pitch ────────────────────────────────────────────────────────
-    { id: '8a000001-0000-4000-8000-000000000001', roomId: ID.ROOM_STARTUPPITCH, content: 'Pitch decks are due by Nov 1st, 11:59pm.', isAnnouncement: true, senderOrganizerId: org3.id, createdAt: new Date('2026-09-15T12:00:00.000Z'), serialNumber: 1 },
-    { id: '8a000002-0000-4000-8000-000000000002', roomId: ID.ROOM_STARTUPPITCH, content: 'Team Nimbus is ready!', senderParticipantId: ID.PAR1, createdAt: new Date('2026-09-15T13:00:00.000Z'), serialNumber: 2 },
-    { id: '8a000003-0000-4000-8000-000000000003', roomId: ID.ROOM_STARTUPPITCH, content: 'Team GreenLoop here, excited to present.', senderParticipantId: ID.PAR3, createdAt: new Date('2026-09-15T14:00:00.000Z'), serialNumber: 3 },
-
-    // ── Ping River Clean-Up (CONCLUDED, past 72h grace — room is read-only) ────
-    { id: '8b000001-0000-4000-8000-000000000001', roomId: ID.ROOM_CLEANUP, content: 'Thanks everyone for a great turnout today!', senderOrganizerId: org1.id, createdAt: new Date('2026-08-15T11:30:00.000Z'), serialNumber: 1 },
-    { id: '8b000002-0000-4000-8000-000000000002', roomId: ID.ROOM_CLEANUP, content: 'Glad to help, felt great giving back!', senderParticipantId: ID.PAR2, createdAt: new Date('2026-08-15T11:45:00.000Z'), serialNumber: 2 },
-
-    // ── Data Science Bootcamp ────────────────────────────────────────────────
-    { id: '8c000001-0000-4000-8000-000000000001', roomId: ID.ROOM_DATASCIENCE, content: 'Welcome to the cohort! Week 1 materials are up on the portal.', senderOrganizerId: org3.id, createdAt: new Date('2026-09-01T12:00:00.000Z'), serialNumber: 1 },
-    { id: '8c000002-0000-4000-8000-000000000002', roomId: ID.ROOM_DATASCIENCE, content: 'Looking forward to it!', senderParticipantId: ID.PAR1, createdAt: new Date('2026-09-01T13:00:00.000Z'), serialNumber: 2 },
-    { id: '8c000003-0000-4000-8000-000000000003', roomId: ID.ROOM_DATASCIENCE, content: 'Same here, first time learning ML properly.', senderParticipantId: ID.PAR5, createdAt: new Date('2026-09-01T14:00:00.000Z'), serialNumber: 3 },
-
-    // ── Freshmen Welcome Camp (CONCLUDED, past 72h grace — room is read-only) ──
-    { id: '8d000001-0000-4000-8000-000000000001', roomId: ID.ROOM_FRESHMENCAMP, content: 'Welcome to CAMT! Check-in starts at 8am at the main lobby.', isAnnouncement: true, senderOrganizerId: org1.id, createdAt: new Date('2026-06-01T07:30:00.000Z'), serialNumber: 1 },
-    { id: '8d000002-0000-4000-8000-000000000002', roomId: ID.ROOM_FRESHMENCAMP, content: 'So excited to meet everyone!', senderParticipantId: ID.PAR1, createdAt: new Date('2026-06-01T07:45:00.000Z'), serialNumber: 2 },
-    { id: '8d000003-0000-4000-8000-000000000003', roomId: ID.ROOM_FRESHMENCAMP, content: 'See you all there!', senderParticipantId: ID.PAR2, createdAt: new Date('2026-06-01T07:50:00.000Z'), serialNumber: 3 },
-  ];
-
-  for (const m of messageConfigs) {
-    await prisma.message.upsert({
-      where: { id: m.id },
-      update: {},
-      create: {
-        id: m.id,
-        roomId: m.roomId,
+  for (const eventKey of Object.keys(CHAT_SCRIPTS)) {
+    const eventId = ID[eventKey as keyof typeof ID] as string;
+    const roomId = roomByEventId[eventId];
+    const organizerId = organizerOfEvent.get(eventId)!;
+    const eventCancelled = EVENT_TIMES[eventKey].status === EventStatus.CANCELLED;
+    const registrants: ChatRegistrant[] = regLog
+      .filter((r) => r.eventKey === eventKey)
+      .map((r) => ({
+        parKey: r.parKey,
+        regAt: r.regAt,
+        // someone who cancelled their own registration never wrote; when the whole event is cancelled everyone wrote before that
+        canChat: r.registrationStatus === RegistrationStatus.CONFIRMED || eventCancelled,
+        hasAccessNow: r.registrationStatus === RegistrationStatus.CONFIRMED,
+      }));
+    const built = buildRoomMessages(eventKey, registrants);
+    built.forEach((m, i) =>
+      messageRows.push({
+        id: genId('message', eventId, i + 1),
+        roomId,
         content: m.content,
-        isAnnouncement: m.isAnnouncement ?? false,
-        senderParticipantId: m.senderParticipantId ?? null,
-        senderOrganizerId: m.senderOrganizerId ?? null,
-        createdAt: m.createdAt,
-        serialNumber: m.serialNumber,
-      },
-    });
+        isAnnouncement: m.isAnnouncement,
+        senderParticipantId: m.sender.type === 'participant' ? ALL_PARTICIPANTS[m.sender.parKey].id : null,
+        senderOrganizerId: m.sender.type === 'organizer' ? organizerId : null,
+        createdAt: m.at,
+        serialNumber: i + 1,
+      }),
+    );
+    lastSerialByRoom[roomId] = built.length;
+    for (const row of buildReadStatuses(eventKey, built, registrants)) {
+      readRows.push({
+        roomId,
+        lastReadMessageId: genId('message', eventId, row.lastReadSerialNumber),
+        lastReadSerialNumber: row.lastReadSerialNumber,
+        readerParticipantId: row.reader.type === 'participant' ? ALL_PARTICIPANTS[row.reader.parKey].id : null,
+        readerOrganizerId: row.reader.type === 'organizer' ? organizerId : null,
+      });
+    }
   }
-
-  // sync each room's lastSerialNumber to the highest serialNumber seeded for it
-  const maxSerialByRoom = messageConfigs.reduce<Record<string, number>>((acc, m) => {
-    acc[m.roomId] = Math.max(acc[m.roomId] ?? 0, m.serialNumber);
-    return acc;
-  }, {});
+  await prisma.message.createMany({ data: messageRows });
+  await prisma.roomReadStatus.createMany({ data: readRows });
+  // each room's lastSerialNumber is the highest serial number it holds (0 for rooms without messages)
   await Promise.all(
-    Object.entries(maxSerialByRoom).map(([roomId, lastSerialNumber]) =>
-      prisma.discussionRoom.update({ where: { id: roomId }, data: { lastSerialNumber } }),
-    ),
+    roomIds.map((roomId) => prisma.discussionRoom.update({ where: { id: roomId }, data: { lastSerialNumber: lastSerialByRoom[roomId] ?? 0 } })),
   );
-  console.log(`✓ Discussion messages (${messageConfigs.length} messages across 13 rooms)`);
+  console.log(`✓ Discussion messages (${messageRows.length} across ${Object.keys(CHAT_SCRIPTS).length} rooms) and read positions (${readRows.length})`);
 
-  // ── Room Read Statuses ───────────────────────────────────────────────────────
-  // Mix of fully-read, partially-read, and never-opened rooms per participant/organizer
-  // — useful for testing unread counts and chat-list ordering.
-
-  type ReadStatusConfig = {
-    roomId: string;
-    readerParticipantId?: string;
-    readerOrganizerId?: string;
-    lastReadMessageId: string;
-    lastReadSerialNumber: number;
-  };
-
-  const readStatusConfigs: ReadStatusConfig[] = [
-    // Halloween: par1 fully read, par2 read only the first message, par3 never opened
-    { roomId: ID.ROOM_HALLOWEEN, readerParticipantId: ID.PAR1, lastReadMessageId: '81000005-0000-4000-8000-000000000005', lastReadSerialNumber: 5 },
-    { roomId: ID.ROOM_HALLOWEEN, readerParticipantId: ID.PAR2, lastReadMessageId: '81000001-0000-4000-8000-000000000001', lastReadSerialNumber: 1 },
-
-    // New Year: par1 fully read, par2 read only the announcement
-    { roomId: ID.ROOM_NEW_YEAR, readerParticipantId: ID.PAR1, lastReadMessageId: '82000004-0000-4000-8000-000000000004', lastReadSerialNumber: 4 },
-    { roomId: ID.ROOM_NEW_YEAR, readerParticipantId: ID.PAR2, lastReadMessageId: '82000001-0000-4000-8000-000000000001', lastReadSerialNumber: 1 },
-
-    // Sukhothai: par1 fully read
-    { roomId: ID.ROOM_SUKHOTHAI, readerParticipantId: ID.PAR1, lastReadMessageId: '83000002-0000-4000-8000-000000000002', lastReadSerialNumber: 2 },
-
-    // Exchange: par1 fully read, par2 read up to message 3, par3 never opened
-    { roomId: ID.ROOM_EXCHANGE, readerParticipantId: ID.PAR1, lastReadMessageId: '84000005-0000-4000-8000-000000000005', lastReadSerialNumber: 5 },
-    { roomId: ID.ROOM_EXCHANGE, readerParticipantId: ID.PAR2, lastReadMessageId: '84000003-0000-4000-8000-000000000003', lastReadSerialNumber: 3 },
-
-    // Bootcamp: par1 fully read, par3 read only the first message
-    { roomId: ID.ROOM_BOOTCAMP, readerParticipantId: ID.PAR1, lastReadMessageId: '85000004-0000-4000-8000-000000000004', lastReadSerialNumber: 4 },
-    { roomId: ID.ROOM_BOOTCAMP, readerParticipantId: ID.PAR3, lastReadMessageId: '85000001-0000-4000-8000-000000000001', lastReadSerialNumber: 1 },
-
-    // Hackathon (read-only): par1 fully read, par2 never opened
-    { roomId: ID.ROOM_HACKATHON, readerParticipantId: ID.PAR1, lastReadMessageId: '86000004-0000-4000-8000-000000000004', lastReadSerialNumber: 4 },
-
-    // TEDx: par1 fully read, par2 read only the announcement
-    { roomId: ID.ROOM_TEDX, readerParticipantId: ID.PAR1, lastReadMessageId: '88000004-0000-4000-8000-000000000004', lastReadSerialNumber: 4 },
-    { roomId: ID.ROOM_TEDX, readerParticipantId: ID.PAR2, lastReadMessageId: '88000001-0000-4000-8000-000000000001', lastReadSerialNumber: 1 },
-
-    // Job Fair: par3 fully read, par4 never opened
-    { roomId: ID.ROOM_JOBFAIR, readerParticipantId: ID.PAR3, lastReadMessageId: '89000003-0000-4000-8000-000000000003', lastReadSerialNumber: 3 },
-
-    // Startup Pitch: par1 fully read, par3 never opened
-    { roomId: ID.ROOM_STARTUPPITCH, readerParticipantId: ID.PAR1, lastReadMessageId: '8a000002-0000-4000-8000-000000000002', lastReadSerialNumber: 2 },
-
-    // Ping River Clean-Up (read-only): par2 fully read, par4 never opened
-    { roomId: ID.ROOM_CLEANUP, readerParticipantId: ID.PAR2, lastReadMessageId: '8b000002-0000-4000-8000-000000000002', lastReadSerialNumber: 2 },
-
-    // Data Science Bootcamp: par1 fully read, par5 read only the first message
-    { roomId: ID.ROOM_DATASCIENCE, readerParticipantId: ID.PAR1, lastReadMessageId: '8c000003-0000-4000-8000-000000000003', lastReadSerialNumber: 3 },
-    { roomId: ID.ROOM_DATASCIENCE, readerParticipantId: ID.PAR5, lastReadMessageId: '8c000001-0000-4000-8000-000000000001', lastReadSerialNumber: 1 },
-
-    // Freshmen Welcome Camp (read-only): par1 fully read, par2 read only the announcement, par3 never opened
-    { roomId: ID.ROOM_FRESHMENCAMP, readerParticipantId: ID.PAR1, lastReadMessageId: '8d000003-0000-4000-8000-000000000003', lastReadSerialNumber: 3 },
-    { roomId: ID.ROOM_FRESHMENCAMP, readerParticipantId: ID.PAR2, lastReadMessageId: '8d000001-0000-4000-8000-000000000001', lastReadSerialNumber: 1 },
-
-    // Organizers: each has read their own event's latest message
-    { roomId: ID.ROOM_HALLOWEEN, readerOrganizerId: org1.id, lastReadMessageId: '81000005-0000-4000-8000-000000000005', lastReadSerialNumber: 5 },
-    { roomId: ID.ROOM_NEW_YEAR, readerOrganizerId: org1.id, lastReadMessageId: '82000004-0000-4000-8000-000000000004', lastReadSerialNumber: 4 },
-    { roomId: ID.ROOM_EXCHANGE, readerOrganizerId: org2.id, lastReadMessageId: '84000004-0000-4000-8000-000000000004', lastReadSerialNumber: 4 },
-    { roomId: ID.ROOM_BOOTCAMP, readerOrganizerId: org2.id, lastReadMessageId: '85000003-0000-4000-8000-000000000003', lastReadSerialNumber: 3 },
-    { roomId: ID.ROOM_TEDX, readerOrganizerId: org1.id, lastReadMessageId: '88000004-0000-4000-8000-000000000004', lastReadSerialNumber: 4 },
-    { roomId: ID.ROOM_JOBFAIR, readerOrganizerId: org1.id, lastReadMessageId: '89000003-0000-4000-8000-000000000003', lastReadSerialNumber: 3 },
-    { roomId: ID.ROOM_STARTUPPITCH, readerOrganizerId: org3.id, lastReadMessageId: '8a000003-0000-4000-8000-000000000003', lastReadSerialNumber: 3 },
-    { roomId: ID.ROOM_DATASCIENCE, readerOrganizerId: org3.id, lastReadMessageId: '8c000003-0000-4000-8000-000000000003', lastReadSerialNumber: 3 },
-  ];
-
-  for (const rs of readStatusConfigs) {
-    const where = rs.readerOrganizerId
-      ? { roomId_readerOrganizerId: { roomId: rs.roomId, readerOrganizerId: rs.readerOrganizerId } }
-      : { roomId_readerParticipantId: { roomId: rs.roomId, readerParticipantId: rs.readerParticipantId! } };
-
-    await prisma.roomReadStatus.upsert({
-      where,
-      update: { lastReadMessageId: rs.lastReadMessageId, lastReadSerialNumber: rs.lastReadSerialNumber },
-      create: {
-        roomId: rs.roomId,
-        readerParticipantId: rs.readerParticipantId ?? null,
-        readerOrganizerId: rs.readerOrganizerId ?? null,
-        lastReadMessageId: rs.lastReadMessageId,
-        lastReadSerialNumber: rs.lastReadSerialNumber,
-      },
-    });
-  }
-  console.log(`✓ Room read statuses (${readStatusConfigs.length})`);
+  // ── Verification ─────────────────────────────────────────────────────────────
+  await verifySeed();
 
   // ── Summary ──────────────────────────────────────────────────────────────────
-
+  const [users, eventsByStatus, tickets, attendance, feedbackTotal, ongoingScan] = await Promise.all([
+    prisma.user.count(),
+    prisma.event.groupBy({ by: ['status'], _count: { _all: true } }),
+    prisma.ticket.groupBy({ by: ['status'], _count: { _all: true } }),
+    prisma.attendance.groupBy({ by: ['method'], _count: { _all: true } }),
+    prisma.formResponse.count({ where: { form: { type: FormType.FEEDBACK } } }),
+    prisma.ticket.findMany({
+      where: { status: TicketStatus.ACTIVE, eventRegistration: { event: { status: EventStatus.ONGOING } } },
+      select: { eventRegistration: { select: { event: { select: { title: true } } } } },
+    }),
+  ]);
+  const count = <T extends { _count: { _all: number } }>(rows: T[], key: keyof T, value: string) =>
+    rows.find((r) => r[key] === value)?._count._all ?? 0;
+  const scanByEvent: Record<string, number> = {};
+  for (const t of ongoingScan) {
+    const title = (t.eventRegistration.event.title as { en: string }).en;
+    scanByEvent[title] = (scanByEvent[title] ?? 0) + 1;
+  }
+  const titleByKey = new Map<string, string>();
+  for (const e of await prisma.event.findMany({ select: { id: true, title: true } })) {
+    titleByKey.set(eventKeyById[e.id], (e.title as { en: string }).en);
+  }
+  const GRACE_MS = 72 * HOUR;
+  const stillWritable = Object.entries(EVENT_TIMES)
+    .filter(([, e]) => e.status === EventStatus.CONCLUDED && e.endAt!.getTime() + GRACE_MS > AS_OF.getTime())
+    .map(([key, e]) => `${titleByKey.get(key)} until ${bangkokParts(new Date(e.endAt!.getTime() + GRACE_MS)).isoDate}`);
+  const startingThisWeek = Object.entries(EVENT_TIMES)
+    .filter(([, e]) => e.status === EventStatus.PUBLISHED && e.startAt!.getTime() >= AS_OF.getTime() && e.startAt!.getTime() < AS_OF.getTime() + 7 * 24 * HOUR)
+    .map(([key, e]) => `${titleByKey.get(key)} (${bangkokParts(e.startAt!).isoDate})`);
+  const asOf = bangkokParts(AS_OF);
   console.log('');
   console.log('─────────────────────────────────────────────────────────────────');
   console.log('Seed completed successfully!');
   console.log('');
-  console.log('  1  university  (CMU — cmu.ac.th)');
-  console.log('  8  users       (password: 12345678 for all)');
-  console.log('     organizer1@cmu.ac.th  (org1 — CAMT Student Affairs)');
-  console.log('     organizer2@cmu.ac.th  (org2 — CMU Music and Arts Club)');
-  console.log('     organizer3@cmu.ac.th  (org3 — SE Department Club)');
-  console.log('     participant1@cmu.ac.th  (Su Su Myint)');
-  console.log('     participant2@cmu.ac.th  (Chaiwat Srisuk)');
-  console.log('     participant3@cmu.ac.th  (Min Thant Ko)');
-  console.log('     participant4@cmu.ac.th  (Nattapon Wongkham)');
-  console.log('     participant5@cmu.ac.th  (Pimchanok Rattana)');
+  console.log(`  Timeline: DEMO_DAY ${DEMO_DAY}; the data is "as of" ${asOf.isoDate} ${String(asOf.hour).padStart(2, '0')}:00 Bangkok (the demo starts right after).`);
+  console.log(`  1 university (CMU), ${users} users (password 12345678 for all):`);
+  console.log('     organizer1@cmu.ac.th   CAMT Student Affairs      organizer2@cmu.ac.th   CMU Music and Arts Club');
+  console.log('     organizer3@cmu.ac.th   SE Department Club');
+  console.log(`     participant1..${Object.keys(ALL_PARTICIPANTS).length}@cmu.ac.th   1-5 are the hand-written demo accounts, 6-${Object.keys(ALL_PARTICIPANTS).length} a generated crowd`);
   console.log('');
-  console.log('  34 events:');
-  console.log('     PUBLISHED:  Halloween, New Year FULL, Sukhothai, Concert, TEDx, Job Fair, Blood Donation,');
-  console.log('                 Startup Pitch, Photo Exhibit, Mental Health Workshop, Chess Tournament,');
-  console.log('                 Food Fest, Library Workshop, Pride Week');
-  console.log('     ONGOING:    Exchange FULL, Bootcamp, AI Seminar (no form), Football, Data Science Bootcamp,');
-  console.log('                 Grad Info Session');
-  console.log('     CONCLUDED:  Hackathon, Sports Day, Orientation, Ping River Clean-Up, Robotics Showcase,');
-  console.log('                 Freshmen Welcome Camp, Muay Thai Exhibition');
-  console.log('     DRAFT:      SE Workshop, Music Concert, Cultural Festival, Freshy Night, Open House, Choir Concert');
-  console.log('     PUBLISHED:  No Form Event (0/∞ — no form)');
+  console.log(`  ${Object.keys(EVENT_TIMES).length} events: ` +
+    ['DRAFT', 'PUBLISHED', 'ONGOING', 'CONCLUDED', 'CANCELLED'].map((st) => `${count(eventsByStatus, 'status', st)} ${st}`).join(', '));
+  console.log(`  ${regLog.length} registrations, tickets: ` + ['ACTIVE', 'USED', 'EXPIRED', 'CANCELLED'].map((st) => `${count(tickets, 'status', st)} ${st}`).join(', '));
+  console.log(`  ${attendance.reduce((n, g) => n + g._count._all, 0)} check-ins (${count(attendance, 'method', 'QR_SCAN')} QR, ${count(attendance, 'method', 'MANUAL')} manual), ${feedbackTotal} feedback responses, ${messageRows.length} chat messages`);
   console.log('');
-  console.log('  23 forms  (reg + feedback for various events)');
-  console.log('');
-  console.log('  Registration summary:');
-  console.log('     Halloween:      par1✓ par2✓ par3✓         (3 CONFIRMED, tickets ACTIVE)');
-  console.log('     New Year:       par1✓ par2✓ par3✓ par4✓ par5✓  (5 CONFIRMED, FULL, tickets ACTIVE)');
-  console.log('     Sukhothai:      par1✓ par2✗               (1 CONFIRMED, 1 CANCELLED)');
-  console.log('     Exchange:       par1✓ par2✓ par3✓         (3 CONFIRMED, FULL; par1 QR + par2 manual checked in, par3 ACTIVE)');
-  console.log('     Bootcamp:       par1✓ par3✓               (2 CONFIRMED; par1 checked in, par3 ACTIVE)');
-  console.log('     Hackathon:      par1✓ par2✓ par3✓         (3 CONFIRMED; par1, par2 attended (USED), par3 no-show (EXPIRED))');
-  console.log('     Sports:         par2✓ par4✓               (2 CONFIRMED, unlimited; par2 attended, par4 no-show)');
-  console.log('     TEDx:           par1✓ par2✓               (2 CONFIRMED, tickets ACTIVE)');
-  console.log('     Job Fair:       par3✓ par4✓               (2 CONFIRMED, tickets ACTIVE)');
-  console.log('     Startup Pitch:  par1✓ par3✓               (2 CONFIRMED, tickets ACTIVE)');
-  console.log('     Clean-Up Day:   par2✓ par4✓               (2 CONFIRMED; par2 QR + par4 manual, both attended)');
-  console.log('     Data Science:   par1✓ par5✓               (2 CONFIRMED, tickets ACTIVE, nobody checked in yet)');
-  console.log('     Freshmen Camp:  par1✓ par2✓ par3✓         (3 CONFIRMED; par1, par2 attended, par3 no-show)');
-  console.log('');
-  console.log('  Attendance: 10 check-ins (8 QR_SCAN, 2 MANUAL), checked in by each event\'s organizer');
-  console.log('     A ticket is USED exactly when an Attendance row exists; no-shows keep EXPIRED tickets');
-  console.log('');
-  console.log('  Feedback responses: 6 (only attendees can submit — New Year is still PUBLISHED)');
-  console.log('     Hackathon:     par1(5★), par2(4★) — par3 no-show, cannot submit');
-  console.log('     Clean-Up Day:  par2(5★, Yes), par4(3★, Maybe) — rating + choice + comment');
-  console.log('     Freshmen Camp: par1(5★), par2(4★) with a CHECKBOX question — par3 no-show, cannot submit');
-  console.log('');
-  console.log('  34 discussion rooms (one per event)');
-  console.log('     With messages: Halloween, New Year, Sukhothai, Exchange, Bootcamp, Hackathon*, Sports*,');
-  console.log('                    TEDx, Job Fair, Startup Pitch, Clean-Up Day*, Data Science, Freshmen Camp*');
-  console.log('     (* rooms are read-only — event concluded past the 72h grace period)');
-  console.log('     Empty (no messages): Orientation, AI Seminar, No Form, Drafts x6, Concert, Blood Donation,');
-  console.log('                          Football, Photo Exhibit, Mental Health, Chess, Food Fest, Robotics,');
-  console.log('                          Library, Pride Week, Muay Thai, Grad Info');
+  console.log('  Live check-in demo (ACTIVE tickets left to scan on ONGOING events):');
+  for (const [title, n] of Object.entries(scanByEvent)) console.log(`     ${String(n).padStart(2)}  ${title}`);
   console.log('');
   console.log('  Useful test scenarios:');
-  console.log('     EventFullException:     try registering any participant for New Year or Exchange');
-  console.log('     AlreadyRegistered:      try registering par1 for Halloween again');
-  console.log('     FormNotFoundException:  try registering for AI Seminar or No Form Event');
-  console.log('     CancelledTicket:        par2 Sukhothai ticket');
-  console.log('     ExpiredTickets:         no-shows — Hackathon par3, Sports Day par4, Freshmen Camp par3');
-  console.log('     UsedTickets:            Exchange par1/par2, Bootcamp par1, and attendees of concluded events');
-  console.log('     AlreadyCheckedIn:       organizer2 scanning Exchange par1 again (409 ALREADY_CHECKED_IN)');
-  console.log('     CheckInAvailable:       Exchange par3 or Bootcamp par3 (ACTIVE tickets, event ONGOING)');
-  console.log('     UndoCheckIn:            Exchange par1/par2, Bootcamp par1 (organizer2) — no feedback form involved');
-  console.log('     EventNotCheckable:      any check-in on a CONCLUDED event (Hackathon etc.)');
-  console.log('     FeedbackAlreadyExists:  par1 submitting Hackathon feedback again');
-  console.log('     FeedbackRequiresAttend: par3 submitting Hackathon feedback (registered but no-show)');
-  console.log('     NotRegistered(feedback):par4 trying to submit Hackathon feedback');
-  console.log('     ReadOnlyRoom:           Hackathon, Sports Day, Clean-Up Day, or Freshmen Camp room');
+  console.log('     EventFull:            register for New Year (5/5) or Exchange (3/3)');
+  console.log('     AlreadyRegistered:    participant1 registering for the Hackathon again');
+  console.log('     FormNotFound:         register for AI Seminar, No Form Event, Food Festival or Pride Week');
+  console.log('     Cancelled event:      Charity Fun Run (called off mid-event; some tickets already USED)');
+  console.log('     Cancelled ticket:     participant2 on Sukhothai (also 2 generated cancellations)');
+  console.log('     Expired / no-show:    Hackathon par3, Sports par4, Halloween par3, Job Fair par4, Freshmen Camp par3');
+  console.log('     Feedback (concluded): Hackathon, Clean-Up, Freshmen Camp, Acoustic Night, Alumni Panel');
+  console.log('     Feedback (ongoing):   Open Source Month (only checked-in people may answer)');
+  console.log('     Feedback refused:     a no-show answering the Hackathon form (403: must have checked in)');
+  console.log(`     Read-only rooms:      the cancelled Fun Run and every concluded event past its 72 h grace period${stillWritable.length ? ` (still writable: ${stillWritable.join(', ')})` : ''}`);
+  console.log(`     Starting this week:   ${startingThisWeek.length ? startingThisWeek.join('; ') : 'none'} (the scheduler moves them to ONGOING/CONCLUDED as the week goes by)`);
   console.log('─────────────────────────────────────────────────────────────────');
+}
+
+// ─── VERIFICATION ─────────────────────────────────────────────────────────────
+// Fails the seed (non-zero exit) when the generated data breaks one of the app's rules, so a bad edit
+// to the calendar or the plan is caught immediately instead of showing up as odd screens in the demo.
+
+async function verifySeed() {
+  const asOf = AS_OF.toISOString().replace('T', ' ').replace('Z', '');
+  const GRACE = '72 hours'; // rooms stay writable this long after a concluded event ends
+  // The checks only judge rows this seed owns. Seed ids look like xxxxxxxx-0000-4000-8000-… (hand-written)
+  // or xxxxxxxx-0c00-4000-8000-… (generated), which the app's random UUIDs never match. That way
+  // re-seeding still works on a database where people have used the app since (their rows are left alone).
+  const SEED = `'^[0-9a-f]{8}-0[0c]00-4000-8000-'`;
+  const checks: [string, string][] = [
+    // tickets and attendance
+    ['USED ticket without an attendance row', `SELECT count(*) n FROM "Ticket" t LEFT JOIN "Attendance" a ON a."ticketId"=t.id WHERE t.id ~ ${SEED} AND t.status='USED' AND a.id IS NULL`],
+    ['attendance on a ticket that is not USED', `SELECT count(*) n FROM "Attendance" a JOIN "Ticket" t ON t.id=a."ticketId" WHERE t.id ~ ${SEED} AND t.status<>'USED'`],
+    ['attendance event differs from the registration event', `SELECT count(*) n FROM "Attendance" a JOIN "Ticket" t ON t.id=a."ticketId" JOIN "EventRegistration" r ON r.id=t."eventRegistrationId" WHERE t.id ~ ${SEED} AND r."eventId"<>a."eventId"`],
+    ['checked in by someone other than the event organizer', `SELECT count(*) n FROM "Attendance" a JOIN "Ticket" t ON t.id=a."ticketId" JOIN "Event" e ON e.id=a."eventId" WHERE t.id ~ ${SEED} AND e."organizerId"<>a."checkedInById"`],
+    ['check-in before the registration, or after the demo cut-off', `SELECT count(*) n FROM "Attendance" a JOIN "Ticket" t ON t.id=a."ticketId" JOIN "EventRegistration" r ON r.id=t."eventRegistrationId" WHERE t.id ~ ${SEED} AND (a."checkedInAt"<r."createdAt" OR a."checkedInAt">timestamp '${asOf}')`],
+    ['check-in after the event ended (or was cancelled)', `SELECT count(*) n FROM "Attendance" a JOIN "Ticket" t ON t.id=a."ticketId" JOIN "Event" e ON e.id=a."eventId" WHERE t.id ~ ${SEED} AND (a."checkedInAt">e."endAt" OR (e.status='CANCELLED' AND a."checkedInAt">=e."updatedAt"))`],
+    ['ACTIVE ticket on a concluded event, or EXPIRED on one that is not', `SELECT count(*) n FROM "Ticket" t JOIN "EventRegistration" r ON r.id=t."eventRegistrationId" JOIN "Event" e ON e.id=r."eventId" WHERE t.id ~ ${SEED} AND ((e.status='CONCLUDED' AND t.status='ACTIVE') OR (e.status<>'CONCLUDED' AND t.status='EXPIRED'))`],
+    ['cancelled registration whose ticket is not cancelled (except a USED ticket of a cancelled event)', `SELECT count(*) n FROM "Ticket" t JOIN "EventRegistration" r ON r.id=t."eventRegistrationId" JOIN "Event" e ON e.id=r."eventId" WHERE t.id ~ ${SEED} AND r.status='CANCELLED' AND t.status<>'CANCELLED' AND NOT (e.status='CANCELLED' AND t.status='USED')`],
+    ['ticket issued at a different time than the registration', `SELECT count(*) n FROM "Ticket" t JOIN "EventRegistration" r ON r.id=t."eventRegistrationId" WHERE t.id ~ ${SEED} AND t."issuedAt"<>r."createdAt"`],
+    ['ticket snapshot differs from the participant profile', `SELECT count(*) n FROM "Ticket" t JOIN "EventRegistration" r ON r.id=t."eventRegistrationId" JOIN "ParticipantProfile" p ON p.id=r."participantId" WHERE t.id ~ ${SEED} AND (t."participantSnapshot"->>'firstName'<>p."firstName" OR t."participantSnapshot"->>'studentId'<>coalesce(p."studentId",''))`],
+    // registrations and seats
+    ['registration before the event was published, after the demo cut-off, or on a draft', `SELECT count(*) n FROM "EventRegistration" r JOIN "Event" e ON e.id=r."eventId" WHERE r.id ~ ${SEED} AND (e.status='DRAFT' OR r."createdAt"<e."publishedAt" OR r."createdAt">timestamp '${asOf}')`],
+    ['registration made after the event had started (except long-running programmes)', `SELECT count(*) n FROM "EventRegistration" r JOIN "Event" e ON e.id=r."eventId" WHERE r.id ~ ${SEED} AND r."createdAt">e."startAt" AND e."endAt"-e."startAt"<=interval '5 days'`],
+    ['registration made before the participant account existed', `SELECT count(*) n FROM "EventRegistration" r JOIN "ParticipantProfile" p ON p.id=r."participantId" WHERE r.id ~ ${SEED} AND r."createdAt"<p."createdAt"`],
+    ['registration form response with a different timestamp than its registration', `SELECT count(*) n FROM "FormResponse" fr JOIN "Form" f ON f.id=fr."formId" JOIN "EventRegistration" r ON r.id=fr."eventRegistrationId" WHERE fr.id ~ ${SEED} AND f.type='REGISTRATION' AND fr."createdAt"<>r."createdAt"`],
+    ['form response missing field answers (or with extras)', `SELECT count(*) n FROM "FormResponse" fr WHERE fr.id ~ ${SEED} AND (SELECT count(*) FROM "FormFieldResponse" x WHERE x."formResponseId"=fr.id) <> (SELECT count(*) FROM "FormField" ff WHERE ff."formId"=fr."formId")`],
+    ['seatsTaken differs from the registrations (confirmed; for a cancelled event: all)', `SELECT count(*) n FROM "Event" e WHERE e.id ~ ${SEED} AND e."seatsTaken" <> (SELECT count(*) FROM "EventRegistration" r WHERE r."eventId"=e.id AND (r.status='CONFIRMED' OR e.status='CANCELLED'))`],
+    ['seatsTaken above the seat limit', `SELECT count(*) n FROM "Event" e WHERE e.id ~ ${SEED} AND e."seatLimit" IS NOT NULL AND e."seatsTaken">e."seatLimit"`],
+    // feedback
+    ['feedback from someone who never checked in', `SELECT count(*) n FROM "FormResponse" fr JOIN "Form" f ON f.id=fr."formId" LEFT JOIN "Ticket" t ON t."eventRegistrationId"=fr."eventRegistrationId" LEFT JOIN "Attendance" a ON a."ticketId"=t.id WHERE fr.id ~ ${SEED} AND f.type='FEEDBACK' AND a.id IS NULL`],
+    ['feedback on an event that is not ONGOING or CONCLUDED', `SELECT count(*) n FROM "FormResponse" fr JOIN "Form" f ON f.id=fr."formId" JOIN "Event" e ON e.id=f."eventId" WHERE fr.id ~ ${SEED} AND f.type='FEEDBACK' AND e.status NOT IN ('ONGOING','CONCLUDED')`],
+    ['feedback sent before the check-in, before a concluded event ended, or after the demo cut-off', `SELECT count(*) n FROM "FormResponse" fr JOIN "Form" f ON f.id=fr."formId" JOIN "Event" e ON e.id=f."eventId" JOIN "Ticket" t ON t."eventRegistrationId"=fr."eventRegistrationId" JOIN "Attendance" a ON a."ticketId"=t.id WHERE fr.id ~ ${SEED} AND f.type='FEEDBACK' AND (fr."createdAt"<a."checkedInAt" OR fr."createdAt">timestamp '${asOf}' OR (e.status='CONCLUDED' AND fr."createdAt"<e."endAt"))`],
+    ['feedback response belongs to another event than its registration', `SELECT count(*) n FROM "FormResponse" fr JOIN "Form" f ON f.id=fr."formId" JOIN "EventRegistration" r ON r.id=fr."eventRegistrationId" WHERE fr.id ~ ${SEED} AND f."eventId"<>r."eventId"`],
+    ['choice/checkbox answer outside the field options', `SELECT count(*) n FROM (SELECT unnest(x."valueArray") v, ff.options FROM "FormFieldResponse" x JOIN "FormField" ff ON ff.id=x."formFieldId" WHERE x."formResponseId" ~ ${SEED} AND ff.type IN ('CHOICE','CHECKBOX')) q WHERE NOT (v = ANY(options))`],
+    // discussion rooms (all messages and read positions in the seeded rooms are seed-owned: they are rebuilt on every run)
+    ['message written before the event was published or after the demo cut-off', `SELECT count(*) n FROM "Message" m JOIN "DiscussionRoom" d ON d.id=m."roomId" JOIN "Event" e ON e.id=d."eventId" WHERE m."roomId" ~ ${SEED} AND (m."createdAt"<e."publishedAt" OR m."createdAt">timestamp '${asOf}')`],
+    ['message in a concluded room after its 72 h grace period, or in a cancelled room after the cancellation', `SELECT count(*) n FROM "Message" m JOIN "DiscussionRoom" d ON d.id=m."roomId" JOIN "Event" e ON e.id=d."eventId" WHERE m."roomId" ~ ${SEED} AND ((e.status='CONCLUDED' AND m."createdAt">e."endAt"+interval '${GRACE}') OR (e.status='CANCELLED' AND m."createdAt">=e."updatedAt"))`],
+    ['organizer message sent by someone other than the event owner', `SELECT count(*) n FROM "Message" m JOIN "DiscussionRoom" d ON d.id=m."roomId" JOIN "Event" e ON e.id=d."eventId" WHERE m."roomId" ~ ${SEED} AND m."senderOrganizerId" IS NOT NULL AND m."senderOrganizerId"<>e."organizerId"`],
+    ['participant message from someone not registered yet (or never)', `SELECT count(*) n FROM "Message" m JOIN "DiscussionRoom" d ON d.id=m."roomId" LEFT JOIN "EventRegistration" r ON r."eventId"=d."eventId" AND r."participantId"=m."senderParticipantId" WHERE m."roomId" ~ ${SEED} AND m."senderParticipantId" IS NOT NULL AND (r.id IS NULL OR r."createdAt">m."createdAt")`],
+    ['message with both or neither sender, or an announcement from a participant', `SELECT count(*) n FROM "Message" WHERE "roomId" ~ ${SEED} AND (("senderParticipantId" IS NULL) = ("senderOrganizerId" IS NULL) OR ("isAnnouncement" AND "senderOrganizerId" IS NULL))`],
+    ['message serial numbers not 1..n in time order', `SELECT count(*) n FROM (SELECT m."roomId", count(*) c, max(m."serialNumber") mx, min(m."serialNumber") mn, count(distinct m."serialNumber") d FROM "Message" m WHERE m."roomId" ~ ${SEED} GROUP BY m."roomId") g WHERE g.c<>g.mx OR g.mn<>1 OR g.d<>g.c`],
+    ['message not in time order of its serial number', `SELECT count(*) n FROM "Message" a JOIN "Message" b ON a."roomId"=b."roomId" AND a."serialNumber"+1=b."serialNumber" WHERE a."roomId" ~ ${SEED} AND a."createdAt">b."createdAt"`],
+    ['room lastSerialNumber differs from its messages', `SELECT count(*) n FROM "DiscussionRoom" d WHERE d.id ~ ${SEED} AND d."lastSerialNumber" <> coalesce((SELECT max("serialNumber") FROM "Message" m WHERE m."roomId"=d.id),0)`],
+    ['read position past the last message, or pointing at the wrong message', `SELECT count(*) n FROM "RoomReadStatus" s JOIN "DiscussionRoom" d ON d.id=s."roomId" LEFT JOIN "Message" m ON m.id=s."lastReadMessageId" WHERE s."roomId" ~ ${SEED} AND (s."lastReadSerialNumber">d."lastSerialNumber" OR m.id IS NULL OR m."roomId"<>s."roomId" OR m."serialNumber"<>s."lastReadSerialNumber")`],
+    ['reader without access to the room (not the owner, not a confirmed registrant)', `SELECT count(*) n FROM "RoomReadStatus" s JOIN "DiscussionRoom" d ON d.id=s."roomId" JOIN "Event" e ON e.id=d."eventId" WHERE s."roomId" ~ ${SEED} AND ((s."readerOrganizerId" IS NOT NULL AND s."readerOrganizerId"<>e."organizerId") OR (s."readerParticipantId" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "EventRegistration" r WHERE r."eventId"=e.id AND r."participantId"=s."readerParticipantId" AND r.status='CONFIRMED')))`],
+    // events
+    ['event ends before it starts, or was created after it was published', `SELECT count(*) n FROM "Event" e WHERE e.id ~ ${SEED} AND (e."endAt"<=e."startAt" OR e."publishedAt"<e."createdAt" OR e."updatedAt"<e."createdAt")`],
+    ['event status that does not fit the calendar on the demo cut-off', `SELECT count(*) n FROM "Event" e WHERE e.id ~ ${SEED} AND ((e.status='CONCLUDED' AND e."endAt">timestamp '${asOf}') OR (e.status='ONGOING' AND NOT (e."startAt"<=timestamp '${asOf}' AND e."endAt">timestamp '${asOf}')) OR (e.status='PUBLISHED' AND e."startAt"<timestamp '${asOf}'))`],
+  ];
+  const problems: string[] = [];
+  for (const [label, sql] of checks) {
+    const [{ n }] = await prisma.$queryRawUnsafe<{ n: bigint }[]>(sql);
+    if (Number(n) > 0) problems.push(`${label}: ${n}`);
+  }
+  if (problems.length > 0) {
+    throw new Error(`Seed verification failed:\n - ${problems.join('\n - ')}`);
+  }
+  console.log(`✓ Verified ${checks.length} data-integrity rules`);
+
+  // Warning only: rows dated after the real clock (normal when seeding before the demo) and events the
+  // scheduler would still move on its next run.
+  const now = new Date().toISOString().replace('T', ' ').replace('Z', '');
+  const [{ future }] = await prisma.$queryRawUnsafe<{ future: bigint }[]>(
+    `SELECT (SELECT count(*) FROM "EventRegistration" WHERE "createdAt">timestamp '${now}') + (SELECT count(*) FROM "Attendance" WHERE "checkedInAt">timestamp '${now}') + (SELECT count(*) FROM "Message" WHERE "createdAt">timestamp '${now}') + (SELECT count(*) FROM "FormResponse" WHERE "createdAt">timestamp '${now}') AS future`,
+  );
+  const [{ drift }] = await prisma.$queryRawUnsafe<{ drift: bigint }[]>(
+    `SELECT count(*) AS drift FROM "Event" e WHERE (e.status='PUBLISHED' AND e."startAt"<=timestamp '${now}') OR (e.status IN ('PUBLISHED','ONGOING') AND e."endAt"<=timestamp '${now}')`,
+  );
+  if (Number(future) > 0) {
+    console.log(`  note: ${future} rows are dated after the current time (the data is as of ${AS_OF.toISOString()}). That is expected when seeding before the demo.`);
+  }
+  if (Number(drift) > 0) {
+    console.log(`  note: ${drift} event(s) have already started or ended by the real clock; the scheduler will update their status within 5 minutes of the app running.`);
+  }
 }
 
 main()
