@@ -202,7 +202,12 @@ describe('AttendanceService', () => {
     });
 
     it.each([
-      ['not the owner', new ForbiddenException('You do not have permission to edit this event.')],
+      [
+        'not the owner',
+        new ForbiddenException(
+          'You do not have permission to edit this event.',
+        ),
+      ],
       ['event does not exist', new EventNotFoundException()],
     ])(
       'UT-checkInByQrToken-03: ownership check fails (%s) — the error bubbles up and nothing else is called',
@@ -633,7 +638,12 @@ describe('AttendanceService', () => {
     });
 
     it.each([
-      ['not the owner', new ForbiddenException('You do not have permission to edit this event.')],
+      [
+        'not the owner',
+        new ForbiddenException(
+          'You do not have permission to edit this event.',
+        ),
+      ],
       ['event does not exist', new EventNotFoundException()],
     ])(
       'UT-checkInManually-03: ownership check fails (%s) — the error bubbles up and nothing else is called',
@@ -1007,7 +1017,12 @@ describe('AttendanceService', () => {
     });
 
     it.each([
-      ['not the owner', new ForbiddenException('You do not have permission to edit this event.')],
+      [
+        'not the owner',
+        new ForbiddenException(
+          'You do not have permission to edit this event.',
+        ),
+      ],
       ['event does not exist', new EventNotFoundException()],
     ])(
       'UT-getAttendanceList-02: ownership check fails (%s) — the error bubbles up and the list is not queried',
@@ -1104,7 +1119,12 @@ describe('AttendanceService', () => {
     });
 
     it('UT-undoCheckIn-02: not the owner — the error bubbles up and nothing else is called', async () => {
-      const input = { error: new ForbiddenException('You do not have permission to edit this event.') };
+      const input = {
+        ...undoInput,
+        error: new ForbiddenException(
+          'You do not have permission to edit this event.',
+        ),
+      };
       eventValidationMock.validateEventOwnership.mockRejectedValue(input.error);
       const expected = input.error;
 
@@ -1190,7 +1210,7 @@ describe('AttendanceService', () => {
     ] as const)(
       'UT-undoCheckIn-07: %s — logs it and throws SaveAttendanceException, with no event',
       async (_label, failing) => {
-        const input = { failing, error: new Error('db down') };
+        const input = { ...undoInput, failing, error: new Error('db down') };
         crudMock[input.failing].mockRejectedValue(input.error);
         const expected = input.error;
 
