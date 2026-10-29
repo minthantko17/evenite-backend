@@ -1,11 +1,5 @@
 import { DeepMockProxy } from 'jest-mock-extended';
-import {
-  CheckInMethod,
-  Event,
-  EventStatus,
-  Prisma,
-  TicketStatus,
-} from '@prisma/client';
+import { Event, EventStatus, Prisma, TicketStatus } from '@prisma/client';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventValidationService } from '../event/services/event-validation.service';
@@ -128,11 +122,6 @@ export function fakeListItem(ticket: TicketWithAttendance) {
       : null,
   };
 }
-
-export const METHOD_BY_ENTRY = {
-  QR: CheckInMethod.QR_SCAN,
-  MANUAL: CheckInMethod.MANUAL,
-} as const;
 
 // ---- wiring ---------------------------------------------------------------------
 

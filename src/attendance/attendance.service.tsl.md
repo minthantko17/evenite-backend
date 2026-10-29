@@ -23,17 +23,21 @@ are easy to remove.
 
 ---
 
-## checkInByQrToken(eventId, qrToken, organizerProfileId) / checkInManually(eventId, registrationId, organizerProfileId)
+## Check-in methods — shared specification
 
-Both run the same flow; they differ in how the ticket is found
-(`findTicketByQrToken` vs `findTicketByRegistrationId`) and in the method
-recorded (QR_SCAN vs MANUAL). Shared-flow categories are therefore run for
-both entry points.
+Both check-in methods run the same flow (validate access, find the ticket,
+claim it and create the attendance in one transaction, emit a realtime
+event). They differ only in how the ticket is found and in the method
+recorded. They are specified and tested separately, with the same categories
+repeated for each, so a future business rule that applies to only one of them
+changes only that method's section and tests.
 
-**Categories**
-- entry point [property]
-  - checkInByQrToken (method QR_SCAN)
-  - checkInManually (method MANUAL)
+| | checkInByQrToken | checkInManually |
+|---|---|---|
+| ticket lookup | `findTicketByQrToken(eventId, qrToken)` | `findTicketByRegistrationId(eventId, registrationId)` |
+| method recorded | `QR_SCAN` | `MANUAL` |
+
+**Categories** (the same for both methods)
 - Ownership check (eventValidationService.validateEventOwnership)
   - owner → continue
   - not the owner → ForbiddenException, nothing else is called [error]
@@ -66,8 +70,10 @@ both entry points.
     re-read via findTicketById:
     - re-read shows USED with attendance → AlreadyCheckedInException with
       the winner's attendance [error]
-    - re-read shows CANCELLED [single] → TicketNotActiveException [error]
-    - re-read still ACTIVE [single] → SaveAttendanceException [error]
+    - re-read shows CANCELLED [single] (documents current behavior) →
+      TicketNotActiveException [error]
+    - re-read still ACTIVE [single] (documents current behavior) →
+      SaveAttendanceException [error]
   - unique violation (Prisma P2002) on create → treated like losing the race
     (re-read, AlreadyCheckedInException) [error] [single]
   - any other Prisma error code (e.g. P2003) [single] →
@@ -76,8 +82,9 @@ both entry points.
     re-read, no event [error]
 - Success path
   - returns the mapped result with the ticket reported as USED
-  - the attendance is created with the event, the organizer and the method
-    of the entry point, inside the transaction
+  - the ticket is looked up with the method's own lookup and the attendance
+    is created with the event, the organizer and the method's recorded
+    method, inside the transaction
   - emits `attendance.checked-in` with { eventId, organizerProfileId,
     participantProfileId, attendance, counts }
 - Realtime emit [if success] (best-effort)
@@ -85,6 +92,16 @@ both entry points.
   - getAttendanceSummary fails [single] → check-in still returned, warning
     logged, no event
   - emitter throws [single] → check-in still returned, warning logged
+
+## checkInByQrToken(eventId, qrToken, organizerProfileId)
+
+Categories as above, with: lookup = `findTicketByQrToken(eventId, qrToken)`,
+recorded method = `QR_SCAN`.
+
+## checkInManually(eventId, registrationId, organizerProfileId)
+
+Categories as above, with: lookup = `findTicketByRegistrationId(eventId,
+registrationId)`, recorded method = `MANUAL`.
 
 ---
 
