@@ -26,11 +26,16 @@ import { MessageContentInvalidException } from './exceptions/message-content-inv
 import { AnnouncementNotAllowedException } from './exceptions/announcement-not-allowed.exception';
 import { RegistrationNotFoundException } from '../registration/exceptions/registration-not-found.exception';
 import { DiscussionErrorCode } from './constants/discussion-error-code.enum';
+import {
+  buildPersonalChannel,
+  extractTokenFromHandshake,
+  socketCorsOptions,
+} from '../common/utils/socket.utils';
 
 @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 @WebSocketGateway({
   namespace: 'discussion',
-  cors: { origin: 'http://localhost:5173', credentials: true },
+  cors: socketCorsOptions,
 })
 export class DiscussionGateway
   implements OnGatewayConnection, OnGatewayDisconnect
@@ -90,20 +95,11 @@ export class DiscussionGateway
     role: Role | null,
     profileId: string | null,
   ): string | null {
-    if (!role || !profileId) {
-      return null;
-    }
-    return `user:${role}:${profileId}`;
+    return buildPersonalChannel(role, profileId);
   }
 
   private extractTokenFromHandshake(client: Socket): string {
-    const token =
-      client.handshake.auth?.token ||
-      client.handshake.headers?.authorization?.replace('Bearer ', '');
-    if (!token) {
-      throw new UnauthorizedException('No token provided');
-    }
-    return token;
+    return extractTokenFromHandshake(client);
   }
 
   // check if the socket has user payload

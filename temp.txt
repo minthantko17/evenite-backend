@@ -1,0 +1,1080 @@
+Analytics Module
+AnalyticsFieldStatsUtils
+M-XX-001
+buildFormFieldStats(
+fields: FieldStatsField[],
+rows: (FieldStatsRow & { formFieldId: string })[],
+): AnalyticsFieldStatsDto[]
+Description
+Summarizes all the stored answers of a form into one statistics entry per form field. This is a pure function with no database access.
+The method first groups the answer rows by their formFieldId. It then goes through the fields in the order they were given, and builds each field's statistics from the rows of that field only (an empty list if nobody answered it). Because every field is mapped, a field with no answers still appears in the result.
+Parameters
+fields: FieldStatsField[] – The fields of the form, each with its ID, label, type, and defined options.
+rows: (FieldStatsRow & { formFieldId: string })[] – The stored answers of the form's responses, each tagged with the ID of the field it answers.
+Returns
+AnalyticsFieldStatsDto[] – One statistics entry per field, in the same order as fields. [Appendix B-XX-004]
+
+M-XX-002
+buildFieldStats(
+ field: FieldStatsField,
+ rows: FieldStatsRow[],
+): AnalyticsFieldStatsDto
+Description
+Summarizes the stored answers of a single form field, in a shape that depends on the field's type. This is a pure function with no database access.
+For CHOICE and CHECKBOX fields, the method starts a counter of 0 for every defined option, so unchosen options are still shown. It then skips rows whose selected values are empty, counts every other row as answered, and adds 1 to the counter of each selected value (a stored value that is not a defined option gets its own counter). For NUMBER and RATING fields, it collects the numeric values of the rows that have one, and returns the answered count together with the average (rounded to 2 decimals), minimum, and maximum, which are null when nobody answered. RATING fields also get a distribution, which lists only the values that actually occurred, in ascending order, since the rating scale is not enforced anywhere. For DATE fields, only the number of rows that have a date is returned. For TEXT and TEXTAREA fields (and any other type), only the number of rows whose text is not empty after trimming is returned, and the text content itself is never aggregated.
+Parameters
+field: FieldStatsField – The form field to summarize, with its ID, label, type, and defined options.
+rows: FieldStatsRow[] – The stored answers of this field only.
+Returns
+AnalyticsFieldStatsDto – The field's ID, label, type, and answered count, plus the type-specific properties described above (options, average, min, max, distribution). [Appendix B-XX-004]
+
+AnalyticsUtils
+M-XX-003
+resolveEventEnd(
+ event: { startAt: Date | null; endAt: Date | null },
+ now: Date,
+): Date
+Description
+Works out the moment analytics should treat as the end of an event. This is a pure function with no database access.
+If the event has an endAt, it is returned. Otherwise, if the event has a startAt, the end is startAt plus 24 hours (the fallback duration). If the event has neither, as with a draft, now is returned.
+Parameters
+event: { startAt: Date | null; endAt: Date | null } – The start and end time of the event.
+now: Date – The current time.
+Returns
+Date – The event's end time, its fallback end time, or now.
+
+M-XX-004
+resolveTimelineEnd(
+ event: { startAt: Date | null; endAt: Date | null },
+ now: Date,
+): Date
+Description
+Works out where analytics timelines should stop, so a timeline never shows anything after the current time or after the event's end. The method resolves the event's end time, and returns it if it is already in the past, otherwise returns now.
+Parameters
+event: { startAt: Date | null; endAt: Date | null } – The start and end time of the event.
+now: Date – The current time.
+Returns
+Date – The earlier of the event's resolved end time and now.
+
+M-XX-005
+startOfDayInZone(instant: Date): Date
+Description
+A private helper that finds midnight of the day containing a given moment, in the analytics time zone (Asia/Bangkok).
+The method reads the hour, minute, and second of the instant as shown on a clock in that time zone, converts them into the number of seconds since midnight, and subtracts that from the instant (with milliseconds dropped). It assumes the time zone has no daylight-saving change within that day, which holds for Asia/Bangkok.
+Parameters
+instant: Date – The moment to find the start of the day for.
+Returns
+Date – The moment of midnight, in the analytics time zone, of the day containing instant.
+
+M-XX-006
+startOfBucket(
+ instant: Date,
+ bucket: AnalyticsBucket,
+): Date
+Description
+Finds the start of the bucket that contains a given moment. For a daily bucket ('1d'), the start of that day in the analytics time zone is returned. For an hourly bucket ('1h'), the moment is rounded down to the start of its hour.
+Parameters
+instant: Date – The moment to find the bucket start for.
+bucket: AnalyticsBucket – The bucket size, either '1h' or '1d'.
+Returns
+Date – The start of the bucket containing instant.
+
+M-XX-007
+listBucketStarts(
+ first: Date,
+ last: Date,
+ bucket: AnalyticsBucket,
+): Date[]
+Description
+Lists every bucket start from first to last, both included. Starting at first, the method adds one bucket length (one hour or one day) at a time until it passes last. Both first and last are expected to already be bucket starts.
+Parameters
+first: Date – The start of the first bucket.
+last: Date – The start of the last bucket.
+bucket: AnalyticsBucket – The bucket size, either '1h' or '1d'.
+Returns
+Date[] – The bucket starts in ascending order.
+
+M-XX-008
+startOfLastBucket(
+ timelineEnd: Date,
+ bucket: AnalyticsBucket,
+): Date
+Description
+Finds the start of the last bucket of a timeline. Timelines are half-open, so the end is excluded, and the last bucket is the one containing the final moment before timelineEnd. The method returns the bucket start of timelineEnd minus 1 millisecond. As a result, an event ending exactly on a bucket boundary (for example 21:00) does not get an extra empty bucket after its end.
+Parameters
+timelineEnd: Date – The exclusive end of the timeline.
+bucket: AnalyticsBucket – The bucket size, either '1h' or '1d'.
+Returns
+Date – The start of the last bucket of the timeline.
+
+M-XX-009
+listFixedRangeBucketStarts(
+ timelineEnd: Date,
+ bucket: AnalyticsBucket,
+ count: number,
+): Date[]
+Description
+Lists the bucket starts of a fixed-size timeline (24h, 7d, or 30d) that ends at the bucket containing the end of the timeline. The method finds the last bucket start, steps back count minus 1 bucket lengths to get the first one, and lists every bucket start in between.
+Parameters
+timelineEnd: Date – The exclusive end of the timeline.
+bucket: AnalyticsBucket – The bucket size, either '1h' or '1d'.
+count: number – The number of buckets the timeline should have.
+Returns
+Date[] – Exactly count bucket starts in ascending order.
+
+M-XX-010
+pickBucketForSpan(spanMs: number): AnalyticsBucket
+Description
+Chooses the bucket size for the 'all' range. If the span of activity is at most 48 hours, hourly buckets ('1h') are used; otherwise daily buckets ('1d') are used.
+Parameters
+spanMs: number – The span from the first activity to the timeline end, in milliseconds.
+Returns
+AnalyticsBucket – '1h' for short spans, '1d' for longer ones.
+
+M-XX-011
+emptyTimeline(timelineEnd: Date): AnalyticsTimelineDto
+Description
+Builds a timeline with no points, for an activity stream that has no activity at all. It uses hourly buckets, and sets both the timeline start and end to timelineEnd.
+Parameters
+timelineEnd: Date – The exclusive end of the timeline.
+Returns
+AnalyticsTimelineDto – A timeline whose points list is empty. [Appendix B-XX-003]
+
+M-XX-012
+fillTimeline(
+ starts: Date[],
+ bucket: AnalyticsBucket,
+ timestamps: Date[],
+ countBeforeTimeline: number,
+ timelineEnd: Date,
+): AnalyticsTimelineDto
+Description
+Turns a list of activity timestamps into timeline points, one per bucket.
+The method first counts how many timestamps fall into each bucket. It then goes through the bucket starts in order and creates a point for each, with the bucket's count (0 if none) and a running total. The running total starts from countBeforeTimeline, so each point's cumulative value reflects the whole event and not only the visible timeline. The timeline start is the first bucket start.
+Parameters
+starts: Date[] – The bucket starts of the timeline, in ascending order; must not be empty.
+bucket: AnalyticsBucket – The bucket size, either '1h' or '1d'.
+timestamps: Date[] – The times of the actual activity (registrations or check-ins) inside the timeline.
+countBeforeTimeline: number – The number of activities that happened before the first bucket.
+timelineEnd: Date – The exclusive end of the timeline.
+Returns
+AnalyticsTimelineDto – The bucket size, timeline start and end, and one point (bucket start, count, cumulative) per bucket. [Appendix B-XX-003]
+
+M-XX-013
+toRate(
+ part: number,
+ whole: number | null,
+): number | null
+Description
+Calculates a ratio between 0 and 1, rounded to 4 decimal places. If whole is null, 0, or negative, there is nothing to divide by, so null is returned.
+Parameters
+part: number – The numerator.
+whole: number | null – The denominator; null if it is not defined, such as an event with no seat limit.
+Returns
+number | null – part divided by whole, or null when whole is missing or not positive.
+
+AnalyticsCrudService
+M-XX-014
+getOverviewCounts(
+ eventId: string,
+): Promise<{ registered: number; cancelled: number; checkedIn: number }>
+Description
+Counts the headline figures of an event at the same time. The registered figure is the number of registrations with status CONFIRMED, the cancelled figure is the number with status CANCELLED, and the checkedIn figure is the number of attendance records of the event.
+Parameters
+eventId: string – The unique identifier of the event to count for.
+Returns
+Promise<{ registered: number; cancelled: number; checkedIn: number }> – The three counts.
+
+M-XX-015
+getCheckInMethodCounts(
+ eventId: string,
+): Promise<Record<CheckInMethod, number>>
+Description
+Counts the event's check-ins by how they were made. The method groups the event's attendance records by check-in method, and starts with 0 for both QR_SCAN and MANUAL so a method with no check-ins is still included.
+Parameters
+eventId: string – The unique identifier of the event to count for.
+Returns
+Promise<Record<CheckInMethod, number>> – The number of check-ins for each method.
+
+M-XX-016
+getRegistrationTimestamps(
+ eventId: string,
+ from: Date,
+ to: Date,
+): Promise<Date[]>
+Description
+Fetches the creation times of the event's confirmed registrations inside a time window. The window includes from and excludes to. Cancelled registrations are not included, since they have no cancellation timestamp and simply drop out of the timeline.
+Parameters
+eventId: string – The unique identifier of the event.
+from: Date – The start of the window (inclusive).
+to: Date – The end of the window (exclusive).
+Returns
+Promise<Date[]> – The creation time of each matching registration.
+
+M-XX-017
+countRegistrationsBefore(
+ eventId: string,
+ before: Date,
+): Promise<number>
+Description
+Counts the event's confirmed registrations created before a given moment. It is used as the starting value of a timeline's running total.
+Parameters
+eventId: string – The unique identifier of the event.
+before: Date – The moment to count before (exclusive).
+Returns
+Promise<number> – The number of confirmed registrations created before before.
+
+M-XX-018
+findEarliestRegistration(
+ eventId: string,
+ to: Date,
+): Promise<Date | null>
+Description
+Finds when the first confirmed registration of the event was created, looking only at registrations created before to. If there is none, null is returned.
+Parameters
+eventId: string – The unique identifier of the event.
+to: Date – The upper limit of the search (exclusive).
+Returns
+Promise<Date | null> – The creation time of the earliest confirmed registration, or null if there is none.
+
+M-XX-019
+getCheckInTimestamps(
+ eventId: string,
+ from: Date,
+ to: Date,
+): Promise<Date[]>
+Description
+Fetches the check-in times of the event inside a time window, from the event's attendance records. The window includes from and excludes to.
+Parameters
+eventId: string – The unique identifier of the event.
+from: Date – The start of the window (inclusive).
+to: Date – The end of the window (exclusive).
+Returns
+Promise<Date[]> – The check-in time of each matching attendance record.
+
+M-XX-020
+countCheckInsBefore(
+ eventId: string,
+ before: Date,
+): Promise<number>
+Description
+Counts the event's check-ins made before a given moment. It is used as the starting value of a timeline's running total.
+Parameters
+eventId: string – The unique identifier of the event.
+before: Date – The moment to count before (exclusive).
+Returns
+Promise<number> – The number of check-ins made before before.
+
+M-XX-021
+findEarliestCheckIn(
+ eventId: string,
+ to: Date,
+): Promise<Date | null>
+Description
+Finds when the first check-in of the event was made, looking only at check-ins made before to. If there is none, null is returned.
+Parameters
+eventId: string – The unique identifier of the event.
+to: Date – The upper limit of the search (exclusive).
+Returns
+Promise<Date | null> – The time of the earliest check-in, or null if there is none.
+
+M-XX-022
+getFormAnswerData(
+ eventId: string,
+ type: FormType,
+): Promise<{
+ fields: FieldStatsField[];
+ rows: (FieldStatsRow & { formFieldId: string })[];
+ responseCount: number;
+} | null>
+Description
+Fetches all the answers of one form of an event, ready to be summarized.
+The method looks up the event's form of the given type, and returns null if the event has none. Otherwise, it fetches the form's fields ordered by their position, and, at the same time, the stored answers and the number of responses. Only responses from registrations with status CONFIRMED are counted, since a cancelled registration keeps its form response until the person registers again and must not inflate the numbers.
+Parameters
+eventId: string – The unique identifier of the event.
+type: FormType – Which form to fetch, REGISTRATION or FEEDBACK.
+Returns
+Promise<{ fields; rows; responseCount } | null> – The form's fields (ID, label, type, options), the stored answer of each field per response, and the number of responses; or null if the event has no form of that type.
+
+AnalyticsService
+M-XX-023
+getEventAnalytics(
+ eventId: string,
+ organizerProfileId: string,
+ range: AnalyticsRange,
+): Promise<ReturnAnalyticsDto>
+Description
+Builds the full analytics dashboard payload for one event, so an organizer can see registration, check-in, and feedback figures in a single response.
+First, the method checks that the caller owns the event, and then that the event exists. It then works out the timeline end, which is the earlier of the current time and the event's end time (the event's endAt if set, or its startAt plus 24 hours if not, or the current time for a draft with no dates). Next, it runs the following queries at the same time: the overview counts, the check-in counts per method, the registration timeline, the check-in timeline, and the answer data of the registration form and the feedback form. Each timeline is built according to range: '24h' gives 24 hourly buckets, '7d' gives 7 daily buckets, '30d' gives 30 daily buckets, and 'all' covers everything from the first activity up to the timeline end. Daily buckets start at midnight in the Asia/Bangkok time zone. The registration answers are summarized per form field, and are an empty list if the event has no registration form. The feedback section is null if the event has no feedback form. Otherwise it includes the response count, a response rate calculated against the number of checked-in participants (since only attendees can respond), and the summarized answers per field.
+In the overview, notCheckedIn is registered minus checkedIn (never below 0), attendanceRate is checkedIn divided by registered, and registerRate is registered divided by the event's seat limit. A rate is null when its denominator is 0 or missing.
+Parameters
+eventId: string – The unique identifier of the event whose analytics are being requested.
+organizerProfileId: string – The profile ID of the organizer making the request; must be the owner of the event.
+range: AnalyticsRange – The time window of the timelines: '24h', '7d', '30d', or 'all'. [Appendix B-XX-001]
+Returns
+Promise<ReturnAnalyticsDto> – The generation time, the range and time zone used, the overview figures, the check-in and registration timelines, the check-in counts per method, the registration answer summaries, and the feedback summary (or null). [Appendix B-XX-002]
+Throws
+EventNotFoundException – Thrown when no event exists for the given eventId.
+ForbiddenException – Thrown when the caller is not the organizer who owns the event ("You do not have permission to edit this event.").
+
+M-XX-024
+private buildTimeline(
+ source: TimelineSource,
+ range: AnalyticsRange,
+ timelineEnd: Date,
+): Promise<AnalyticsTimelineDto>
+Description
+Builds the timeline of one activity stream (registrations or check-ins) for the chosen range.
+For the 'all' range, the method asks the source for its earliest activity before timelineEnd. If there is none, an empty timeline is returned. Otherwise, the bucket size is picked from the span between that first activity and the timeline end (hourly up to 48 hours, daily beyond), and the bucket starts run from the bucket of the first activity to the last bucket. If that gives more than 366 buckets, only the most recent 366 are kept. For the other ranges, the bucket size is hourly for '24h' and daily otherwise, and the bucket starts are the fixed number of buckets (24, 7, or 30) ending at the timeline end. Once the bucket starts are known, the method fetches, at the same time, the timestamps of the activity inside the timeline and the number of activities before the first bucket, and fills the timeline from them, so the running total stays correct even when older buckets are cut off.
+Parameters
+source: TimelineSource – How this stream reads its activity: its timestamps in a window, its count before a moment, and its earliest activity.
+range: AnalyticsRange – The time window of the timeline: '24h', '7d', '30d', or 'all'. [Appendix B-XX-001]
+timelineEnd: Date – The exclusive end of the timeline.
+Returns
+Promise<AnalyticsTimelineDto> – The timeline with one point per bucket. [Appendix B-XX-003]
+
+Analytics Endpoints
+CM-XX-001
+getEventAnalytics(
+@Param('eventId', ParseUUIDPipe) eventId: string,
+@Query() query: GetAnalyticsQueryDto,
+@Req() req: Request
+): Promise<ReturnAnalyticsDto>
+HTTP method: GET
+Path: /events/:eventId/analytics
+Role: Organizer
+Description:
+Retrieves the analytics of an event. Only accessible to the ORGANIZER role. Extracts organizerProfileId from the JWT. Delegates to AnalyticsService.getEventAnalytics().
+Parameters:
+eventId: string – Event UUID. Validated by ParseUUIDPipe.
+query.range?: AnalyticsRange – Optional time window of the timelines ('24h', '7d', '30d', or 'all'); defaults to '24h'. [Appendix B-XX-001]
+Returns:
+Promise<ReturnAnalyticsDto> – The analytics of the event. [Appendix B-XX-002]
+Throws:
+404 EventNotFoundException – event not found.
+403 ForbiddenException – requester is not the owner of the event.
+
+---
+
+Attendance Module
+AttendanceValidationService
+M-XY-001
+validateEventCheckable(status: EventStatus): { message: string }
+Description
+Confirms that an event is still open for check-in. If the event's status is not DRAFT, PUBLISHED, or ONGOING, the method throws EventNotCheckableException ("Check-in is closed for concluded or cancelled events."). Otherwise, it returns a confirmation message.
+Parameters
+status: EventStatus – The current status of the event.
+Returns
+{ message: string } – A confirmation message stating the event is open for check-in.
+Throws
+EventNotCheckableException – Thrown when the event is concluded or cancelled ("Check-in is closed for concluded or cancelled events.").
+
+M-XY-002
+validateTicketActive(status: TicketStatus): { message: string }
+Description
+Confirms that a ticket can still be used to check in. If the ticket's status is not ACTIVE, the method throws TicketNotActiveException, whose message depends on the status: "This ticket has been cancelled." for CANCELLED, "This ticket has expired." for EXPIRED, and "This ticket is not active." for any other status. Otherwise, it returns a confirmation message.
+Parameters
+status: TicketStatus – The current status of the ticket.
+Returns
+{ message: string } – A confirmation message stating the ticket is active.
+Throws
+TicketNotActiveException – Thrown when the ticket's status is not ACTIVE.
+
+M-XY-003
+validateNoFeedbackSubmitted(registrationId: string): Promise<{ message: string }>
+Description
+Confirms that a participant has not given feedback for an event, so that their check-in can still be undone. Feedback requires attendance, so a check-in with feedback attached must stay. The method counts the participant's responses to feedback forms for the registration. If at least one exists, it throws FeedbackAlreadySubmittedException ("Cannot undo check-in because the participant has already submitted feedback."). Otherwise, it returns a confirmation message.
+Parameters
+registrationId: string – The unique identifier of the registration to check.
+Returns
+Promise<{ message: string }> – A confirmation message stating no feedback has been submitted.
+Throws
+FeedbackAlreadySubmittedException – Thrown when the registration already has a feedback response ("Cannot undo check-in because the participant has already submitted feedback.").
+
+AttendanceCrudService
+M-XY-004
+private getClient(tx?: Prisma.TransactionClient)
+Description
+Chooses which database client a query should run on. If a transaction client is given, it is returned, so the query joins that transaction. Otherwise, the regular database client is returned.
+Parameters
+tx?: Prisma.TransactionClient – An open transaction, if the caller wants the query to run inside it.
+Returns
+Prisma.TransactionClient | PrismaService – The transaction client if given, otherwise the regular database client.
+
+M-XY-005
+findTicketByQrToken(
+ eventId: string,
+ qrToken: string,
+): Promise<TicketWithAttendance>
+Description
+Finds the ticket that carries a scanned QR token, together with its attendance record and its participant ID. The ticket must belong to the given event. If no ticket matches, whether the token does not exist or belongs to another event, the method throws AttendanceTicketNotFoundException ("Ticket not found for this event."). The same error is used for both cases on purpose, so ticket existence is not leaked.
+Parameters
+eventId: string – The unique identifier of the event being checked in to.
+qrToken: string – The QR token read from the ticket.
+Returns
+Promise<TicketWithAttendance> – The ticket, its attendance record (or null), and the participant ID of its registration.
+Throws
+AttendanceTicketNotFoundException – Thrown when no ticket with that token exists for the event ("Ticket not found for this event.").
+
+M-XY-006
+findTicketByRegistrationId(
+ eventId: string,
+ registrationId: string,
+): Promise<TicketWithAttendance>
+Description
+Finds the ticket of a registration, together with its attendance record and its participant ID. The registration must belong to the given event. If no ticket matches, the method throws AttendanceTicketNotFoundException ("Ticket not found for this event.").
+Parameters
+eventId: string – The unique identifier of the event being checked in to.
+registrationId: string – The unique identifier of the registration whose ticket is being looked up.
+Returns
+Promise<TicketWithAttendance> – The ticket, its attendance record (or null), and the participant ID of its registration.
+Throws
+AttendanceTicketNotFoundException – Thrown when the registration has no ticket for the event ("Ticket not found for this event.").
+
+M-XY-007
+findTicketById(ticketId: string): Promise<TicketWithAttendance>
+Description
+Looks up a ticket by its ID, together with its attendance record and its participant ID. It is used to re-read a ticket after a check-in was lost to a concurrent request. If no ticket exists, the method throws AttendanceTicketNotFoundException ("Ticket not found for this event.").
+Parameters
+ticketId: string – The unique identifier of the ticket.
+Returns
+Promise<TicketWithAttendance> – The ticket, its attendance record (or null), and the participant ID of its registration.
+Throws
+AttendanceTicketNotFoundException – Thrown when no ticket exists for ticketId ("Ticket not found for this event.").
+
+M-XY-008
+getAttendanceListByEvent(eventId: string): Promise<ReturnAttendanceListDto>
+Description
+Builds the attendance list of an event for the organizer. Only tickets of registrations with status CONFIRMED are included, since cancelled registrations cannot be checked in. The tickets are ordered by the creation time of their registration, oldest first, and each is mapped to a list item. The summary counts the items as registered, and the items that have an attendance record as checkedIn.
+Parameters
+eventId: string – The unique identifier of the event.
+Returns
+Promise<ReturnAttendanceListDto> – The summary (registered and checkedIn) and one item per confirmed registration. [Appendix B-XY-005]
+
+M-XY-009
+getAttendanceSummary(eventId: string): Promise<ReturnAttendanceSummaryDto>
+Description
+Counts the live attendance figures of an event, for dashboards and socket payloads. At the same time, the method counts the tickets of registrations with status CONFIRMED (registered) and the attendance records of the event (checkedIn).
+Parameters
+eventId: string – The unique identifier of the event.
+Returns
+Promise<ReturnAttendanceSummaryDto> – The registered and checkedIn counts. [Appendix B-XY-006]
+
+M-XY-010
+findAttendanceById(
+ eventId: string,
+ attendanceId: string,
+): Promise<AttendanceWithTicket>
+Description
+Finds an attendance record by ID, together with its ticket and the participant ID of the ticket's registration. The record must belong to the given event. If no record matches, the method throws AttendanceNotFoundException ("Check-in record not found for this event.").
+Parameters
+eventId: string – The unique identifier of the event the record should belong to.
+attendanceId: string – The unique identifier of the attendance record.
+Returns
+Promise<AttendanceWithTicket> – The attendance record and its ticket.
+Throws
+AttendanceNotFoundException – Thrown when no matching attendance record exists for the event ("Check-in record not found for this event.").
+
+M-XY-011
+markTicketUsed(
+ ticketId: string,
+ tx?: Prisma.TransactionClient,
+): Promise<boolean>
+Description
+Claims a ticket for a check-in by changing its status from ACTIVE to USED. The update only matches a ticket that is currently ACTIVE, so when two check-ins race on the same ticket, exactly one of them gets true. It should be called inside a transaction together with createAttendance.
+Parameters
+ticketId: string – The unique identifier of the ticket to claim.
+tx?: Prisma.TransactionClient – An open transaction to run inside; omitted to run against the database directly.
+Returns
+Promise<boolean> – true if this call changed the ticket, false if the ticket was not ACTIVE (already claimed).
+
+M-XY-012
+createAttendance(
+ ticketId: string,
+ eventId: string,
+ organizerProfileId: string,
+ method: CheckInMethod,
+ tx?: Prisma.TransactionClient,
+): Promise<Attendance>
+Description
+Saves a new attendance record for a ticket, recording the event, the organizer who checked the participant in, and the method used.
+Parameters
+ticketId: string – The unique identifier of the ticket being checked in.
+eventId: string – The unique identifier of the event.
+organizerProfileId: string – The profile ID of the organizer who made the check-in.
+method: CheckInMethod – How the participant was checked in, QR_SCAN or MANUAL.
+tx?: Prisma.TransactionClient – An open transaction to run inside; omitted to run against the database directly.
+Returns
+Promise<Attendance> – The newly created attendance record.
+
+M-XY-013
+deleteAttendance(
+ attendanceId: string,
+ tx?: Prisma.TransactionClient,
+): Promise<boolean>
+Description
+Deletes an attendance record. If the record is already gone, as when a concurrent undo removed it first, nothing is deleted and false is returned instead of an error, so the caller can treat it as "not found" rather than a server error.
+Parameters
+attendanceId: string – The unique identifier of the attendance record to delete.
+tx?: Prisma.TransactionClient – An open transaction to run inside; omitted to run against the database directly.
+Returns
+Promise<boolean> – true if the record was deleted, false if it did not exist.
+
+M-XY-014
+reactivateTicket(
+ ticketId: string,
+ tx?: Prisma.TransactionClient,
+): Promise<void>
+Description
+Makes a checked-in ticket usable again by changing its status from USED back to ACTIVE. It is the reverse of markTicketUsed, and only affects a ticket that is currently USED.
+Parameters
+ticketId: string – The unique identifier of the ticket to reactivate.
+tx?: Prisma.TransactionClient – An open transaction to run inside; omitted to run against the database directly.
+Returns
+Promise<void> – Nothing is returned.
+
+M-XY-015
+mapToListItemDto(ticket: TicketWithAttendance): ReturnAttendanceListItemDto
+Description
+Converts a ticket and its attendance record into one row of the attendance list. The row contains the registration ID, the ticket's ID and status, and the participant snapshot saved on the ticket. The attendance part holds the record's ID, method, and check-in time, or is null if the ticket has no attendance record.
+Parameters
+ticket: TicketWithAttendance – The ticket to convert, with its attendance record (or null).
+Returns
+ReturnAttendanceListItemDto – The attendance list row. [Appendix B-XY-004]
+
+M-XY-016
+mapToReturnAttendanceDto(
+ attendance: Attendance,
+ ticket: Ticket,
+): ReturnAttendanceDto
+Description
+Converts an attendance record and its ticket into the shape the API sends back after a check-in. It contains the attendance ID, the registration ID, the method, the check-in time, the ticket's ID and status, and the participant snapshot saved on the ticket.
+Parameters
+attendance: Attendance – The attendance record.
+ticket: Ticket – The ticket the attendance belongs to; its status is reported as given.
+Returns
+ReturnAttendanceDto – The check-in result. [Appendix B-XY-003]
+
+AttendanceService
+M-XY-017
+checkInByQrToken(
+ eventId: string,
+ qrToken: string,
+ organizerProfileId: string,
+): Promise<ReturnAttendanceDto>
+Description
+Checks a participant in at an event by the QR token on their ticket, and returns the check-in result.
+First, the method checks that the caller owns the event, that the event exists, and that its status still allows check-in. It then finds the ticket that carries qrToken within the event, and throws AttendanceTicketNotFoundException if there is none. Finally, it checks the ticket in with the QR_SCAN method, which verifies the ticket, saves the attendance, and notifies the realtime channels.
+Parameters
+eventId: string – The unique identifier of the event the participant is checking in to.
+qrToken: string – The QR token read from the participant's ticket.
+organizerProfileId: string – The profile ID of the organizer making the check-in; must be the owner of the event.
+Returns
+Promise<ReturnAttendanceDto> – The saved check-in, including the attendance ID, registration ID, method, check-in time, ticket (status USED), and participant snapshot. [Appendix B-XY-003]
+Throws
+EventNotFoundException – Thrown when no event exists for the given eventId.
+ForbiddenException – Thrown when the caller is not the organizer who owns the event ("You do not have permission to edit this event.").
+EventNotCheckableException – Thrown when the event is concluded or cancelled ("Check-in is closed for concluded or cancelled events.").
+AttendanceTicketNotFoundException – Thrown when no ticket with that token exists for the event ("Ticket not found for this event.").
+AlreadyCheckedInException – Thrown when the ticket has already been used ("This participant is already checked in."); it carries the original check-in.
+TicketNotActiveException – Thrown when the ticket is cancelled or expired.
+SaveAttendanceException – Thrown when the check-in fails to save ("An error occurred while saving the check-in. Please try again later.").
+
+M-XY-018
+checkInManually(
+ eventId: string,
+ registrationId: string,
+ organizerProfileId: string,
+): Promise<ReturnAttendanceDto>
+Description
+Checks a participant in at an event by their registration, for an organizer who cannot scan a QR code, and returns the check-in result.
+First, the method checks that the caller owns the event, that the event exists, and that its status still allows check-in. It then finds the ticket of registrationId within the event, and throws AttendanceTicketNotFoundException if there is none. Finally, it checks the ticket in with the MANUAL method, which verifies the ticket, saves the attendance, and notifies the realtime channels.
+Parameters
+eventId: string – The unique identifier of the event the participant is checking in to.
+registrationId: string – The unique identifier of the participant's registration.
+organizerProfileId: string – The profile ID of the organizer making the check-in; must be the owner of the event.
+Returns
+Promise<ReturnAttendanceDto> – The saved check-in, including the attendance ID, registration ID, method, check-in time, ticket (status USED), and participant snapshot. [Appendix B-XY-003]
+Throws
+EventNotFoundException – Thrown when no event exists for the given eventId.
+ForbiddenException – Thrown when the caller is not the organizer who owns the event ("You do not have permission to edit this event.").
+EventNotCheckableException – Thrown when the event is concluded or cancelled ("Check-in is closed for concluded or cancelled events.").
+AttendanceTicketNotFoundException – Thrown when the registration has no ticket for the event ("Ticket not found for this event.").
+AlreadyCheckedInException – Thrown when the ticket has already been used ("This participant is already checked in."); it carries the original check-in.
+TicketNotActiveException – Thrown when the ticket is cancelled or expired.
+SaveAttendanceException – Thrown when the check-in fails to save ("An error occurred while saving the check-in. Please try again later.").
+
+M-XY-019
+getAttendanceList(
+ eventId: string,
+ organizerProfileId: string,
+): Promise<ReturnAttendanceListDto>
+Description
+Retrieves the attendance list of an event, so an organizer can see who is registered and who has been checked in. The method checks that the caller owns the event, and then returns the list of confirmed registrations with their check-in state, together with the registered and checked-in counts.
+Parameters
+eventId: string – The unique identifier of the event.
+organizerProfileId: string – The profile ID of the organizer making the request; must be the owner of the event.
+Returns
+Promise<ReturnAttendanceListDto> – The summary counts and one item per confirmed registration. [Appendix B-XY-005]
+Throws
+EventNotFoundException – Thrown when no event exists for the given eventId.
+ForbiddenException – Thrown when the caller is not the organizer who owns the event ("You do not have permission to edit this event.").
+
+M-XY-020
+undoCheckIn(
+ eventId: string,
+ attendanceId: string,
+ organizerProfileId: string,
+): Promise<ReturnAttendanceListItemDto>
+Description
+Reverses a participant's check-in, so an organizer can correct a check-in made by mistake. The attendance record is hard deleted and the ticket becomes usable again.
+First, the method checks that the caller owns the event, that the event exists, and that its status still allows check-in. Next, it looks up the attendance record by attendanceId within the event, and checks that the participant has not submitted feedback for the registration, since feedback requires attendance. Then, in a single database transaction, it deletes the attendance record and sets the ticket's status back to ACTIVE. If the record was already deleted by another undo between the lookup and the delete, the transaction is stopped and the method throws AttendanceNotFoundException. If the transaction fails for any other reason, the failure is logged and the method throws SaveAttendanceException. Once the transaction commits, the method emits an attendance.undone event carrying the event, the organizer, the participant, the registration, the ticket, and the updated attendance counts. This emit is best-effort: if it fails, a warning is logged and the undo still succeeds.
+Parameters
+eventId: string – The unique identifier of the event the check-in belongs to.
+attendanceId: string – The unique identifier of the attendance record to undo.
+organizerProfileId: string – The profile ID of the organizer making the request; must be the owner of the event.
+Returns
+Promise<ReturnAttendanceListItemDto> – The attendance list row of the participant after the undo, with the ticket status ACTIVE and attendance set to null. [Appendix B-XY-004]
+Throws
+EventNotFoundException – Thrown when no event exists for the given eventId.
+ForbiddenException – Thrown when the caller is not the organizer who owns the event ("You do not have permission to edit this event.").
+EventNotCheckableException – Thrown when the event is concluded or cancelled ("Check-in is closed for concluded or cancelled events.").
+AttendanceNotFoundException – Thrown when no attendance record matches attendanceId for this event, or it was deleted by a concurrent undo ("Check-in record not found for this event.").
+FeedbackAlreadySubmittedException – Thrown when the participant has already submitted feedback ("Cannot undo check-in because the participant has already submitted feedback.").
+SaveAttendanceException – Thrown when the transaction fails for any other reason ("An error occurred while saving the check-in. Please try again later.").
+
+M-XY-021
+private validateEventAccess(
+ eventId: string,
+ organizerProfileId: string,
+): Promise<void>
+Description
+A private helper that confirms an organizer may check participants in or out of an event. The method checks that organizerProfileId owns the event, then that the event exists, and finally that the event's status is DRAFT, PUBLISHED, or ONGOING.
+Parameters
+eventId: string – The unique identifier of the event.
+organizerProfileId: string – The profile ID of the organizer making the request.
+Returns
+Promise<void> – Nothing is returned when every check passes.
+Throws
+EventNotFoundException – Thrown when no event exists for the given eventId.
+ForbiddenException – Thrown when the caller is not the organizer who owns the event.
+EventNotCheckableException – Thrown when the event is concluded or cancelled.
+
+M-XY-022
+private checkIn(
+ ticket: TicketWithAttendance,
+ eventId: string,
+ organizerProfileId: string,
+ method: CheckInMethod,
+): Promise<ReturnAttendanceDto>
+Description
+A private helper shared by QR and manual check-in, which checks a found ticket in and returns the result.
+First, the method checks that the ticket can be used, and throws if not. Then, in a single database transaction, it tries to claim the ticket by changing its status from ACTIVE to USED, and, only if the claim succeeded, creates the attendance record. If another request claimed the ticket first, or the save hits a unique violation on the ticket (which also means another check-in won), the transaction yields no attendance. In that case, the method re-reads the ticket so the response reflects the winner, runs the usability check again (which throws AlreadyCheckedInException or TicketNotActiveException), and otherwise throws SaveAttendanceException. Any other failure is logged and thrown as SaveAttendanceException. When the check-in is saved, the method maps it to the response with the ticket status USED, emits an attendance.checked-in event, and returns the result.
+Parameters
+ticket: TicketWithAttendance – The ticket being checked in, with its attendance (or null) and participant ID.
+eventId: string – The unique identifier of the event.
+organizerProfileId: string – The profile ID of the organizer making the check-in.
+method: CheckInMethod – How the participant is being checked in, QR_SCAN or MANUAL.
+Returns
+Promise<ReturnAttendanceDto> – The saved check-in. [Appendix B-XY-003]
+Throws
+AlreadyCheckedInException – Thrown when the ticket has already been used ("This participant is already checked in."); it carries the original check-in.
+TicketNotActiveException – Thrown when the ticket is cancelled or expired.
+SaveAttendanceException – Thrown when the check-in fails to save ("An error occurred while saving the check-in. Please try again later.").
+
+M-XY-023
+private emitCheckedIn(
+ eventId: string,
+ organizerProfileId: string,
+ participantProfileId: string,
+ attendance: ReturnAttendanceDto,
+): Promise<void>
+Description
+A private helper that announces a saved check-in to the rest of the system. The method reads the updated attendance counts of the event, builds an AttendanceCheckedInPayload, and emits it as the attendance.checked-in event. Realtime is best-effort: if anything fails, a warning is logged and the error is not thrown, so the check-in never fails because of it.
+Parameters
+eventId: string – The unique identifier of the event.
+organizerProfileId: string – The profile ID of the organizer who made the check-in.
+participantProfileId: string – The profile ID of the participant who was checked in.
+attendance: ReturnAttendanceDto – The saved check-in. [Appendix B-XY-003]
+Returns
+Promise<void> – Resolves once the event has been emitted or the failure logged.
+Emits: attendance.checked-in with AttendanceCheckedInPayload. [Appendix B-XZ-001]
+
+M-XY-024
+private emitUndone(
+ eventId: string,
+ organizerProfileId: string,
+ participantProfileId: string,
+ registrationId: string,
+ ticketId: string,
+): Promise<void>
+Description
+A private helper that announces an undone check-in to the rest of the system. The method reads the updated attendance counts of the event, builds an AttendanceUndonePayload, and emits it as the attendance.undone event. Realtime is best-effort: if anything fails, a warning is logged and the error is not thrown, so the undo never fails because of it.
+Parameters
+eventId: string – The unique identifier of the event.
+organizerProfileId: string – The profile ID of the organizer who undid the check-in.
+participantProfileId: string – The profile ID of the participant whose check-in was undone.
+registrationId: string – The unique identifier of the participant's registration.
+ticketId: string – The unique identifier of the participant's ticket.
+Returns
+Promise<void> – Resolves once the event has been emitted or the failure logged.
+Emits: attendance.undone with AttendanceUndonePayload. [Appendix B-XZ-002]
+
+M-XY-025
+private assertTicketCheckable(ticket: TicketWithAttendance): void
+Description
+A private helper that confirms a ticket can be checked in. If the ticket's status is USED and it has an attendance record, the method throws AlreadyCheckedInException carrying that original check-in, so a repeated scan can show when the participant was checked in. Otherwise, it confirms the ticket is ACTIVE, which throws TicketNotActiveException for a cancelled or expired ticket.
+Parameters
+ticket: TicketWithAttendance – The ticket to check, with its attendance (or null).
+Returns
+void – Nothing is returned when the ticket can be checked in.
+Throws
+AlreadyCheckedInException – Thrown when the ticket is already used ("This participant is already checked in.").
+TicketNotActiveException – Thrown when the ticket is cancelled or expired.
+
+M-XY-026
+private isUniqueViolation(error: unknown): boolean
+Description
+A private helper that tells whether an error is a database unique-constraint violation (Prisma error code P2002). It is used to recognize that a concurrent check-in already saved an attendance for the same ticket.
+Parameters
+error: unknown – The error caught from a database operation.
+Returns
+boolean – true if the error is a Prisma unique-constraint violation, false otherwise.
+
+Attendance Endpoints
+CM-XY-001
+checkInByQr(
+@Param('eventId', ParseUUIDPipe) eventId: string,
+@Body() dto: CheckInByQrDto,
+@Req() req: Request
+): Promise<ReturnAttendanceDto>
+HTTP method: POST
+Path: /events/:eventId/attendance/qr
+Role: Organizer
+Description:
+Checks a participant in by the QR token on their ticket. Only accessible to the ORGANIZER role. Extracts organizerProfileId from the JWT. Delegates to AttendanceService.checkInByQrToken().
+Parameters:
+eventId: string – Event UUID. Validated by ParseUUIDPipe.
+dto: CheckInByQrDto – Includes qrToken, the token read from the ticket. [Appendix B-XY-001]
+Returns:
+Promise<ReturnAttendanceDto> – The saved check-in. [Appendix B-XY-003]
+Throws:
+404 EventNotFoundException – event not found.
+403 ForbiddenException – requester is not the owner of the event.
+422 EventNotCheckableException – event is concluded or cancelled.
+404 AttendanceTicketNotFoundException – ticket not found for this event.
+409 AlreadyCheckedInException – ticket already used.
+422 TicketNotActiveException – ticket cancelled or expired.
+
+CM-XY-002
+checkInManually(
+@Param('eventId', ParseUUIDPipe) eventId: string,
+@Body() dto: CheckInManualDto,
+@Req() req: Request
+): Promise<ReturnAttendanceDto>
+HTTP method: POST
+Path: /events/:eventId/attendance/manual
+Role: Organizer
+Description:
+Checks a participant in by their registration ID. Only accessible to the ORGANIZER role. Extracts organizerProfileId from the JWT. Delegates to AttendanceService.checkInManually().
+Parameters:
+eventId: string – Event UUID. Validated by ParseUUIDPipe.
+dto: CheckInManualDto – Includes registrationId, the registration of the participant to check in. [Appendix B-XY-002]
+Returns:
+Promise<ReturnAttendanceDto> – The saved check-in. [Appendix B-XY-003]
+Throws:
+404 EventNotFoundException – event not found.
+403 ForbiddenException – requester is not the owner of the event.
+422 EventNotCheckableException – event is concluded or cancelled.
+404 AttendanceTicketNotFoundException – ticket not found for this event.
+409 AlreadyCheckedInException – ticket already used.
+422 TicketNotActiveException – ticket cancelled or expired.
+
+CM-XY-003
+getAttendanceList(
+@Param('eventId', ParseUUIDPipe) eventId: string,
+@Req() req: Request
+): Promise<ReturnAttendanceListDto>
+HTTP method: GET
+Path: /events/:eventId/attendance
+Role: Organizer
+Description:
+Retrieves the attendance list of an event. Only accessible to the ORGANIZER role. Extracts organizerProfileId from the JWT. Delegates to AttendanceService.getAttendanceList().
+Parameters:
+eventId: string – Event UUID. Validated by ParseUUIDPipe.
+Returns:
+Promise<ReturnAttendanceListDto> – The summary counts and one item per confirmed registration. [Appendix B-XY-005]
+Throws:
+404 EventNotFoundException – event not found.
+403 ForbiddenException – requester is not the owner of the event.
+
+CM-XY-004
+undoCheckIn(
+@Param('eventId', ParseUUIDPipe) eventId: string,
+@Param('attendanceId', ParseUUIDPipe) attendanceId: string,
+@Req() req: Request
+): Promise<ReturnAttendanceListItemDto>
+HTTP method: DELETE
+Path: /events/:eventId/attendance/:attendanceId
+Role: Organizer
+Description:
+Undoes a participant's check-in. Only accessible to the ORGANIZER role. Extracts organizerProfileId from the JWT. Delegates to AttendanceService.undoCheckIn().
+Parameters:
+eventId: string – Event UUID. Validated by ParseUUIDPipe.
+attendanceId: string – Attendance record UUID. Validated by ParseUUIDPipe.
+Returns:
+Promise<ReturnAttendanceListItemDto> – The participant's attendance list row after the undo. [Appendix B-XY-004]
+Throws:
+404 EventNotFoundException – event not found.
+403 ForbiddenException – requester is not the owner of the event.
+422 EventNotCheckableException – event is concluded or cancelled.
+404 AttendanceNotFoundException – check-in record not found for this event.
+409 FeedbackAlreadySubmittedException – participant already submitted feedback.
+
+---
+
+Realtime Module
+SocketUtils
+M-XZ-001
+extractTokenFromHandshake(client: Socket): string
+Description
+Reads the access token from a socket.io connection request, so every gateway authenticates sockets the same way. The method takes the token from the handshake auth payload first, and falls back to the Authorization header (with the "Bearer " prefix removed). If neither has a token, it throws UnauthorizedException ("No token provided").
+Parameters
+client: Socket – The connecting socket.io client.
+Returns
+string – The token found in the handshake.
+Throws
+UnauthorizedException – Thrown when no token is present ("No token provided").
+
+M-XZ-002
+buildPersonalChannel(
+ role: Role | null,
+ profileId: string | null,
+): string | null
+Description
+Builds the name of a user's personal socket.io channel, which reaches every device and tab the user has connected. If role or profileId is missing, the method returns null, since no channel can be built without both. Otherwise, it returns a channel name combining the role and profile ID.
+Parameters
+role: Role | null – The role to build the channel for, either ORGANIZER or PARTICIPANT; null if the role is not known.
+profileId: string | null – The profile ID to build the channel for; null if the profile ID is not known.
+Returns
+string | null – The personal channel name for this role and profile ID, or null if either input was missing.
+
+RealtimeGateway (Socket.IO)
+M-XZ-003
+handleConnection(client: Socket): Promise<void>
+Description
+Runs when a client's socket connects, and authenticates it before letting it use the 'realtime' namespace.
+First, the method pulls a JWT from the handshake and verifies it against the access token secret. If verification succeeds, the decoded payload is stored on the socket. The socket is then joined to its personal channel, named from the user's current role and the matching profile ID (the participant profile ID for PARTICIPANT, otherwise the organizer profile ID). Clients only connect and never join rooms, since everything they receive is sent to this channel. If the token is missing or fails verification, the method catches the error, emits an error event with the message Unauthorized back to the client, and disconnects the socket.
+Parameters
+client: Socket – The connecting socket.io client.
+Returns
+Promise<void> – Resolves once the connection has either been authenticated and admitted, or rejected and disconnected.
+
+M-XZ-004
+handleDisconnect(client: Socket): void
+Description
+Runs when a client's socket disconnects, and logs the disconnection. Socket.io removes the socket from its personal channel on its own.
+Parameters
+client: Socket – The disconnecting socket.io client.
+Returns
+void – Nothing is returned.
+
+M-XZ-005
+@OnEvent('attendance.checked-in')
+handleAttendanceCheckedIn(payload: AttendanceCheckedInPayload): void
+Description
+Reacts to an attendance.checked-in application event, emitted after a check-in is saved, by pushing the result to both the organizer and the participant over their personal channels.
+The method sends three messages. First, it emits an attendance:checkedIn message to the organizer's personal channel, carrying the event ID, the attendance ID, the registration ID, the check-in method, the check-in time, the participant snapshot, and the updated attendance counts, so every organizer device can add the new row and refresh the counts live. Second, it sends an analytics:changed nudge with reason 'attendance' to the organizer, so an open analytics dashboard knows to refetch. Third, it emits a ticket:statusChanged message to the participant's personal channel, carrying the event ID, registration ID, ticket ID, the status USED, and the check-in time, so the participant's ticket flips to used without a refetch. If a personal channel cannot be built for a recipient, the message to that recipient is skipped.
+Parameters
+payload: AttendanceCheckedInPayload – The check-in event data, containing the event ID, the organizer's and the participant's profile IDs, the saved attendance, and the updated attendance counts. [Appendix B-XZ-001]
+Returns
+void – Nothing is returned.
+Emits: attendance:checkedIn and analytics:changed to the organizer, and ticket:statusChanged to the participant.
+
+M-XZ-006
+@OnEvent('attendance.undone')
+handleAttendanceUndone(payload: AttendanceUndonePayload): void
+Description
+Reacts to an attendance.undone application event, emitted after a check-in is undone, by pushing the change to both the organizer and the participant over their personal channels.
+The method sends three messages. First, it sends an analytics:changed nudge with reason 'attendance' to the organizer. Second, it emits an attendance:undone message to the organizer's personal channel, carrying the event ID, the registration ID, and the updated attendance counts, so every organizer device can reset that row and refresh the counts live. Third, it emits a ticket:statusChanged message to the participant's personal channel, carrying the event ID, registration ID, ticket ID, the status ACTIVE, and checkedInAt as null, so the participant's ticket becomes usable again without a refetch.
+Parameters
+payload: AttendanceUndonePayload – The undo event data, containing the event ID, the organizer's and the participant's profile IDs, the registration ID, the ticket ID, and the updated attendance counts. [Appendix B-XZ-002]
+Returns
+void – Nothing is returned.
+Emits: analytics:changed and attendance:undone to the organizer, and ticket:statusChanged to the participant.
+
+M-XZ-007
+@OnEvent('registration.created')
+handleRegistrationCreated(payload: RegistrationCreatedPayload): void
+Description
+Reacts to a registration.created application event by sending an analytics:changed nudge with reason 'registration' to the event organizer's personal channel, so an open analytics dashboard knows to refetch. The nudge carries no figures.
+Parameters
+payload: RegistrationCreatedPayload – The registration event data, containing the event ID and the organizer's and the participant's profile IDs. [Appendix B-XZ-003]
+Returns
+void – Nothing is returned.
+Emits: analytics:changed to the organizer.
+
+M-XZ-008
+@OnEvent('registration.cancelled')
+handleRegistrationCancelled(payload: RegistrationCancelledPayload): void
+Description
+Reacts to a registration.cancelled application event by sending an analytics:changed nudge with reason 'registration' to the event organizer's personal channel, so an open analytics dashboard knows to refetch. The nudge carries no figures.
+Parameters
+payload: RegistrationCancelledPayload – The cancellation event data, containing the event ID and the organizer's and the participant's profile IDs. [Appendix B-XZ-004]
+Returns
+void – Nothing is returned.
+Emits: analytics:changed to the organizer.
+
+M-XZ-009
+@OnEvent('feedback.submitted')
+handleFeedbackSubmitted(payload: FeedbackSubmittedPayload): void
+Description
+Reacts to a feedback.submitted application event by sending an analytics:changed nudge with reason 'feedback' to the event organizer's personal channel, so an open analytics dashboard knows to refetch. The nudge carries no figures.
+Parameters
+payload: FeedbackSubmittedPayload – The feedback event data, containing the event ID and the organizer's profile ID. [Appendix B-XZ-005]
+Returns
+void – Nothing is returned.
+Emits: analytics:changed to the organizer.
+
+M-XZ-010
+private nudgeAnalytics(
+ organizerProfileId: string,
+ eventId: string,
+ reason: AnalyticsChangeReason,
+): void
+Description
+A private helper that tells an organizer's open analytics dashboard that something changed for an event. It sends an analytics:changed message, carrying only the event ID and the reason ('attendance', 'registration', or 'feedback'), to the organizer's personal channel. The reason is only a hint, because the client always refetches the whole analytics payload.
+Parameters
+organizerProfileId: string – The profile ID of the organizer to notify.
+eventId: string – The unique identifier of the event whose analytics changed.
+reason: AnalyticsChangeReason – What caused the change, 'attendance', 'registration', or 'feedback'.
+Returns
+void – Nothing is returned.
+Emits: analytics:changed with the event ID and reason.
+
+M-XZ-011
+private emitToUser(
+ role: Role,
+ profileId: string,
+ message: string,
+ data: unknown,
+): void
+Description
+A private helper that sends a message to every device a user has connected. The method builds the user's personal channel from role and profileId, and does nothing if no channel can be built. Otherwise, it emits message with data to that channel.
+Parameters
+role: Role – The role of the user to send to, either ORGANIZER or PARTICIPANT.
+profileId: string – The profile ID of the user to send to.
+message: string – The name of the socket message to emit.
+data: unknown – The payload of the message.
+Returns
+void – Nothing is returned.
+
+---
+
+Registration Module (updated methods)
+RegistrationValidationService
+M-YA-001
+validateNotCheckedIn(registrationId: string): Promise<{ message: string }>
+Description
+Confirms that a registration has not been checked in, so it can still be cancelled. The method looks up the registration's ticket. If the ticket's status is USED, it throws RegistrationNotCancellableException ("Cannot cancel after checking in."), since an organizer must undo the check-in first. Otherwise, including when no ticket is found, it returns a confirmation message.
+Parameters
+registrationId: string – The unique identifier of the registration to check.
+Returns
+Promise<{ message: string }> – A confirmation message stating the registration is not checked in.
+Throws
+RegistrationNotCancellableException – Thrown when the registration's ticket has been used ("Cannot cancel after checking in.").
+
+RegistrationService
+M-YA-002
+registerAndGetTicket(
+ eventId: string,
+ participantProfileId: string,
+ dto: CreateRegistrationDto,
+): Promise<ReturnTicketDetailDto>
+Description
+Registers a participant for an event and returns their ticket. The method now also announces the new registration, so the organizer's analytics dashboard can update live.
+After the registration, form response, and ticket are saved, the method emits a registration.created event carrying the event ID, the event's organizer profile ID, and the participant's profile ID. This emit is best-effort: if it fails, a warning is logged and the registration still succeeds. All the checks and the saving steps that come before are unchanged.
+Parameters
+eventId: string – The unique identifier of the event to register for.
+participantProfileId: string – The profile ID of the participant registering.
+dto: CreateRegistrationDto – The registration form answers.
+Returns
+Promise<ReturnTicketDetailDto> – The saved registration's ticket detail.
+Emits: registration.created with RegistrationCreatedPayload. [Appendix B-XZ-003]
+
+M-YA-003
+cancelRegistration(
+ eventId: string,
+ participantProfileId: string,
+): Promise<ReturnTicketDetailDto>
+Description
+Cancels a participant's registration for an event and returns the cancelled ticket. The method now also refuses to cancel a checked-in registration, and includes the organizer in the cancellation event.
+After the registration is found, the method runs the existing cancellability checks (registration not already cancelled, event not started, ended, or cancelled), and then checks that the registration is not checked in, throwing RegistrationNotCancellableException ("Cannot cancel after checking in.") if the ticket has been used. After the registration and ticket are cancelled and the seat is released, the method emits a registration.cancelled event, which now carries the event's organizer profile ID besides the event ID and the participant's profile ID, so the realtime gateway can nudge the organizer's analytics.
+Parameters
+eventId: string – The unique identifier of the event.
+participantProfileId: string – The profile ID of the participant cancelling.
+Returns
+Promise<ReturnTicketDetailDto> – The cancelled registration's ticket detail.
+Throws
+RegistrationNotCancellableException – Thrown when the event has started, ended, or been cancelled, or when the participant has already been checked in ("Cannot cancel after checking in.").
+Emits: registration.cancelled with RegistrationCancelledPayload. [Appendix B-XZ-004]
+
+---
+
+Form Module (updated methods)
+FormValidationService
+M-YB-001
+validateParticipantAttended(registrationId: string): Promise<{ message: string }>
+Description
+Confirms that a participant was checked in at an event, because feedback is only for participants who attended. The method looks for an attendance record on the registration's ticket. If none exists, it throws FeedbackRequiresAttendanceException ("Only participants who checked in can submit feedback."). Otherwise, it returns a confirmation message.
+Parameters
+registrationId: string – The unique identifier of the participant's registration.
+Returns
+Promise<{ message: string }> – A confirmation message stating the participant attended the event.
+Throws
+FeedbackRequiresAttendanceException – Thrown when the participant was never checked in ("Only participants who checked in can submit feedback.").
+
+FormService
+M-YB-002
+createFeedbackFormResponse(
+ eventId: string,
+ dto: CreateFormResponseDto,
+ participantProfileId: string,
+): Promise<ReturnFormSubmissionItem>
+Description
+Saves a participant's response to the event's feedback form. The method now also requires the participant to have attended, and announces the new feedback so the organizer's analytics dashboard can update live.
+First, the method checks that the event exists and is ONGOING or CONCLUDED, then fetches the feedback form and validates the answers against its fields. Next, it checks that the participant has a confirmed registration, and that they were checked in at the event, throwing FeedbackRequiresAttendanceException if not. Once the response is saved, the method emits a feedback.submitted event carrying the event ID and the event's organizer profile ID. This emit is best-effort: if it fails, a warning is logged and the submission still succeeds.
+Parameters
+eventId: string – The unique identifier of the event the feedback is for.
+dto: CreateFormResponseDto – The participant's answers to the feedback form.
+participantProfileId: string – The profile ID of the participant submitting the feedback.
+Returns
+Promise<ReturnFormSubmissionItem> – The saved feedback response.
+Throws
+EventNotFoundException – Thrown when no event exists for the given eventId.
+ForbiddenException – Thrown when the event is not ongoing or concluded ("Feedback can only be submitted for ongoing or concluded events.").
+RegistrationNotFoundException – Thrown when the participant has no confirmed registration for the event.
+FeedbackRequiresAttendanceException – Thrown when the participant was never checked in ("Only participants who checked in can submit feedback.").
+Emits: feedback.submitted with FeedbackSubmittedPayload. [Appendix B-XZ-005]
+
+---
+
+Appendix
+B-XX-001: GetAnalyticsQueryDto (including AnalyticsRange)
+B-XX-002: ReturnAnalyticsDto
+B-XX-003: AnalyticsTimelineDto
+B-XX-004: AnalyticsFieldStatsDto
+B-XX-005: AnalyticsOverviewDto
+B-XX-006: AnalyticsFeedbackDto
+B-XY-001: CheckInByQrDto
+B-XY-002: CheckInManualDto
+B-XY-003: ReturnAttendanceDto
+B-XY-004: ReturnAttendanceListItemDto
+B-XY-005: ReturnAttendanceListDto
+B-XY-006: ReturnAttendanceSummaryDto
+B-XZ-001: AttendanceCheckedInPayload
+B-XZ-002: AttendanceUndonePayload
+B-XZ-003: RegistrationCreatedPayload
+B-XZ-004: RegistrationCancelledPayload
+B-XZ-005: FeedbackSubmittedPayload
+

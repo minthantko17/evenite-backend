@@ -11,6 +11,9 @@ import { ScheduleModule } from "@nestjs/schedule";
 import { RegistrationModule } from './registration/registration.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { DiscussionModule } from './discussion/discussion.module';
+import { AttendanceModule } from './attendance/attendance.module';
+import { RealtimeModule } from './realtime/realtime.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 
 @Module({
   imports: [
@@ -23,7 +26,10 @@ import { DiscussionModule } from './discussion/discussion.module';
     UniversityModule,
     UserModule,
     RegistrationModule,
-    DiscussionModule
+    DiscussionModule,
+    AttendanceModule,
+    RealtimeModule,
+    AnalyticsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

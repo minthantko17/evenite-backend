@@ -1,5 +1,5 @@
 import { Injectable, ForbiddenException } from '@nestjs/common';
-import { EventStatus, RegistrationStatus } from '@prisma/client';
+import { EventStatus, RegistrationStatus, TicketStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventNotRegisterableException } from '../exceptions/event-not-registerable.exception';
 import { AlreadyRegisteredException } from '../exceptions/already-registered.exception';
@@ -84,6 +84,23 @@ export class RegistrationValidationService {
     }
 
     return { message: 'Registration can be cancelled.' };
+  }
+
+  // a checked-in registration can't be cancelled (organizer must undo the check-in first)
+  async validateNotCheckedIn(
+    registrationId: string,
+  ): Promise<{ message: string }> {
+    const ticket = await this.prisma.ticket.findUnique({
+      where: { eventRegistrationId: registrationId },
+      select: { status: true },
+    });
+
+    if (ticket?.status === TicketStatus.USED) {
+      throw new RegistrationNotCancellableException(
+        'Cannot cancel after checking in.',
+      );
+    }
+    return { message: 'Registration is not checked in.' };
   }
 
   async validateTicketOwnership(
