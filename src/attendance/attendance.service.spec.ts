@@ -33,7 +33,6 @@ import {
   TICKET_EXPIRED,
   ATTENDANCE_WINNER,
   ATTENDANCE_WITH_TICKET,
-  METHOD_BY_ENTRY,
   uniqueViolation,
   foreignKeyViolation,
   fakeReturnDto,
@@ -65,21 +64,6 @@ const validationMock = mockDeep<AttendanceValidationService>();
 const eventValidationMock = mockDeep<EventValidationService>();
 const emitterMock = mockDeep<EventEmitter2>();
 const txMock = { isFakeTransactionClient: true };
-
-type Entry = 'QR' | 'MANUAL';
-const ENTRIES: Entry[] = ['QR', 'MANUAL'];
-
-// runs the check-in entry point under test
-const checkIn = (service: AttendanceService, entry: Entry) =>
-  entry === 'QR'
-    ? service.checkInByQrToken(EVENT_ID, QR_TOKEN, ORGANIZER_ID)
-    : service.checkInManually(EVENT_ID, REGISTRATION_ID, ORGANIZER_ID);
-
-// the ticket lookup the entry point is expected to use
-const findTicketMock = (entry: Entry) =>
-  entry === 'QR'
-    ? crudMock.findTicketByQrToken
-    : crudMock.findTicketByRegistrationId;
 
 // resolves with whatever the promise rejected with (undefined if it resolved)
 const caught = (promise: Promise<unknown>): Promise<unknown> =>
@@ -132,167 +116,212 @@ describe('AttendanceService', () => {
   });
 
   // ==========================================================================
-  // checkInByQrToken / checkInManually (shared flow)
+  // checkInByQrToken
   // ==========================================================================
-  describe('checkIn (checkInByQrToken / checkInManually)', () => {
-    it.each(ENTRIES)(
-      'UT-checkIn-01: %s entry, ACTIVE ticket — claims the ticket, creates the attendance in one transaction, returns the result with the ticket USED and emits attendance.checked-in',
-      async (entry) => {
-        const method: CheckInMethod = METHOD_BY_ENTRY[entry];
-        const input = { entry };
-        const created = buildAttendance('a', { method });
-        crudMock.createAttendance.mockResolvedValue(created);
-        const usedTicket = { ...TICKET_ACTIVE, status: TicketStatus.USED };
-        const expectedResult = fakeReturnDto(created, usedTicket);
-        const expected = {
-          result: expectedResult,
-          event: {
-            eventId: EVENT_ID,
-            organizerProfileId: ORGANIZER_ID,
-            participantProfileId: 'participant-a',
-            attendance: expectedResult,
-            counts: COUNTS,
-          },
-        };
+  describe('checkInByQrToken', () => {
+    const defaultInput = () => ({
+      eventId: EVENT_ID,
+      qrToken: QR_TOKEN,
+      organizerProfileId: ORGANIZER_ID,
+    });
 
-        const result = await checkIn(service, input.entry);
-        const actual = {
-          result,
-          event: emitterMock.emit.mock.calls[0][1] as unknown,
-        };
-        // console.log({ input, expected, actual });
+    it('UT-checkInByQrToken-01: valid QR token, ACTIVE ticket — returns the check-in with the ticket USED and emits attendance.checked-in', async () => {
+      const input = defaultInput();
+      const created = buildAttendance('a', { method: CheckInMethod.QR_SCAN });
+      crudMock.createAttendance.mockResolvedValue(created);
+      const usedTicket = { ...TICKET_ACTIVE, status: TicketStatus.USED };
+      const expectedResult = fakeReturnDto(created, usedTicket);
+      const expected = {
+        result: expectedResult,
+        event: {
+          eventId: EVENT_ID,
+          organizerProfileId: ORGANIZER_ID,
+          participantProfileId: 'participant-a',
+          attendance: expectedResult,
+          counts: COUNTS,
+        },
+      };
 
-        expect(actual).toEqual(expected);
-        expect(emitterMock.emit).toHaveBeenCalledWith(
-          'attendance.checked-in',
-          expected.event,
-        );
-        expect(eventValidationMock.validateEventOwnership).toHaveBeenCalledWith(
-          EVENT_ID,
-          ORGANIZER_ID,
-        );
-        expect(validationMock.validateEventCheckable).toHaveBeenCalledWith(
-          EVENT_PUBLISHED.status,
-        );
-        expect(findTicketMock(entry)).toHaveBeenCalledWith(
-          EVENT_ID,
-          entry === 'QR' ? QR_TOKEN : REGISTRATION_ID,
-        );
-        expect(crudMock.markTicketUsed).toHaveBeenCalledWith(
-          TICKET_ACTIVE.id,
-          txMock,
-        );
-        expect(crudMock.createAttendance).toHaveBeenCalledWith(
-          TICKET_ACTIVE.id,
-          EVENT_ID,
-          ORGANIZER_ID,
-          method,
-          txMock,
-        );
-        expect(crudMock.mapToReturnAttendanceDto).toHaveBeenCalledWith(
-          created,
-          usedTicket,
-        );
-      },
-    );
+      const result = await service.checkInByQrToken(
+        input.eventId,
+        input.qrToken,
+        input.organizerProfileId,
+      );
+      const actual = {
+        result,
+        event: emitterMock.emit.mock.calls[0][1] as unknown,
+      };
+      // console.log({ input, expected, actual });
+
+      expect(actual).toEqual(expected);
+      expect(emitterMock.emit).toHaveBeenCalledWith(
+        'attendance.checked-in',
+        expected.event,
+      );
+    });
+
+    it('UT-checkInByQrToken-02: valid QR token, ACTIVE ticket — validates access, looks the ticket up by QR token, then claims it and creates the attendance with method QR_SCAN in one transaction', async () => {
+      const input = defaultInput();
+      const created = buildAttendance('a', { method: CheckInMethod.QR_SCAN });
+      crudMock.createAttendance.mockResolvedValue(created);
+      const usedTicket = { ...TICKET_ACTIVE, status: TicketStatus.USED };
+
+      await service.checkInByQrToken(
+        input.eventId,
+        input.qrToken,
+        input.organizerProfileId,
+      );
+      const actual = {
+        ownership: eventValidationMock.validateEventOwnership.mock.calls,
+        checkable: validationMock.validateEventCheckable.mock.calls,
+        lookup: crudMock.findTicketByQrToken.mock.calls,
+        claim: crudMock.markTicketUsed.mock.calls,
+        create: crudMock.createAttendance.mock.calls,
+        map: crudMock.mapToReturnAttendanceDto.mock.calls,
+      };
+      const expected = {
+        ownership: [[EVENT_ID, ORGANIZER_ID]],
+        checkable: [[EVENT_PUBLISHED.status]],
+        lookup: [[EVENT_ID, QR_TOKEN]],
+        claim: [[TICKET_ACTIVE.id, txMock]],
+        create: [
+          [
+            TICKET_ACTIVE.id,
+            EVENT_ID,
+            ORGANIZER_ID,
+            CheckInMethod.QR_SCAN,
+            txMock,
+          ],
+        ],
+        map: [[created, usedTicket]],
+      };
+      // console.log({ input, expected, actual });
+
+      expect(actual).toEqual(expected);
+      expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+    });
 
     it.each([
-      ['QR', 'not the owner', new ForbiddenException('not yours')],
-      ['QR', 'event does not exist', new EventNotFoundException()],
-      ['MANUAL', 'not the owner', new ForbiddenException('not yours')],
-      ['MANUAL', 'event does not exist', new EventNotFoundException()],
+      [
+        'not the owner',
+        new ForbiddenException(
+          'You do not have permission to edit this event.',
+        ),
+      ],
+      ['event does not exist', new EventNotFoundException()],
     ])(
-      'UT-checkIn-02: %s entry, ownership check fails (%s) — the error bubbles up and nothing else is called',
-      async (entry, _label, error) => {
-        const input = { entry: entry as Entry, error };
+      'UT-checkInByQrToken-03: ownership check fails (%s) — the error bubbles up and nothing else is called',
+      async (_label, error) => {
+        const input = { ...defaultInput(), error };
         eventValidationMock.validateEventOwnership.mockRejectedValue(
           input.error,
         );
         const expected = input.error;
 
-        const actual = await caught(checkIn(service, input.entry));
+        const actual = await caught(
+          service.checkInByQrToken(
+            input.eventId,
+            input.qrToken,
+            input.organizerProfileId,
+          ),
+        );
         // console.log({ input, expected, actual });
 
         expect(actual).toBe(expected);
         expect(eventValidationMock.validateEventExists).not.toHaveBeenCalled();
-        expect(findTicketMock(input.entry)).not.toHaveBeenCalled();
+        expect(crudMock.findTicketByQrToken).not.toHaveBeenCalled();
         expect(prismaMock.$transaction).not.toHaveBeenCalled();
       },
     );
 
-    it('UT-checkIn-03: event disappears between the ownership check and the existence check — throws EventNotFoundException before any ticket lookup', async () => {
-      const input = { entry: 'QR' as Entry };
+    it('UT-checkInByQrToken-04: event disappears between the ownership check and the existence check — throws EventNotFoundException before any ticket lookup', async () => {
+      const input = defaultInput();
       eventValidationMock.validateEventExists.mockRejectedValue(
         new EventNotFoundException(),
       );
 
-      const actual = await caught(checkIn(service, input.entry));
+      const actual = await caught(
+        service.checkInByQrToken(
+          input.eventId,
+          input.qrToken,
+          input.organizerProfileId,
+        ),
+      );
       // console.log({ input, actual });
 
       expect(actual).toBeInstanceOf(EventNotFoundException);
       expect(crudMock.findTicketByQrToken).not.toHaveBeenCalled();
     });
 
-    it.each(ENTRIES)(
-      'UT-checkIn-04: %s entry, event concluded or cancelled — throws EventNotCheckableException before any ticket lookup',
-      async (entry) => {
-        const input = { entry };
-        validationMock.validateEventCheckable.mockImplementation(() => {
-          throw new EventNotCheckableException();
-        });
-        const expected = AttendanceErrorCode.EVENT_NOT_CHECKABLE;
+    it('UT-checkInByQrToken-05: event concluded or cancelled — throws EventNotCheckableException before any ticket lookup', async () => {
+      const input = defaultInput();
+      validationMock.validateEventCheckable.mockImplementation(() => {
+        throw new EventNotCheckableException();
+      });
+      const expected = AttendanceErrorCode.EVENT_NOT_CHECKABLE;
 
-        const actual = await caught(checkIn(service, input.entry));
-        // console.log({ input, expected, actual });
+      const actual = await caught(
+        service.checkInByQrToken(
+          input.eventId,
+          input.qrToken,
+          input.organizerProfileId,
+        ),
+      );
+      // console.log({ input, expected, actual });
 
-        expect(actual).toBeInstanceOf(EventNotCheckableException);
-        expect((actual as HttpException).getResponse()).toMatchObject({
-          errorCode: expected,
-        });
-        expect(findTicketMock(input.entry)).not.toHaveBeenCalled();
-      },
-    );
+      expect(actual).toBeInstanceOf(EventNotCheckableException);
+      expect((actual as HttpException).getResponse()).toMatchObject({
+        errorCode: expected,
+      });
+      expect(crudMock.findTicketByQrToken).not.toHaveBeenCalled();
+    });
 
-    it.each(ENTRIES)(
-      'UT-checkIn-05: %s entry, no ticket found — AttendanceTicketNotFoundException bubbles up and no transaction starts',
-      async (entry) => {
-        const input = { entry };
-        findTicketMock(input.entry).mockRejectedValue(
-          new AttendanceTicketNotFoundException(),
-        );
-        const expected = AttendanceErrorCode.TICKET_NOT_FOUND;
+    it('UT-checkInByQrToken-06: no ticket found — AttendanceTicketNotFoundException bubbles up and no transaction starts', async () => {
+      const input = defaultInput();
+      crudMock.findTicketByQrToken.mockRejectedValue(
+        new AttendanceTicketNotFoundException(),
+      );
+      const expected = AttendanceErrorCode.TICKET_NOT_FOUND;
 
-        const actual = await caught(checkIn(service, input.entry));
-        // console.log({ input, expected, actual });
+      const actual = await caught(
+        service.checkInByQrToken(
+          input.eventId,
+          input.qrToken,
+          input.organizerProfileId,
+        ),
+      );
+      // console.log({ input, expected, actual });
 
-        expect(actual).toBeInstanceOf(AttendanceTicketNotFoundException);
-        expect((actual as HttpException).getResponse()).toMatchObject({
-          errorCode: expected,
-        });
-        expect(prismaMock.$transaction).not.toHaveBeenCalled();
-      },
-    );
+      expect(actual).toBeInstanceOf(AttendanceTicketNotFoundException);
+      expect((actual as HttpException).getResponse()).toMatchObject({
+        errorCode: expected,
+      });
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    });
 
-    it.each(ENTRIES)(
-      'UT-checkIn-06: %s entry, ticket already USED with an attendance record — throws AlreadyCheckedInException carrying the original check-in, with no transaction and no event',
-      async (entry) => {
-        const input = { entry };
-        findTicketMock(input.entry).mockResolvedValue(TICKET_USED);
-        const expected = {
-          message: 'This participant is already checked in.',
-          errorCode: AttendanceErrorCode.ALREADY_CHECKED_IN,
-          attendance: fakeReturnDto(ATTENDANCE_WINNER, TICKET_USED),
-        };
+    it('UT-checkInByQrToken-07: ticket already USED with an attendance record — throws AlreadyCheckedInException carrying the original check-in, with no transaction and no event', async () => {
+      const input = defaultInput();
+      crudMock.findTicketByQrToken.mockResolvedValue(TICKET_USED);
+      const expected = {
+        message: 'This participant is already checked in.',
+        errorCode: AttendanceErrorCode.ALREADY_CHECKED_IN,
+        attendance: fakeReturnDto(ATTENDANCE_WINNER, TICKET_USED),
+      };
 
-        const actual = await caught(checkIn(service, input.entry));
-        // console.log({ input, expected, actual });
+      const actual = await caught(
+        service.checkInByQrToken(
+          input.eventId,
+          input.qrToken,
+          input.organizerProfileId,
+        ),
+      );
+      // console.log({ input, expected, actual });
 
-        expect(actual).toBeInstanceOf(AlreadyCheckedInException);
-        expect((actual as HttpException).getResponse()).toMatchObject(expected);
-        expect(prismaMock.$transaction).not.toHaveBeenCalled();
-        expect(emitterMock.emit).not.toHaveBeenCalled();
-      },
-    );
+      expect(actual).toBeInstanceOf(AlreadyCheckedInException);
+      expect((actual as HttpException).getResponse()).toMatchObject(expected);
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+      expect(emitterMock.emit).not.toHaveBeenCalled();
+    });
 
     it.each([
       [
@@ -306,13 +335,19 @@ describe('AttendanceService', () => {
         AttendanceErrorCode.TICKET_EXPIRED,
       ],
     ])(
-      'UT-checkIn-07: ticket %s — throws TicketNotActiveException with its errorCode, with no transaction and no event',
+      'UT-checkInByQrToken-08: ticket %s — throws TicketNotActiveException with its errorCode, with no transaction and no event',
       async (_status, ticket, errorCode) => {
-        const input = { ticket };
+        const input = { ...defaultInput(), ticket };
         crudMock.findTicketByQrToken.mockResolvedValue(input.ticket);
         const expected = { errorCode };
 
-        const actual = await caught(checkIn(service, 'QR'));
+        const actual = await caught(
+          service.checkInByQrToken(
+            input.eventId,
+            input.qrToken,
+            input.organizerProfileId,
+          ),
+        );
         // console.log({ input, expected, actual });
 
         expect(actual).toBeInstanceOf(TicketNotActiveException);
@@ -322,8 +357,8 @@ describe('AttendanceService', () => {
       },
     );
 
-    it("UT-checkIn-08: another check-in claims the ticket first (markTicketUsed false) — re-reads the ticket and throws AlreadyCheckedInException with the winner's check-in, creating nothing and emitting nothing", async () => {
-      const input = { entry: 'QR' as Entry };
+    it("UT-checkInByQrToken-09: another check-in claims the ticket first (markTicketUsed false) — re-reads the ticket and throws AlreadyCheckedInException with the winner's check-in, creating nothing and emitting nothing", async () => {
+      const input = defaultInput();
       crudMock.markTicketUsed.mockResolvedValue(false);
       crudMock.findTicketById.mockResolvedValue(TICKET_USED);
       const expected = {
@@ -331,7 +366,13 @@ describe('AttendanceService', () => {
         attendance: fakeReturnDto(ATTENDANCE_WINNER, TICKET_USED),
       };
 
-      const actual = await caught(checkIn(service, input.entry));
+      const actual = await caught(
+        service.checkInByQrToken(
+          input.eventId,
+          input.qrToken,
+          input.organizerProfileId,
+        ),
+      );
       // console.log({ input, expected, actual });
 
       expect(actual).toBeInstanceOf(AlreadyCheckedInException);
@@ -341,8 +382,8 @@ describe('AttendanceService', () => {
       expect(emitterMock.emit).not.toHaveBeenCalled();
     });
 
-    it('UT-checkIn-09: unique violation (P2002) while creating the attendance — treated as losing the race: re-reads the ticket and throws AlreadyCheckedInException without logging an error', async () => {
-      const input = { entry: 'MANUAL' as Entry };
+    it('UT-checkInByQrToken-10: unique violation (P2002) while creating the attendance — treated as losing the race: re-reads the ticket and throws AlreadyCheckedInException without logging an error', async () => {
+      const input = defaultInput();
       crudMock.createAttendance.mockRejectedValue(uniqueViolation());
       crudMock.findTicketById.mockResolvedValue(TICKET_USED);
       const expected = {
@@ -350,7 +391,13 @@ describe('AttendanceService', () => {
         attendance: fakeReturnDto(ATTENDANCE_WINNER, TICKET_USED),
       };
 
-      const actual = await caught(checkIn(service, input.entry));
+      const actual = await caught(
+        service.checkInByQrToken(
+          input.eventId,
+          input.qrToken,
+          input.organizerProfileId,
+        ),
+      );
       // console.log({ input, expected, actual });
 
       expect(actual).toBeInstanceOf(AlreadyCheckedInException);
@@ -359,12 +406,18 @@ describe('AttendanceService', () => {
       expect(emitterMock.emit).not.toHaveBeenCalled();
     });
 
-    it('UT-checkIn-10: the transaction fails with a generic error — logs it and throws SaveAttendanceException, with no re-read and no event', async () => {
-      const input = { error: new Error('db down') };
+    it('UT-checkInByQrToken-11: the transaction fails with a generic error — logs it and throws SaveAttendanceException, with no re-read and no event', async () => {
+      const input = { ...defaultInput(), error: new Error('db down') };
       crudMock.createAttendance.mockRejectedValue(input.error);
       const expected = input.error;
 
-      const actual = await caught(checkIn(service, 'QR'));
+      const actual = await caught(
+        service.checkInByQrToken(
+          input.eventId,
+          input.qrToken,
+          input.organizerProfileId,
+        ),
+      );
       // console.log({ input, expected, actual });
 
       expect(actual).toBeInstanceOf(SaveAttendanceException);
@@ -376,12 +429,18 @@ describe('AttendanceService', () => {
       expect(emitterMock.emit).not.toHaveBeenCalled();
     });
 
-    it('UT-checkIn-11: the transaction fails with another Prisma error code (P2003) — logs it and throws SaveAttendanceException, with no re-read', async () => {
-      const input = { error: foreignKeyViolation() };
+    it('UT-checkInByQrToken-12: the transaction fails with another Prisma error code (P2003) — logs it and throws SaveAttendanceException, with no re-read', async () => {
+      const input = { ...defaultInput(), error: foreignKeyViolation() };
       crudMock.createAttendance.mockRejectedValue(input.error);
       const expected = input.error;
 
-      const actual = await caught(checkIn(service, 'QR'));
+      const actual = await caught(
+        service.checkInByQrToken(
+          input.eventId,
+          input.qrToken,
+          input.organizerProfileId,
+        ),
+      );
       // console.log({ input, expected, actual });
 
       expect(actual).toBeInstanceOf(SaveAttendanceException);
@@ -392,13 +451,17 @@ describe('AttendanceService', () => {
       expect(crudMock.findTicketById).not.toHaveBeenCalled();
     });
 
-    it('UT-checkIn-12: counting for the realtime event fails — the check-in is still returned, a warning is logged and no event is emitted', async () => {
-      const input = { error: new Error('count failed') };
+    it('UT-checkInByQrToken-13: counting for the realtime event fails — the check-in is still returned, a warning is logged and no event is emitted', async () => {
+      const input = { ...defaultInput(), error: new Error('count failed') };
       crudMock.getAttendanceSummary.mockRejectedValue(input.error);
       const usedTicket = { ...TICKET_ACTIVE, status: TicketStatus.USED };
       const expected = fakeReturnDto(buildAttendance('a'), usedTicket);
 
-      const actual = await checkIn(service, 'QR');
+      const actual = await service.checkInByQrToken(
+        input.eventId,
+        input.qrToken,
+        input.organizerProfileId,
+      );
       // console.log({ input, expected, actual });
 
       expect(actual).toEqual(expected);
@@ -409,15 +472,19 @@ describe('AttendanceService', () => {
       expect(emitterMock.emit).not.toHaveBeenCalled();
     });
 
-    it('UT-checkIn-13: the emitter throws — the check-in is still returned and a warning is logged', async () => {
-      const input = { error: new Error('emit failed') };
+    it('UT-checkInByQrToken-14: the emitter throws — the check-in is still returned and a warning is logged', async () => {
+      const input = { ...defaultInput(), error: new Error('emit failed') };
       emitterMock.emit.mockImplementation(() => {
         throw input.error;
       });
       const usedTicket = { ...TICKET_ACTIVE, status: TicketStatus.USED };
       const expected = fakeReturnDto(buildAttendance('a'), usedTicket);
 
-      const actual = await checkIn(service, 'QR');
+      const actual = await service.checkInByQrToken(
+        input.eventId,
+        input.qrToken,
+        input.organizerProfileId,
+      );
       // console.log({ input, expected, actual });
 
       expect(actual).toEqual(expected);
@@ -428,37 +495,491 @@ describe('AttendanceService', () => {
     });
 
     // --- edge cases (documents current behavior) ---
-    it('UT-checkIn-14: ticket marked USED but without an attendance record — falls through to the status check and throws TicketNotActiveException (TICKET_NOT_ACTIVE)', async () => {
-      const input = { ticket: TICKET_USED_NO_ATTENDANCE };
+    it('UT-checkInByQrToken-15: ticket marked USED but without an attendance record — falls through to the status check and throws TicketNotActiveException (TICKET_NOT_ACTIVE)', async () => {
+      const input = { ...defaultInput(), ticket: TICKET_USED_NO_ATTENDANCE };
       crudMock.findTicketByQrToken.mockResolvedValue(input.ticket);
       const expected = { errorCode: AttendanceErrorCode.TICKET_NOT_ACTIVE };
 
-      const actual = await caught(checkIn(service, 'QR'));
+      const actual = await caught(
+        service.checkInByQrToken(
+          input.eventId,
+          input.qrToken,
+          input.organizerProfileId,
+        ),
+      );
       // console.log({ input, expected, actual });
 
       expect(actual).toBeInstanceOf(TicketNotActiveException);
       expect((actual as HttpException).getResponse()).toMatchObject(expected);
     });
 
-    it('UT-checkIn-15: lost the race and the re-read shows the ticket CANCELLED — throws TicketNotActiveException (TICKET_CANCELLED)', async () => {
-      const input = { entry: 'QR' as Entry };
+    it('UT-checkInByQrToken-16: lost the race and the re-read shows the ticket CANCELLED — throws TicketNotActiveException (TICKET_CANCELLED)', async () => {
+      const input = defaultInput();
       crudMock.markTicketUsed.mockResolvedValue(false);
       crudMock.findTicketById.mockResolvedValue(TICKET_CANCELLED);
       const expected = { errorCode: AttendanceErrorCode.TICKET_CANCELLED };
 
-      const actual = await caught(checkIn(service, input.entry));
+      const actual = await caught(
+        service.checkInByQrToken(
+          input.eventId,
+          input.qrToken,
+          input.organizerProfileId,
+        ),
+      );
       // console.log({ input, expected, actual });
 
       expect(actual).toBeInstanceOf(TicketNotActiveException);
       expect((actual as HttpException).getResponse()).toMatchObject(expected);
     });
 
-    it('UT-checkIn-16: lost the race but the re-read still shows the ticket ACTIVE — throws SaveAttendanceException', async () => {
-      const input = { entry: 'QR' as Entry };
+    it('UT-checkInByQrToken-17: lost the race but the re-read still shows the ticket ACTIVE — throws SaveAttendanceException', async () => {
+      const input = defaultInput();
       crudMock.markTicketUsed.mockResolvedValue(false);
       crudMock.findTicketById.mockResolvedValue(TICKET_ACTIVE);
 
-      const actual = await caught(checkIn(service, input.entry));
+      const actual = await caught(
+        service.checkInByQrToken(
+          input.eventId,
+          input.qrToken,
+          input.organizerProfileId,
+        ),
+      );
+      // console.log({ input, actual });
+
+      expect(actual).toBeInstanceOf(SaveAttendanceException);
+      expect(emitterMock.emit).not.toHaveBeenCalled();
+    });
+  });
+
+  // ==========================================================================
+  // checkInManually
+  // ==========================================================================
+  describe('checkInManually', () => {
+    const defaultInput = () => ({
+      eventId: EVENT_ID,
+      registrationId: REGISTRATION_ID,
+      organizerProfileId: ORGANIZER_ID,
+    });
+
+    it('UT-checkInManually-01: valid registration id, ACTIVE ticket — returns the check-in with the ticket USED and emits attendance.checked-in', async () => {
+      const input = defaultInput();
+      const created = buildAttendance('a', { method: CheckInMethod.MANUAL });
+      crudMock.createAttendance.mockResolvedValue(created);
+      const usedTicket = { ...TICKET_ACTIVE, status: TicketStatus.USED };
+      const expectedResult = fakeReturnDto(created, usedTicket);
+      const expected = {
+        result: expectedResult,
+        event: {
+          eventId: EVENT_ID,
+          organizerProfileId: ORGANIZER_ID,
+          participantProfileId: 'participant-a',
+          attendance: expectedResult,
+          counts: COUNTS,
+        },
+      };
+
+      const result = await service.checkInManually(
+        input.eventId,
+        input.registrationId,
+        input.organizerProfileId,
+      );
+      const actual = {
+        result,
+        event: emitterMock.emit.mock.calls[0][1] as unknown,
+      };
+      // console.log({ input, expected, actual });
+
+      expect(actual).toEqual(expected);
+      expect(emitterMock.emit).toHaveBeenCalledWith(
+        'attendance.checked-in',
+        expected.event,
+      );
+    });
+
+    it('UT-checkInManually-02: valid registration id, ACTIVE ticket — validates access, looks the ticket up by registration id, then claims it and creates the attendance with method MANUAL in one transaction', async () => {
+      const input = defaultInput();
+      const created = buildAttendance('a', { method: CheckInMethod.MANUAL });
+      crudMock.createAttendance.mockResolvedValue(created);
+      const usedTicket = { ...TICKET_ACTIVE, status: TicketStatus.USED };
+
+      await service.checkInManually(
+        input.eventId,
+        input.registrationId,
+        input.organizerProfileId,
+      );
+      const actual = {
+        ownership: eventValidationMock.validateEventOwnership.mock.calls,
+        checkable: validationMock.validateEventCheckable.mock.calls,
+        lookup: crudMock.findTicketByRegistrationId.mock.calls,
+        claim: crudMock.markTicketUsed.mock.calls,
+        create: crudMock.createAttendance.mock.calls,
+        map: crudMock.mapToReturnAttendanceDto.mock.calls,
+      };
+      const expected = {
+        ownership: [[EVENT_ID, ORGANIZER_ID]],
+        checkable: [[EVENT_PUBLISHED.status]],
+        lookup: [[EVENT_ID, REGISTRATION_ID]],
+        claim: [[TICKET_ACTIVE.id, txMock]],
+        create: [
+          [
+            TICKET_ACTIVE.id,
+            EVENT_ID,
+            ORGANIZER_ID,
+            CheckInMethod.MANUAL,
+            txMock,
+          ],
+        ],
+        map: [[created, usedTicket]],
+      };
+      // console.log({ input, expected, actual });
+
+      expect(actual).toEqual(expected);
+      expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([
+      [
+        'not the owner',
+        new ForbiddenException(
+          'You do not have permission to edit this event.',
+        ),
+      ],
+      ['event does not exist', new EventNotFoundException()],
+    ])(
+      'UT-checkInManually-03: ownership check fails (%s) — the error bubbles up and nothing else is called',
+      async (_label, error) => {
+        const input = { ...defaultInput(), error };
+        eventValidationMock.validateEventOwnership.mockRejectedValue(
+          input.error,
+        );
+        const expected = input.error;
+
+        const actual = await caught(
+          service.checkInManually(
+            input.eventId,
+            input.registrationId,
+            input.organizerProfileId,
+          ),
+        );
+        // console.log({ input, expected, actual });
+
+        expect(actual).toBe(expected);
+        expect(eventValidationMock.validateEventExists).not.toHaveBeenCalled();
+        expect(crudMock.findTicketByRegistrationId).not.toHaveBeenCalled();
+        expect(prismaMock.$transaction).not.toHaveBeenCalled();
+      },
+    );
+
+    it('UT-checkInManually-04: event disappears between the ownership check and the existence check — throws EventNotFoundException before any ticket lookup', async () => {
+      const input = defaultInput();
+      eventValidationMock.validateEventExists.mockRejectedValue(
+        new EventNotFoundException(),
+      );
+
+      const actual = await caught(
+        service.checkInManually(
+          input.eventId,
+          input.registrationId,
+          input.organizerProfileId,
+        ),
+      );
+      // console.log({ input, actual });
+
+      expect(actual).toBeInstanceOf(EventNotFoundException);
+      expect(crudMock.findTicketByRegistrationId).not.toHaveBeenCalled();
+    });
+
+    it('UT-checkInManually-05: event concluded or cancelled — throws EventNotCheckableException before any ticket lookup', async () => {
+      const input = defaultInput();
+      validationMock.validateEventCheckable.mockImplementation(() => {
+        throw new EventNotCheckableException();
+      });
+      const expected = AttendanceErrorCode.EVENT_NOT_CHECKABLE;
+
+      const actual = await caught(
+        service.checkInManually(
+          input.eventId,
+          input.registrationId,
+          input.organizerProfileId,
+        ),
+      );
+      // console.log({ input, expected, actual });
+
+      expect(actual).toBeInstanceOf(EventNotCheckableException);
+      expect((actual as HttpException).getResponse()).toMatchObject({
+        errorCode: expected,
+      });
+      expect(crudMock.findTicketByRegistrationId).not.toHaveBeenCalled();
+    });
+
+    it('UT-checkInManually-06: no ticket found — AttendanceTicketNotFoundException bubbles up and no transaction starts', async () => {
+      const input = defaultInput();
+      crudMock.findTicketByRegistrationId.mockRejectedValue(
+        new AttendanceTicketNotFoundException(),
+      );
+      const expected = AttendanceErrorCode.TICKET_NOT_FOUND;
+
+      const actual = await caught(
+        service.checkInManually(
+          input.eventId,
+          input.registrationId,
+          input.organizerProfileId,
+        ),
+      );
+      // console.log({ input, expected, actual });
+
+      expect(actual).toBeInstanceOf(AttendanceTicketNotFoundException);
+      expect((actual as HttpException).getResponse()).toMatchObject({
+        errorCode: expected,
+      });
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('UT-checkInManually-07: ticket already USED with an attendance record — throws AlreadyCheckedInException carrying the original check-in, with no transaction and no event', async () => {
+      const input = defaultInput();
+      crudMock.findTicketByRegistrationId.mockResolvedValue(TICKET_USED);
+      const expected = {
+        message: 'This participant is already checked in.',
+        errorCode: AttendanceErrorCode.ALREADY_CHECKED_IN,
+        attendance: fakeReturnDto(ATTENDANCE_WINNER, TICKET_USED),
+      };
+
+      const actual = await caught(
+        service.checkInManually(
+          input.eventId,
+          input.registrationId,
+          input.organizerProfileId,
+        ),
+      );
+      // console.log({ input, expected, actual });
+
+      expect(actual).toBeInstanceOf(AlreadyCheckedInException);
+      expect((actual as HttpException).getResponse()).toMatchObject(expected);
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+      expect(emitterMock.emit).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      [
+        TicketStatus.CANCELLED,
+        TICKET_CANCELLED,
+        AttendanceErrorCode.TICKET_CANCELLED,
+      ],
+      [
+        TicketStatus.EXPIRED,
+        TICKET_EXPIRED,
+        AttendanceErrorCode.TICKET_EXPIRED,
+      ],
+    ])(
+      'UT-checkInManually-08: ticket %s — throws TicketNotActiveException with its errorCode, with no transaction and no event',
+      async (_status, ticket, errorCode) => {
+        const input = { ...defaultInput(), ticket };
+        crudMock.findTicketByRegistrationId.mockResolvedValue(input.ticket);
+        const expected = { errorCode };
+
+        const actual = await caught(
+          service.checkInManually(
+            input.eventId,
+            input.registrationId,
+            input.organizerProfileId,
+          ),
+        );
+        // console.log({ input, expected, actual });
+
+        expect(actual).toBeInstanceOf(TicketNotActiveException);
+        expect((actual as HttpException).getResponse()).toMatchObject(expected);
+        expect(prismaMock.$transaction).not.toHaveBeenCalled();
+        expect(emitterMock.emit).not.toHaveBeenCalled();
+      },
+    );
+
+    it("UT-checkInManually-09: another check-in claims the ticket first (markTicketUsed false) — re-reads the ticket and throws AlreadyCheckedInException with the winner's check-in, creating nothing and emitting nothing", async () => {
+      const input = defaultInput();
+      crudMock.markTicketUsed.mockResolvedValue(false);
+      crudMock.findTicketById.mockResolvedValue(TICKET_USED);
+      const expected = {
+        errorCode: AttendanceErrorCode.ALREADY_CHECKED_IN,
+        attendance: fakeReturnDto(ATTENDANCE_WINNER, TICKET_USED),
+      };
+
+      const actual = await caught(
+        service.checkInManually(
+          input.eventId,
+          input.registrationId,
+          input.organizerProfileId,
+        ),
+      );
+      // console.log({ input, expected, actual });
+
+      expect(actual).toBeInstanceOf(AlreadyCheckedInException);
+      expect((actual as HttpException).getResponse()).toMatchObject(expected);
+      expect(crudMock.findTicketById).toHaveBeenCalledWith(TICKET_ACTIVE.id);
+      expect(crudMock.createAttendance).not.toHaveBeenCalled();
+      expect(emitterMock.emit).not.toHaveBeenCalled();
+    });
+
+    it('UT-checkInManually-10: unique violation (P2002) while creating the attendance — treated as losing the race: re-reads the ticket and throws AlreadyCheckedInException without logging an error', async () => {
+      const input = defaultInput();
+      crudMock.createAttendance.mockRejectedValue(uniqueViolation());
+      crudMock.findTicketById.mockResolvedValue(TICKET_USED);
+      const expected = {
+        errorCode: AttendanceErrorCode.ALREADY_CHECKED_IN,
+        attendance: fakeReturnDto(ATTENDANCE_WINNER, TICKET_USED),
+      };
+
+      const actual = await caught(
+        service.checkInManually(
+          input.eventId,
+          input.registrationId,
+          input.organizerProfileId,
+        ),
+      );
+      // console.log({ input, expected, actual });
+
+      expect(actual).toBeInstanceOf(AlreadyCheckedInException);
+      expect((actual as HttpException).getResponse()).toMatchObject(expected);
+      expect(errorSpy).not.toHaveBeenCalled();
+      expect(emitterMock.emit).not.toHaveBeenCalled();
+    });
+
+    it('UT-checkInManually-11: the transaction fails with a generic error — logs it and throws SaveAttendanceException, with no re-read and no event', async () => {
+      const input = { ...defaultInput(), error: new Error('db down') };
+      crudMock.createAttendance.mockRejectedValue(input.error);
+      const expected = input.error;
+
+      const actual = await caught(
+        service.checkInManually(
+          input.eventId,
+          input.registrationId,
+          input.organizerProfileId,
+        ),
+      );
+      // console.log({ input, expected, actual });
+
+      expect(actual).toBeInstanceOf(SaveAttendanceException);
+      expect(errorSpy).toHaveBeenCalledWith(
+        'Failed to save check-in',
+        expected,
+      );
+      expect(crudMock.findTicketById).not.toHaveBeenCalled();
+      expect(emitterMock.emit).not.toHaveBeenCalled();
+    });
+
+    it('UT-checkInManually-12: the transaction fails with another Prisma error code (P2003) — logs it and throws SaveAttendanceException, with no re-read', async () => {
+      const input = { ...defaultInput(), error: foreignKeyViolation() };
+      crudMock.createAttendance.mockRejectedValue(input.error);
+      const expected = input.error;
+
+      const actual = await caught(
+        service.checkInManually(
+          input.eventId,
+          input.registrationId,
+          input.organizerProfileId,
+        ),
+      );
+      // console.log({ input, expected, actual });
+
+      expect(actual).toBeInstanceOf(SaveAttendanceException);
+      expect(errorSpy).toHaveBeenCalledWith(
+        'Failed to save check-in',
+        expected,
+      );
+      expect(crudMock.findTicketById).not.toHaveBeenCalled();
+    });
+
+    it('UT-checkInManually-13: counting for the realtime event fails — the check-in is still returned, a warning is logged and no event is emitted', async () => {
+      const input = { ...defaultInput(), error: new Error('count failed') };
+      crudMock.getAttendanceSummary.mockRejectedValue(input.error);
+      const usedTicket = { ...TICKET_ACTIVE, status: TicketStatus.USED };
+      const expected = fakeReturnDto(buildAttendance('a'), usedTicket);
+
+      const actual = await service.checkInManually(
+        input.eventId,
+        input.registrationId,
+        input.organizerProfileId,
+      );
+      // console.log({ input, expected, actual });
+
+      expect(actual).toEqual(expected);
+      expect(warnSpy).toHaveBeenCalledWith(
+        'Failed to emit attendance.checked-in',
+        input.error,
+      );
+      expect(emitterMock.emit).not.toHaveBeenCalled();
+    });
+
+    it('UT-checkInManually-14: the emitter throws — the check-in is still returned and a warning is logged', async () => {
+      const input = { ...defaultInput(), error: new Error('emit failed') };
+      emitterMock.emit.mockImplementation(() => {
+        throw input.error;
+      });
+      const usedTicket = { ...TICKET_ACTIVE, status: TicketStatus.USED };
+      const expected = fakeReturnDto(buildAttendance('a'), usedTicket);
+
+      const actual = await service.checkInManually(
+        input.eventId,
+        input.registrationId,
+        input.organizerProfileId,
+      );
+      // console.log({ input, expected, actual });
+
+      expect(actual).toEqual(expected);
+      expect(warnSpy).toHaveBeenCalledWith(
+        'Failed to emit attendance.checked-in',
+        input.error,
+      );
+    });
+
+    // --- edge cases (documents current behavior) ---
+    it('UT-checkInManually-15: ticket marked USED but without an attendance record — falls through to the status check and throws TicketNotActiveException (TICKET_NOT_ACTIVE)', async () => {
+      const input = { ...defaultInput(), ticket: TICKET_USED_NO_ATTENDANCE };
+      crudMock.findTicketByRegistrationId.mockResolvedValue(input.ticket);
+      const expected = { errorCode: AttendanceErrorCode.TICKET_NOT_ACTIVE };
+
+      const actual = await caught(
+        service.checkInManually(
+          input.eventId,
+          input.registrationId,
+          input.organizerProfileId,
+        ),
+      );
+      // console.log({ input, expected, actual });
+
+      expect(actual).toBeInstanceOf(TicketNotActiveException);
+      expect((actual as HttpException).getResponse()).toMatchObject(expected);
+    });
+
+    it('UT-checkInManually-16: lost the race and the re-read shows the ticket CANCELLED — throws TicketNotActiveException (TICKET_CANCELLED)', async () => {
+      const input = defaultInput();
+      crudMock.markTicketUsed.mockResolvedValue(false);
+      crudMock.findTicketById.mockResolvedValue(TICKET_CANCELLED);
+      const expected = { errorCode: AttendanceErrorCode.TICKET_CANCELLED };
+
+      const actual = await caught(
+        service.checkInManually(
+          input.eventId,
+          input.registrationId,
+          input.organizerProfileId,
+        ),
+      );
+      // console.log({ input, expected, actual });
+
+      expect(actual).toBeInstanceOf(TicketNotActiveException);
+      expect((actual as HttpException).getResponse()).toMatchObject(expected);
+    });
+
+    it('UT-checkInManually-17: lost the race but the re-read still shows the ticket ACTIVE — throws SaveAttendanceException', async () => {
+      const input = defaultInput();
+      crudMock.markTicketUsed.mockResolvedValue(false);
+      crudMock.findTicketById.mockResolvedValue(TICKET_ACTIVE);
+
+      const actual = await caught(
+        service.checkInManually(
+          input.eventId,
+          input.registrationId,
+          input.organizerProfileId,
+        ),
+      );
       // console.log({ input, actual });
 
       expect(actual).toBeInstanceOf(SaveAttendanceException);
@@ -496,7 +1017,12 @@ describe('AttendanceService', () => {
     });
 
     it.each([
-      ['not the owner', new ForbiddenException('not yours')],
+      [
+        'not the owner',
+        new ForbiddenException(
+          'You do not have permission to edit this event.',
+        ),
+      ],
       ['event does not exist', new EventNotFoundException()],
     ])(
       'UT-getAttendanceList-02: ownership check fails (%s) — the error bubbles up and the list is not queried',
@@ -593,7 +1119,12 @@ describe('AttendanceService', () => {
     });
 
     it('UT-undoCheckIn-02: not the owner — the error bubbles up and nothing else is called', async () => {
-      const input = { error: new ForbiddenException('not yours') };
+      const input = {
+        ...undoInput,
+        error: new ForbiddenException(
+          'You do not have permission to edit this event.',
+        ),
+      };
       eventValidationMock.validateEventOwnership.mockRejectedValue(input.error);
       const expected = input.error;
 
@@ -679,7 +1210,7 @@ describe('AttendanceService', () => {
     ] as const)(
       'UT-undoCheckIn-07: %s — logs it and throws SaveAttendanceException, with no event',
       async (_label, failing) => {
-        const input = { failing, error: new Error('db down') };
+        const input = { ...undoInput, failing, error: new Error('db down') };
         crudMock[input.failing].mockRejectedValue(input.error);
         const expected = input.error;
 
