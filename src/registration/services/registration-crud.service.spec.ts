@@ -34,6 +34,7 @@ import {
   MOCK_PARTICIPANT_SNAPSHOT,
   MOCK_FUTURE_DATE,
   MOCK_FUTURE_END_DATE,
+  MOCK_NOW,
   MOCK_CREATED_AT,
   MOCK_ISSUED_AT,
   MOCK_PUBLISHED_EVENT,
@@ -93,6 +94,7 @@ beforeAll(() => {
 });
 
 beforeEach(async () => {
+  jest.useFakeTimers({ now: MOCK_NOW, doNotFake: ['nextTick'] });
   mockReset(prismaMock);
   mockReset(mockTx);
 
@@ -104,6 +106,10 @@ beforeEach(async () => {
   }).compile();
 
   service = module.get<RegistrationCrudService>(RegistrationCrudService);
+});
+
+afterEach(() => {
+  jest.useRealTimers();
 });
 
 describe('countConfirmedRegistrations', () => {
@@ -1180,8 +1186,8 @@ describe('getTicketsByParticipant', () => {
             th: 'คืนฮาโลวีน CAMT 2026',
           },
           bannerUrl: '',
-          startAt: new Date('2026-10-31T10:00:00.000Z'),
-          endAt: new Date('2026-10-31T14:00:00.000Z'),
+          startAt: MOCK_FUTURE_DATE,
+          endAt: MOCK_FUTURE_END_DATE,
           status: 'PUBLISHED',
         },
       },
@@ -1385,8 +1391,8 @@ describe('mapToReturnTicketDetailDto', () => {
         id: 'e0000002-0000-4000-8000-000000000002',
         title: { en: 'CAMT Halloween Night 2026', th: 'คืนฮาโลวีน CAMT 2026' },
         bannerUrl: '',
-        startAt: new Date('2026-10-31T10:00:00.000Z'),
-        endAt: new Date('2026-10-31T14:00:00.000Z'),
+        startAt: MOCK_FUTURE_DATE,
+        endAt: MOCK_FUTURE_END_DATE,
         location: { en: 'CAMT Auditorium', th: 'ห้องประชุม CAMT' },
         mapLink: '',
         status: 'PUBLISHED',
@@ -1431,8 +1437,8 @@ describe('mapToReturnTicketDetailDto', () => {
         id: 'e0000002-0000-4000-8000-000000000002',
         title: { en: 'CAMT Halloween Night 2026', th: 'คืนฮาโลวีน CAMT 2026' },
         bannerUrl: '',
-        startAt: new Date('2026-10-31T10:00:00.000Z'),
-        endAt: new Date('2026-10-31T14:00:00.000Z'),
+        startAt: MOCK_FUTURE_DATE,
+        endAt: MOCK_FUTURE_END_DATE,
         location: { en: 'CAMT Auditorium', th: 'ห้องประชุม CAMT' },
         mapLink: '',
         status: 'PUBLISHED',
@@ -1473,8 +1479,8 @@ describe('mapToReturnTicketDetailDto', () => {
         id: 'e0000002-0000-4000-8000-000000000002',
         title: { en: 'CAMT Halloween Night 2026', th: 'คืนฮาโลวีน CAMT 2026' },
         bannerUrl: '',
-        startAt: new Date('2026-10-31T10:00:00.000Z'),
-        endAt: new Date('2026-10-31T14:00:00.000Z'),
+        startAt: MOCK_FUTURE_DATE,
+        endAt: MOCK_FUTURE_END_DATE,
         location: { en: 'CAMT Auditorium', th: 'ห้องประชุม CAMT' },
         mapLink: '',
         status: 'PUBLISHED',

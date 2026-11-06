@@ -37,6 +37,10 @@ export const MOCK_SNAPSHOT_NO_STUDENT_ID = {
   major: '',
 };
 
+// Fixed relative to MOCK_NOW (see registration-validation.service.spec.ts /
+// registration-crud.service.spec.ts, which freeze the clock to MOCK_NOW) —
+// not real wall-clock time, so these never drift into the wrong past/future.
+export const MOCK_NOW = new Date('2026-06-01T00:00:00.000Z');
 export const MOCK_FUTURE_DATE = new Date('2026-10-31T10:00:00.000Z');
 export const MOCK_FUTURE_END_DATE = new Date('2026-10-31T14:00:00.000Z');
 export const MOCK_PAST_DATE = new Date('2026-01-01T10:00:00.000Z');

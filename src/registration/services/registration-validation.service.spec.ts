@@ -23,6 +23,7 @@ import {
   MOCK_DRAFT_EVENT,
   MOCK_PAST_DATE,
   MOCK_FUTURE_DATE,
+  MOCK_NOW,
 } from './registration.mocks';
 import { ForbiddenException } from '@nestjs/common';
 
@@ -32,6 +33,7 @@ describe('RegistrationValidationService', () => {
   let service: RegistrationValidationService;
 
   beforeEach(async () => {
+    jest.useFakeTimers({ now: MOCK_NOW, doNotFake: ['nextTick'] });
     mockReset(prismaMock);
 
     const module: TestingModule = await Test.createTestingModule({
@@ -44,6 +46,10 @@ describe('RegistrationValidationService', () => {
     service = module.get<RegistrationValidationService>(
       RegistrationValidationService,
     );
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   describe('validateEventRegisterable', () => {
