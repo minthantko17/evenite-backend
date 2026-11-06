@@ -7,7 +7,7 @@ import { FormModule } from './form/form.module';
 import { AuthModule } from './auth/auth.module';
 import { UniversityModule } from './university/university.module';
 import { UserModule } from './user/user.module';
-import { ScheduleModule } from "@nestjs/schedule";
+import { ScheduleModule } from '@nestjs/schedule';
 import { RegistrationModule } from './registration/registration.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { DiscussionModule } from './discussion/discussion.module';

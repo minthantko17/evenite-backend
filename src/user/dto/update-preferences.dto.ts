@@ -1,4 +1,10 @@
-import { IsArray, IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  IsArray,
+  IsIn,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 import {
   ALLOWED_PERSONAL_PREFERENCES,
   ALLOWED_LANGUAGES,

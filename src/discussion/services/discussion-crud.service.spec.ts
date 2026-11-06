@@ -68,7 +68,7 @@ describe('DiscussionCrudService', () => {
   describe('createMessage', () => {
     it('UT-createMessage-01: PARTICIPANT sender, regular message — creates with the claimed serial number and resolves the mapped DTO', async () => {
       const raw = CREATE_MESSAGE_ROWS.PARTICIPANT_REGULAR;
-      prismaMock.message.create.mockResolvedValueOnce(raw as any);
+      prismaMock.message.create.mockResolvedValueOnce(raw);
 
       const result = await service.createMessage(
         ROOMS.ROOM_MAIN.id,
@@ -96,7 +96,7 @@ describe('DiscussionCrudService', () => {
 
     it('UT-createMessage-02: ORGANIZER sender, announcement — creates with isAnnouncement true and resolves the mapped DTO', async () => {
       const raw = CREATE_MESSAGE_ROWS.ORGANIZER_ANNOUNCEMENT;
-      prismaMock.message.create.mockResolvedValueOnce(raw as any);
+      prismaMock.message.create.mockResolvedValueOnce(raw);
 
       const result = await service.createMessage(
         ROOMS.ROOM_MAIN.id,
@@ -110,14 +110,17 @@ describe('DiscussionCrudService', () => {
       expect(result).toEqual(expected);
       expect(prismaMock.message.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ isAnnouncement: true, content: raw.content }),
+          data: expect.objectContaining({
+            isAnnouncement: true,
+            content: raw.content,
+          }),
         }),
       );
     });
 
     it('UT-createMessage-03: participant sender with nickname empty — sender.name falls back to firstName', async () => {
       const raw = CREATE_MESSAGE_ROWS.PARTICIPANT_NICKNAME_EMPTY;
-      prismaMock.message.create.mockResolvedValueOnce(raw as any);
+      prismaMock.message.create.mockResolvedValueOnce(raw);
 
       const result = await service.createMessage(
         ROOMS.ROOM_MAIN.id,
@@ -129,12 +132,14 @@ describe('DiscussionCrudService', () => {
 
       const expected = mapRawToExpected(raw);
       expect(result).toEqual(expected);
-      expect(result.sender.name).toBe(USERS.PARTICIPANT_NICKNAME_EMPTY.firstName);
+      expect(result.sender.name).toBe(
+        USERS.PARTICIPANT_NICKNAME_EMPTY.firstName,
+      );
     });
 
     it("UT-createMessage-04: participant sender with nickname and firstName both empty, imageUrl null — sender.name and sender.imageUrl fall back to ''", async () => {
       const raw = CREATE_MESSAGE_ROWS.PARTICIPANT_NAME_EMPTY;
-      prismaMock.message.create.mockResolvedValueOnce(raw as any);
+      prismaMock.message.create.mockResolvedValueOnce(raw);
 
       const result = await service.createMessage(
         ROOMS.ROOM_MAIN.id,
@@ -152,7 +157,7 @@ describe('DiscussionCrudService', () => {
 
     it("UT-createMessage-05: organizer sender with name and imageUrl both null — sender.name and sender.imageUrl fall back to ''", async () => {
       const raw = CREATE_MESSAGE_ROWS.ORGANIZER_NAME_EMPTY;
-      prismaMock.message.create.mockResolvedValueOnce(raw as any);
+      prismaMock.message.create.mockResolvedValueOnce(raw);
 
       const result = await service.createMessage(
         ROOMS.ROOM_MAIN.id,
@@ -178,7 +183,9 @@ describe('DiscussionCrudService', () => {
       );
 
       await expect(promise).rejects.toThrow(SaveMessageException);
-      await expect(promise).rejects.toThrow('Failed to save message. Please try again.');
+      await expect(promise).rejects.toThrow(
+        'Failed to save message. Please try again.',
+      );
 
       expect(prismaMock.message.create).not.toHaveBeenCalled();
     });
@@ -195,12 +202,14 @@ describe('DiscussionCrudService', () => {
       );
 
       await expect(promise).rejects.toThrow(SaveMessageException);
-      await expect(promise).rejects.toThrow('Failed to save message. Please try again.');
+      await expect(promise).rejects.toThrow(
+        'Failed to save message. Please try again.',
+      );
     });
 
     it('UT-createMessage-08: ORGANIZER sender, regular message — creates with the claimed serial number and resolves the mapped DTO', async () => {
       const raw = CREATE_MESSAGE_ROWS.ORGANIZER_REGULAR;
-      prismaMock.message.create.mockResolvedValueOnce(raw as any);
+      prismaMock.message.create.mockResolvedValueOnce(raw);
 
       const result = await service.createMessage(
         ROOMS.ROOM_MAIN.id,
@@ -406,7 +415,7 @@ describe('DiscussionCrudService', () => {
     });
 
     it('UT-getPaginatedMessagesByCursor-09 [single]: before + cursor + empty page — oldestCursor/newestCursor fall back to the input cursor', async () => {
-      prismaMock.message.findMany.mockResolvedValueOnce([] as any);
+      prismaMock.message.findMany.mockResolvedValueOnce([]);
 
       const result = await service.getPaginatedMessagesByCursor(
         PAGINATION_ROOMS.TINY.id,
@@ -426,7 +435,7 @@ describe('DiscussionCrudService', () => {
     });
 
     it('UT-getPaginatedMessagesByCursor-10 [single]: after + cursor + empty page — oldestCursor/newestCursor fall back to the input cursor', async () => {
-      prismaMock.message.findMany.mockResolvedValueOnce([] as any);
+      prismaMock.message.findMany.mockResolvedValueOnce([]);
 
       const result = await service.getPaginatedMessagesByCursor(
         PAGINATION_ROOMS.TINY.id,
@@ -446,9 +455,14 @@ describe('DiscussionCrudService', () => {
     });
 
     it('UT-getPaginatedMessagesByCursor-11 [single]: fetches take = limit + 1, to probe for more results', async () => {
-      prismaMock.message.findMany.mockResolvedValueOnce([] as any);
+      prismaMock.message.findMany.mockResolvedValueOnce([]);
 
-      await service.getPaginatedMessagesByCursor(PAGINATION_ROOMS.TINY.id, undefined, 'before', 5);
+      await service.getPaginatedMessagesByCursor(
+        PAGINATION_ROOMS.TINY.id,
+        undefined,
+        'before',
+        5,
+      );
 
       expect(prismaMock.message.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ take: 6 }),
@@ -456,7 +470,7 @@ describe('DiscussionCrudService', () => {
     });
 
     it('UT-getPaginatedMessagesByCursor-12 [single]: limit is trusted as-is — no clamping at this layer', async () => {
-      prismaMock.message.findMany.mockResolvedValueOnce([] as any);
+      prismaMock.message.findMany.mockResolvedValueOnce([]);
 
       await service.getPaginatedMessagesByCursor(
         PAGINATION_ROOMS.TINY.id,
@@ -471,7 +485,7 @@ describe('DiscussionCrudService', () => {
     });
 
     it('UT-getPaginatedMessagesByCursor-13 [single]: where filters only by roomId', async () => {
-      prismaMock.message.findMany.mockResolvedValueOnce([] as any);
+      prismaMock.message.findMany.mockResolvedValueOnce([]);
 
       await service.getPaginatedMessagesByCursor(
         PAGINATION_ROOMS.TINY.id,
@@ -492,9 +506,12 @@ describe('DiscussionCrudService', () => {
   describe('getLatestAnnouncements', () => {
     it('UT-getLatestAnnouncements-01: room has announcements — resolves them in chronological order (fetched newest-first, then reversed)', async () => {
       const raws = ANNOUNCEMENTS_ROOM.messages;
-      prismaMock.message.findMany.mockResolvedValueOnce([...raws] as any);
+      prismaMock.message.findMany.mockResolvedValueOnce([...raws]);
 
-      const result = await service.getLatestAnnouncements(ANNOUNCEMENTS_ROOM.id, 15);
+      const result = await service.getLatestAnnouncements(
+        ANNOUNCEMENTS_ROOM.id,
+        15,
+      );
 
       const expected = [...raws].reverse().map(mapRawToExpected);
       expect(result).toEqual(expected);
@@ -504,16 +521,23 @@ describe('DiscussionCrudService', () => {
         take: 15,
         include: {
           senderParticipant: {
-            select: { id: true, firstName: true, nickname: true, imageUrl: true },
+            select: {
+              id: true,
+              firstName: true,
+              nickname: true,
+              imageUrl: true,
+            },
           },
           senderOrganizer: { select: { id: true, name: true, imageUrl: true } },
         },
       };
-      expect(prismaMock.message.findMany).toHaveBeenCalledWith(expectedFindManyArgs);
+      expect(prismaMock.message.findMany).toHaveBeenCalledWith(
+        expectedFindManyArgs,
+      );
     });
 
     it('UT-getLatestAnnouncements-02 [single]: room has more announcements than the limit — only the latest `limit` are queried', async () => {
-      prismaMock.message.findMany.mockResolvedValueOnce([] as any);
+      prismaMock.message.findMany.mockResolvedValueOnce([]);
 
       await service.getLatestAnnouncements(ANNOUNCEMENTS_ROOM.id, 2);
 
@@ -523,9 +547,12 @@ describe('DiscussionCrudService', () => {
     });
 
     it('UT-getLatestAnnouncements-03: room has zero announcements — resolves []', async () => {
-      prismaMock.message.findMany.mockResolvedValueOnce([] as any);
+      prismaMock.message.findMany.mockResolvedValueOnce([]);
 
-      const result = await service.getLatestAnnouncements(ANNOUNCEMENTS_ROOM.id, 15);
+      const result = await service.getLatestAnnouncements(
+        ANNOUNCEMENTS_ROOM.id,
+        15,
+      );
 
       const expected: unknown[] = [];
       expect(result).toEqual(expected);
@@ -539,7 +566,8 @@ describe('DiscussionCrudService', () => {
     it('UT-getLatestMessageForRoom-01: room has messages — resolves the chronologically latest one, mapped, regardless of isAnnouncement', async () => {
       const result = await service.getLatestMessageForRoom(ROOMS.ROOM_MAIN.id);
 
-      const latestRaw = ROOMS.ROOM_MAIN.messages[ROOMS.ROOM_MAIN.messages.length - 1];
+      const latestRaw =
+        ROOMS.ROOM_MAIN.messages[ROOMS.ROOM_MAIN.messages.length - 1];
       const expected = mapRawToExpected(latestRaw);
       expect(result).toEqual(expected);
       expect(latestRaw.isAnnouncement).toBe(true); // confirms ordering ignores isAnnouncement
@@ -590,7 +618,9 @@ describe('DiscussionCrudService', () => {
         },
         update: { lastReadMessageId: newMessageId, lastReadSerialNumber: 9 },
       };
-      expect(prismaMock.roomReadStatus.upsert).toHaveBeenCalledWith(expectedUpsertArgs);
+      expect(prismaMock.roomReadStatus.upsert).toHaveBeenCalledWith(
+        expectedUpsertArgs,
+      );
     });
 
     it('UT-upsertLastReadMessage-02: PARTICIPANT, no existing row — create branch stores readerParticipantId, readerOrganizerId null', async () => {
@@ -655,7 +685,9 @@ describe('DiscussionCrudService', () => {
     });
 
     it('UT-upsertLastReadMessage-05 [error] [single]: upsert throws — rejects with SaveRoomReadStatusException', async () => {
-      prismaMock.roomReadStatus.upsert.mockRejectedValueOnce(new Error('DB down'));
+      prismaMock.roomReadStatus.upsert.mockRejectedValueOnce(
+        new Error('DB down'),
+      );
 
       const promise = service.upsertLastReadMessage(
         ROOMS.ROOM_MAIN.id,
@@ -667,7 +699,9 @@ describe('DiscussionCrudService', () => {
       );
 
       await expect(promise).rejects.toThrow(SaveRoomReadStatusException);
-      await expect(promise).rejects.toThrow('Failed to update read status. Please try again.');
+      await expect(promise).rejects.toThrow(
+        'Failed to update read status. Please try again.',
+      );
     });
   });
 
@@ -684,7 +718,8 @@ describe('DiscussionCrudService', () => {
       );
 
       const expected = {
-        lastReadMessageId: ROOMS.ROOM_MAIN.readStatus.organizer!.lastReadMessageId,
+        lastReadMessageId:
+          ROOMS.ROOM_MAIN.readStatus.organizer!.lastReadMessageId,
       };
       expect(result).toEqual(expected);
       const expectedFindUniqueArgs = {
@@ -695,7 +730,9 @@ describe('DiscussionCrudService', () => {
           },
         },
       };
-      expect(prismaMock.roomReadStatus.findUnique).toHaveBeenCalledWith(expectedFindUniqueArgs);
+      expect(prismaMock.roomReadStatus.findUnique).toHaveBeenCalledWith(
+        expectedFindUniqueArgs,
+      );
     });
 
     it('UT-getRoomReadStatus-02: PARTICIPANT, record found — resolves { lastReadMessageId }, queried by roomId_readerParticipantId', async () => {
@@ -707,7 +744,8 @@ describe('DiscussionCrudService', () => {
       );
 
       const expected = {
-        lastReadMessageId: ROOMS.ROOM_MAIN.readStatus.participant!.lastReadMessageId,
+        lastReadMessageId:
+          ROOMS.ROOM_MAIN.readStatus.participant!.lastReadMessageId,
       };
       expect(result).toEqual(expected);
     });
@@ -742,7 +780,10 @@ describe('DiscussionCrudService', () => {
     it("UT-countUnreadMessages-01: lastReadMessageId present, message still exists — counts messages created after that message's own createdAt", async () => {
       const lastReadMessage = ROOMS.ROOM_MAIN.messages[5]; // serialNumber 6
 
-      const result = await service.countUnreadMessages(ROOMS.ROOM_MAIN.id, lastReadMessage.id);
+      const result = await service.countUnreadMessages(
+        ROOMS.ROOM_MAIN.id,
+        lastReadMessage.id,
+      );
 
       const expected = 6; // messages 7..12
       expect(result).toBe(expected);
@@ -750,7 +791,9 @@ describe('DiscussionCrudService', () => {
         where: { id: lastReadMessage.id },
         select: { createdAt: true },
       };
-      expect(prismaMock.message.findUnique).toHaveBeenCalledWith(expectedFindUniqueArgs);
+      expect(prismaMock.message.findUnique).toHaveBeenCalledWith(
+        expectedFindUniqueArgs,
+      );
       const expectedCountArgs = {
         where: {
           roomId: ROOMS.ROOM_MAIN.id,
@@ -761,7 +804,10 @@ describe('DiscussionCrudService', () => {
     });
 
     it('UT-countUnreadMessages-02: lastReadMessageId is null — skips the message lookup, counts from epoch', async () => {
-      const result = await service.countUnreadMessages(ROOMS.ROOM_MAIN.id, null);
+      const result = await service.countUnreadMessages(
+        ROOMS.ROOM_MAIN.id,
+        null,
+      );
 
       const expected = 12;
       expect(result).toBe(expected);
@@ -788,7 +834,9 @@ describe('DiscussionCrudService', () => {
   // ==========================================================================
   describe('claimNextRoomSerialNumber', () => {
     it('UT-claimNextRoomSerialNumber-01: room exists — atomically increments and resolves the new lastSerialNumber', async () => {
-      const result = await service.claimNextRoomSerialNumber(ROOMS.ROOM_MAIN.id);
+      const result = await service.claimNextRoomSerialNumber(
+        ROOMS.ROOM_MAIN.id,
+      );
 
       const expected = ROOMS.ROOM_MAIN.lastSerialNumber + 1;
       expect(result).toBe(expected);
@@ -796,7 +844,9 @@ describe('DiscussionCrudService', () => {
 
     it('UT-claimNextRoomSerialNumber-02 [single]: two calls for the same room resolve strictly increasing values', async () => {
       const first = await service.claimNextRoomSerialNumber(ROOMS.ROOM_MAIN.id);
-      const second = await service.claimNextRoomSerialNumber(ROOMS.ROOM_MAIN.id);
+      const second = await service.claimNextRoomSerialNumber(
+        ROOMS.ROOM_MAIN.id,
+      );
 
       const expected = first + 1;
       expect(second).toBe(expected);
@@ -808,7 +858,7 @@ describe('DiscussionCrudService', () => {
 
       const result = await service.claimNextRoomSerialNumber(
         ROOMS.ROOM_MAIN.id,
-        txMock as any,
+        txMock,
       );
 
       const expected = 99;
@@ -859,7 +909,9 @@ describe('DiscussionCrudService', () => {
 
       const organizerReadStatus = ROOMS.ROOM_MAIN.readStatus.organizer!;
       const expected = {
-        unreadCount: ROOMS.ROOM_MAIN.lastSerialNumber - organizerReadStatus.lastReadSerialNumber,
+        unreadCount:
+          ROOMS.ROOM_MAIN.lastSerialNumber -
+          organizerReadStatus.lastReadSerialNumber,
         lastReadSerialNumber: organizerReadStatus.lastReadSerialNumber,
       };
       expect(result).toEqual(expected);
@@ -875,7 +927,9 @@ describe('DiscussionCrudService', () => {
 
       const participantReadStatus = ROOMS.ROOM_MAIN.readStatus.participant!;
       const expected = {
-        unreadCount: ROOMS.ROOM_MAIN.lastSerialNumber - participantReadStatus.lastReadSerialNumber,
+        unreadCount:
+          ROOMS.ROOM_MAIN.lastSerialNumber -
+          participantReadStatus.lastReadSerialNumber,
         lastReadSerialNumber: participantReadStatus.lastReadSerialNumber,
       };
       expect(result).toEqual(expected);
@@ -927,16 +981,19 @@ describe('DiscussionCrudService', () => {
   // ==========================================================================
   describe('getParticipantEventsWithRoom', () => {
     it('UT-getParticipantEventsWithRoom-01: no filter — resolves every CONFIRMED-registration event, excluding CANCELLED registrations', async () => {
-      const result = await service.getParticipantEventsWithRoom(USERS.PARTICIPANT_MAIN.id);
+      const result = await service.getParticipantEventsWithRoom(
+        USERS.PARTICIPANT_MAIN.id,
+      );
 
       const expected = [EVENTS.MAIN, EVENTS.ARCHIVED];
       expect(result).toEqual(expected);
     });
 
     it('UT-getParticipantEventsWithRoom-02: statusFilter provided — only matching-status events are resolved', async () => {
-      const result = await service.getParticipantEventsWithRoom(USERS.PARTICIPANT_MAIN.id, [
-        'CONCLUDED' as any,
-      ]);
+      const result = await service.getParticipantEventsWithRoom(
+        USERS.PARTICIPANT_MAIN.id,
+        ['CONCLUDED'],
+      );
 
       const expected = [EVENTS.ARCHIVED];
       expect(result).toEqual(expected);
@@ -957,23 +1014,28 @@ describe('DiscussionCrudService', () => {
   // ==========================================================================
   describe('getOrganizerEventsWithRoom', () => {
     it('UT-getOrganizerEventsWithRoom-01: no filter — resolves every event owned by the organizer', async () => {
-      const result = await service.getOrganizerEventsWithRoom(USERS.ORGANIZER_MAIN.id);
+      const result = await service.getOrganizerEventsWithRoom(
+        USERS.ORGANIZER_MAIN.id,
+      );
 
       const expected = [EVENTS.MAIN, EVENTS.ARCHIVED, EVENTS.NO_ROOM];
       expect(result).toEqual(expected);
     });
 
     it('UT-getOrganizerEventsWithRoom-02: statusFilter provided — only matching-status events are resolved', async () => {
-      const result = await service.getOrganizerEventsWithRoom(USERS.ORGANIZER_MAIN.id, [
-        'PUBLISHED' as any,
-      ]);
+      const result = await service.getOrganizerEventsWithRoom(
+        USERS.ORGANIZER_MAIN.id,
+        ['PUBLISHED'],
+      );
 
       const expected = [EVENTS.MAIN, EVENTS.NO_ROOM];
       expect(result).toEqual(expected);
     });
 
     it('UT-getOrganizerEventsWithRoom-03: organizer owns zero events — resolves []', async () => {
-      const result = await service.getOrganizerEventsWithRoom(USERS.ORGANIZER_OTHER.id);
+      const result = await service.getOrganizerEventsWithRoom(
+        USERS.ORGANIZER_OTHER.id,
+      );
 
       const expected: unknown[] = [];
       expect(result).toEqual(expected);

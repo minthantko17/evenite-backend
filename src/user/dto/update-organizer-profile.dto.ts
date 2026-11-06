@@ -21,7 +21,7 @@ export class UpdateOrganizerProfileDto {
   bio?: string;
 
   @IsOptional()
-  @ValidateIf((o) => o.contactEmail !== "")
+  @ValidateIf((o) => o.contactEmail !== '')
   @IsEmail()
   contactEmail?: string;
 
@@ -40,7 +40,7 @@ export class UpdateOrganizerProfileDto {
   imageUrl?: string;
 
   @IsOptional()
-  @ValidateIf((o) => o.externalUrl !== "")
+  @ValidateIf((o) => o.externalUrl !== '')
   @IsUrl()
   externalUrl?: string;
 }

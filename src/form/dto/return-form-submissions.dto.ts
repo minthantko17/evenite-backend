@@ -4,7 +4,7 @@ export interface ReturnFormFieldAnswer {
   formFieldId: string;
   label: string;
   type: FieldType;
-  value : string | number | Date | string[] | null;
+  value: string | number | Date | string[] | null;
 }
 
 export interface ReturnFormSubmissionItem {

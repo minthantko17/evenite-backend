@@ -76,7 +76,9 @@ export class UserStorageService {
     if (!filePath) {
       return { message: 'Failed to extract file path from URL' };
     }
-   const result = await this.supabase.storage.from(this.BUCKET).remove([filePath]);
+    const result = await this.supabase.storage
+      .from(this.BUCKET)
+      .remove([filePath]);
     if (result.error) {
       return { message: 'Failed to delete image from storage' };
     }

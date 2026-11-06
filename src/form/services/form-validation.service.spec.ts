@@ -43,7 +43,9 @@ describe('FormValidationService - validateFormTypeNotDuplicated', () => {
     // console.log('[UT-3-001-01] Expected : resolves undefined');
     // console.log('[UT-3-001-01] Actual :', result);
 
-    await expect(result).resolves.toEqual({ message: 'Form type is not duplicated.' });
+    await expect(result).resolves.toEqual({
+      message: 'Form type is not duplicated.',
+    });
     expect(mockPrisma.form.findUnique).toHaveBeenCalledWith({
       where: { eventId_type: { eventId: input.eventId, type: input.type } },
     });
@@ -115,7 +117,9 @@ describe('FormValidationService - validateFormNotLocked', () => {
     // console.log('[UT-3-002-01] Expected : resolves undefined');
     // console.log('[UT-3-002-01] Actual :', result);
 
-    await expect(result).resolves.toEqual({ message: 'Form is not locked for updating.' });
+    await expect(result).resolves.toEqual({
+      message: 'Form is not locked for updating.',
+    });
     expect(mockPrisma.form.findUnique).toHaveBeenCalledWith({
       where: { id: input.formId },
       select: { event: { select: { status: true } } },
@@ -205,7 +209,9 @@ describe('FormValidationService - validateNoResponsesExist', () => {
     // console.log('[UT-3-003-01] Expected : resolves undefined');
     // console.log('[UT-3-003-01] Actual :', result);
 
-    await expect(result).resolves.toEqual({ message: 'No response exists for this form.' });
+    await expect(result).resolves.toEqual({
+      message: 'No response exists for this form.',
+    });
     expect(mockPrisma.formResponse.count).toHaveBeenCalledWith({
       where: { formId: input.formId },
     });

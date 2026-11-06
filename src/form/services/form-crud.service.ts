@@ -153,25 +153,22 @@ export class FormCrudService {
     return {
       formId: form.id,
       totalResponses: responses.length,
-      responses: responses.map(
-        (response) =>
-          ({
-            id: response.id,
-            createdAt: response.createdAt,
-            answers: form.fields.map((field) => {
-              const fieldResponse = response.fieldResponses.find(
-                (fieldResponse) => fieldResponse.formFieldId === field.id,
-              );
-              return {
-                formFieldId: field.id,
-                label: field.label,
-                type: field.type,
-                value: this.resolveFieldValue(fieldResponse, field.type),
-              } as ReturnFormFieldAnswer;
-            }),
-          }) as ReturnFormSubmissionItem,
-      ),
-    } as ReturnFormSubmissions;
+      responses: responses.map((response) => ({
+        id: response.id,
+        createdAt: response.createdAt,
+        answers: form.fields.map((field) => {
+          const fieldResponse = response.fieldResponses.find(
+            (fieldResponse) => fieldResponse.formFieldId === field.id,
+          );
+          return {
+            formFieldId: field.id,
+            label: field.label,
+            type: field.type,
+            value: this.resolveFieldValue(fieldResponse, field.type),
+          };
+        }),
+      })),
+    };
   }
 
   async getFormResponsesSummary(
@@ -204,21 +201,21 @@ export class FormCrudService {
           responseId: response.id,
           createdAt: response.createdAt,
           value: this.resolveFieldValue(fieldResponse, field.type),
-        } as ReturnSummaryAnswer;
+        };
       });
       return {
         formFieldId: field.id,
         label: field.label,
         type: field.type,
         answers,
-      } as ReturnFormFieldSummary;
+      };
     });
 
     return {
       formId: form.id,
       totalResponses: responses.length,
       summary,
-    } as ReturnFormSummary;
+    };
   }
 
   private resolveFieldValue(
@@ -345,19 +342,16 @@ export class FormCrudService {
       return {
         id: response.id,
         createdAt: response.createdAt,
-        answers: response.fieldResponses.map(
-          (fieldResponse) =>
-            ({
-              formFieldId: fieldResponse.formFieldId,
-              label: fieldResponse.formField.label,
-              type: fieldResponse.formField.type,
-              value: this.resolveFieldValue(
-                fieldResponse,
-                fieldResponse.formField.type,
-              ),
-            }) as ReturnFormFieldAnswer,
-        ),
-      } as ReturnFormSubmissionItem;
+        answers: response.fieldResponses.map((fieldResponse) => ({
+          formFieldId: fieldResponse.formFieldId,
+          label: fieldResponse.formField.label,
+          type: fieldResponse.formField.type,
+          value: this.resolveFieldValue(
+            fieldResponse,
+            fieldResponse.formField.type,
+          ),
+        })),
+      };
     } catch (error) {
       // P2002 = unique constraint violation
       if (

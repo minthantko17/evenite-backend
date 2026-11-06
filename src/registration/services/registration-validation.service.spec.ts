@@ -104,7 +104,7 @@ describe('RegistrationValidationService', () => {
 
     it('UT-5-002-02: returns message when existing registration is CANCELLED', async () => {
       prismaMock.eventRegistration.findUnique.mockResolvedValue(
-        MOCK_CANCELLED_REGISTRATION as any,
+        MOCK_CANCELLED_REGISTRATION,
       );
 
       const result = await service.validateNotAlreadyRegistered(
@@ -119,7 +119,7 @@ describe('RegistrationValidationService', () => {
 
     it('UT-5-002-03: throws AlreadyRegisteredException when existing registration is CONFIRMED', async () => {
       prismaMock.eventRegistration.findUnique.mockResolvedValue(
-        MOCK_CONFIRMED_REGISTRATION as any,
+        MOCK_CONFIRMED_REGISTRATION,
       );
 
       const error = async () => {

@@ -1,10 +1,19 @@
 import {
   Controller,
-  Get, Post, Body, Patch,
-  Param, UploadedFile, UseInterceptors,
-  ParseUUIDPipe, HttpCode, HttpStatus,
-  Query, ParseEnumPipe,
-  UseGuards, Req,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  UploadedFile,
+  UseInterceptors,
+  ParseUUIDPipe,
+  HttpCode,
+  HttpStatus,
+  Query,
+  ParseEnumPipe,
+  UseGuards,
+  Req,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Event, EventStatus, Role } from '@prisma/client';
@@ -99,12 +108,8 @@ export class EventController {
     status?: EventStatus,
   ): Promise<EventResponseDto[]> {
     const user = req.user as JwtAccessPayload;
-    return this.eventService.getPublicEvents(
-      user.universityId,
-      status,
-    );
+    return this.eventService.getPublicEvents(user.universityId, status);
   }
-
 
   @Patch(':id/status')
   @Roles(Role.ORGANIZER)

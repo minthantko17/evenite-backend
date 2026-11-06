@@ -215,9 +215,8 @@ describe('EventValidationService - validateEventOwnership', () => {
     const mockFoundEvent = { organizerId };
     mockPrisma.event.findUnique.mockResolvedValueOnce(mockFoundEvent);
     const expected = { organizerProfileId: organizerId };
-    
-    const result =await
-      service.validateEventOwnership(eventId, organizerId);
+
+    const result = await service.validateEventOwnership(eventId, organizerId);
     // console.log('Expected: ', expected);
     // console.log('Result: ', result);
 

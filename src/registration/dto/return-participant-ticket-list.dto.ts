@@ -11,7 +11,7 @@ export class ReturnParticipantTicketListEventDto {
 }
 
 export class ReturnParticipantTicketListDto {
-  id!: string;  // Ticket.id
+  id!: string; // Ticket.id
   status!: TicketStatus;
   issuedAt!: Date;
   registrationStatus!: RegistrationStatus;

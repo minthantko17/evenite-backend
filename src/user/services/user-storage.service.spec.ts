@@ -74,7 +74,6 @@ const buildModule = async (): Promise<TestingModule> =>
     providers: [UserStorageService],
   }).compile();
 
-
 describe('UserStorageService - uploadImageToStorage', () => {
   let service: UserStorageService;
 
@@ -324,7 +323,7 @@ describe('UserStorageService - deleteOrphanImageIfReplaced', () => {
     };
     const deleteSpy = jest
       .spyOn(service, 'deleteImageFromStorage')
-      .mockResolvedValueOnce({ message: 'Orphan image deleted successfully' }  );
+      .mockResolvedValueOnce({ message: 'Orphan image deleted successfully' });
 
     const result = await service.deleteOrphanImageIfReplaced(
       input.oldImageUrl,
@@ -346,7 +345,9 @@ describe('UserStorageService - deleteOrphanImageIfReplaced', () => {
     };
     const deleteSpy = jest
       .spyOn(service, 'deleteImageFromStorage')
-      .mockResolvedValueOnce({ message: 'Failed to delete image from storage' });
+      .mockResolvedValueOnce({
+        message: 'Failed to delete image from storage',
+      });
 
     const result = await service.deleteOrphanImageIfReplaced(
       input.oldImageUrl,
@@ -366,7 +367,9 @@ describe('UserStorageService - deleteOrphanImageIfReplaced', () => {
     };
     const deleteSpy = jest
       .spyOn(service, 'deleteImageFromStorage')
-      .mockResolvedValueOnce({ message: 'Failed to delete image from storage' });
+      .mockResolvedValueOnce({
+        message: 'Failed to delete image from storage',
+      });
 
     const result = await service.deleteOrphanImageIfReplaced(
       input.oldImageUrl,
@@ -386,7 +389,9 @@ describe('UserStorageService - deleteOrphanImageIfReplaced', () => {
     };
     const deleteSpy = jest
       .spyOn(service, 'deleteImageFromStorage')
-      .mockResolvedValueOnce({ message: 'Failed to delete image from storage' });
+      .mockResolvedValueOnce({
+        message: 'Failed to delete image from storage',
+      });
 
     const result = await service.deleteOrphanImageIfReplaced(
       input.oldImageUrl,
@@ -406,7 +411,9 @@ describe('UserStorageService - deleteOrphanImageIfReplaced', () => {
     };
     const deleteSpy = jest
       .spyOn(service, 'deleteImageFromStorage')
-      .mockResolvedValueOnce({ message: 'Failed to delete image from storage' });
+      .mockResolvedValueOnce({
+        message: 'Failed to delete image from storage',
+      });
 
     const result = await service.deleteOrphanImageIfReplaced(
       input.oldImageUrl,
@@ -465,8 +472,12 @@ describe('UserStorageService - deleteImageFromStorage', () => {
 
   it('UT-4-010-04: should return fail to delete image message when supabase remove fails', async () => {
     const input = { imageUrl: 'https://www.cmu.ac.th/profile/image.jpg' };
-    jest.spyOn(service as any, 'extractPathFromUrl').mockReturnValueOnce(input. imageUrl);
-    mockStorageFrom.remove.mockResolvedValueOnce({ error: 'Failed to delete image from storage' });
+    jest
+      .spyOn(service as any, 'extractPathFromUrl')
+      .mockReturnValueOnce(input.imageUrl);
+    mockStorageFrom.remove.mockResolvedValueOnce({
+      error: 'Failed to delete image from storage',
+    });
 
     const result = await service.deleteImageFromStorage(input.imageUrl);
 

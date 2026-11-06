@@ -8,21 +8,9 @@ import { FormCrudService } from './services/form-crud.service';
 import { EventModule } from '../event/event.module';
 
 @Module({
-  imports: [
-    PrismaModule,
-    AuthModule,
-    EventModule,
-  ],
+  imports: [PrismaModule, AuthModule, EventModule],
   controllers: [FormController],
-  providers: [
-    FormService,
-    FormValidationService,
-    FormCrudService,
-  ],
-  exports: [
-    FormService,
-    FormValidationService,
-    FormCrudService,
-  ]
+  providers: [FormService, FormValidationService, FormCrudService],
+  exports: [FormService, FormValidationService, FormCrudService],
 })
 export class FormModule {}

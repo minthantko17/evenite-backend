@@ -60,9 +60,7 @@ const large_image_file = createMockFile(
   'large_image.jpg',
 );
 
-
 describe('validateImageFile', () => {
-
   it('UT-1-001-01: should not throw for valid JPEG file within size limit', () => {
     const file = small_jpg_file;
     expect(() => validateImageFile(file)).not.toThrow();

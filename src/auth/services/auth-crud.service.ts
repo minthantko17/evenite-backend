@@ -14,7 +14,7 @@ export class AuthCrudService {
       include: {
         participantProfile: true,
         organizerProfile: true,
-      }
+      },
     });
   }
 
@@ -24,7 +24,7 @@ export class AuthCrudService {
       include: {
         participantProfile: true,
         organizerProfile: true,
-      }
+      },
     });
   }
 

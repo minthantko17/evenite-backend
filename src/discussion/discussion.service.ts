@@ -10,7 +10,10 @@ import { ReturnMessageDto } from './dto/return-message.dto';
 import { ReturnMessagePageDto } from './dto/return-message-page.dto';
 import { ReturnDiscussionRoomListDto } from './dto/return-discussion-room-list.dto';
 import { ReturnRoomReadStatusDto } from './dto/return-room-read-status.dto';
-import { ACTIVE_ROOM_STATUSES, ARCHIVED_ROOM_STATUSES } from './constants/discussion-room-filter.constants';
+import {
+  ACTIVE_ROOM_STATUSES,
+  ARCHIVED_ROOM_STATUSES,
+} from './constants/discussion-room-filter.constants';
 import { EventWithDiscussionRoom } from './types/discussion.types';
 import { BilingualField } from '../event/dto/bilingual-field.dto';
 
@@ -118,7 +121,7 @@ export class DiscussionService {
       MAX_MESSAGE_PAGE_SIZE,
     );
 
-    // If no cursor, resume from the last read message. 
+    // If no cursor, resume from the last read message.
     // If never read (or the room was empty at last read), fall through to the plain latest-page fetch
     if (!query.cursor) {
       const readStatus = await this.discussionCrudService.getRoomReadStatus(
@@ -187,9 +190,9 @@ export class DiscussionService {
     );
 
     const lastReadSerialNumber = lastReadMessageId
-      ? (await this.discussionCrudService.getMessageSerialNumber(
+      ? ((await this.discussionCrudService.getMessageSerialNumber(
           lastReadMessageId,
-        )) ?? undefined
+        )) ?? undefined)
       : undefined;
 
     const result = await this.discussionCrudService.upsertLastReadMessage(

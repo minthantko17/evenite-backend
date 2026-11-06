@@ -9,7 +9,7 @@ export class ParticipantSnapshotDto {
 }
 
 export class ReturnRegistrantDto {
-  id!: string;  // EventRegistration.id
+  id!: string; // EventRegistration.id
   status!: RegistrationStatus;
   createdAt!: Date;
   ticketStatus!: TicketStatus | null;

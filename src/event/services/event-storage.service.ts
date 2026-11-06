@@ -63,12 +63,16 @@ export class EventStorageService {
     return { message: 'No orphan banner to delete' };
   }
 
-  async deleteBannerFromStorage(bannerUrl: string): Promise<{ message: string }> {
+  async deleteBannerFromStorage(
+    bannerUrl: string,
+  ): Promise<{ message: string }> {
     const filePath = this.extractFilePathFromUrl(bannerUrl);
     if (!filePath) {
       return { message: 'Failed to extract file path from URL' };
     }
-    const { error } = await this.supabase.storage.from(BUCKET_NAME).remove([filePath]);
+    const { error } = await this.supabase.storage
+      .from(BUCKET_NAME)
+      .remove([filePath]);
     if (error) {
       return { message: 'Failed to delete banner from storage' };
     }

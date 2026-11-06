@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { FormType, FieldType, EventStatus, RegistrationStatus } from '@prisma/client';
+import {
+  FormType,
+  FieldType,
+  EventStatus,
+  RegistrationStatus,
+} from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { FormFieldInputDto } from '../dto/create-form.dto';
 import { FormFieldInvalidException } from '../exceptions/form-field-invalid.exception';
@@ -237,7 +242,7 @@ export class FormValidationService {
 
     if (!Array.isArray(answer.value) || answer.value.length === 0) return;
 
-    const invalidOptions = (answer.value as string[]).filter(
+    const invalidOptions = answer.value.filter(
       (v) => !field.options.includes(v),
     );
     if (invalidOptions.length > 0) {

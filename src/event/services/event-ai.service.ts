@@ -114,8 +114,10 @@ export class EventAiService {
    * - text generation: openai/gpt-oss-120b
    * - image generation: qwen/qwen3.6-27b or meta-llama/llama-4-scout-17b-16e-instruct
    */
-  private readonly groqTextModel = process.env.GROQ_TEXT_MODEL ?? 'openai/gpt-oss-120b';
-  private readonly groqImageModel = process.env.GROQ_IMAGE_MODEL ?? 'qwen/qwen3.6-27b';
+  private readonly groqTextModel =
+    process.env.GROQ_TEXT_MODEL ?? 'openai/gpt-oss-120b';
+  private readonly groqImageModel =
+    process.env.GROQ_IMAGE_MODEL ?? 'qwen/qwen3.6-27b';
   private readonly zaiTextModel = process.env.ZAI_TEXT_MODEL ?? 'glm-5-turbo';
   private readonly zaiImageModel = process.env.ZAI_IMAGE_MODEL ?? 'glm-4.6v';
 

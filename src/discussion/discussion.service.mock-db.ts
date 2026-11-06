@@ -3,7 +3,10 @@ import { Event, EventStatus, Role } from '@prisma/client';
 import { DeepMockProxy } from 'jest-mock-extended';
 import { DiscussionValidationService } from './services/discussion-validation.service';
 import { DiscussionCrudService } from './services/discussion-crud.service';
-import { ReturnMessageDto, ReturnMessageSenderDto } from './dto/return-message.dto';
+import {
+  ReturnMessageDto,
+  ReturnMessageSenderDto,
+} from './dto/return-message.dto';
 import { ReturnMessagePageDto } from './dto/return-message-page.dto';
 import { ReturnRoomReadStatusDto } from './dto/return-room-read-status.dto';
 import { EventWithDiscussionRoom } from './types/discussion.types';
@@ -28,7 +31,11 @@ import { AnnouncementNotAllowedException } from './exceptions/announcement-not-a
 // derived deterministically from a readable tag so failures are traceable
 // back to the fixture that produced them.
 function uuidFrom(tag: string): string {
-  const hex = createHash('sha256').update(tag).digest('hex').slice(0, 32).split('');
+  const hex = createHash('sha256')
+    .update(tag)
+    .digest('hex')
+    .slice(0, 32)
+    .split('');
   hex[12] = '4';
   hex[16] = ['8', '9', 'a', 'b'][parseInt(hex[16], 16) % 4];
   const h = hex.join('');
@@ -228,7 +235,9 @@ const ROOM_NEVER_READ_EMPTY: MockRoomFixture = {
 
 // --- Room 3: ROOM_CANCELLED — CANCELLED event → always read-only -----------
 
-const EVENT_CANCELLED = buildEvent('cancelled', { status: EventStatus.CANCELLED });
+const EVENT_CANCELLED = buildEvent('cancelled', {
+  status: EventStatus.CANCELLED,
+});
 const ROOM_CANCELLED_ID = uuidFrom('room-cancelled');
 
 const ROOM_CANCELLED: MockRoomFixture = {
@@ -386,9 +395,7 @@ function findRoomByEventId(eventId: string): MockRoomFixture | undefined {
   return ALL_ROOMS.find((r) => r.event.id === eventId);
 }
 
-function findMessageById(
-  messageId: string,
-): ReturnMessageDto | undefined {
+function findMessageById(messageId: string): ReturnMessageDto | undefined {
   for (const room of ALL_ROOMS) {
     const found = [...room.messages, ...room.announcements].find(
       (m) => m.id === messageId,
@@ -403,12 +410,16 @@ function toEventWithDiscussionRoom(
 ): EventWithDiscussionRoom {
   return {
     ...room.event,
-    discussionRoom: { id: room.id } as EventWithDiscussionRoom['discussionRoom'],
-  } as EventWithDiscussionRoom;
+    discussionRoom: {
+      id: room.id,
+    } as EventWithDiscussionRoom['discussionRoom'],
+  };
 }
 
-function toRoomlessEventWithDiscussionRoom(event: Event): EventWithDiscussionRoom {
-  return { ...event, discussionRoom: null } as unknown as EventWithDiscussionRoom;
+function toRoomlessEventWithDiscussionRoom(
+  event: Event,
+): EventWithDiscussionRoom {
+  return { ...event, discussionRoom: null };
 }
 
 // ---- central wiring ---------------------------------------------------------
@@ -552,7 +563,9 @@ export function applyCentralMockImplementations(
       const room = findRoomById(roomId);
       if (!room) return null;
       const status =
-        role === Role.ORGANIZER ? room.readStatus.organizer : room.readStatus.participant;
+        role === Role.ORGANIZER
+          ? room.readStatus.organizer
+          : room.readStatus.participant;
       return status ? { lastReadMessageId: status.lastReadMessageId } : null;
     },
   );
@@ -590,7 +603,9 @@ export function applyCentralMockImplementations(
       const room = findRoomById(roomId);
       if (!room) throw new RoomNotFoundException();
       const status =
-        role === Role.ORGANIZER ? room.readStatus.organizer : room.readStatus.participant;
+        role === Role.ORGANIZER
+          ? room.readStatus.organizer
+          : room.readStatus.participant;
       const lastReadSerialNumber = status?.lastReadSerialNumber ?? 0;
       return {
         unreadCount: Math.max(0, room.lastSerialNumber - lastReadSerialNumber),
@@ -631,19 +646,23 @@ export function applyCentralMockImplementations(
     },
   );
 
-  crudServiceMock.getRoomMemberIds.mockImplementation(async (roomId: string) => {
-    const room = findRoomById(roomId);
-    if (!room) throw new RoomNotFoundException();
-    return {
-      organizerProfileId: room.organizerId,
-      participantProfileIds: room.confirmedParticipantIds,
-    };
-  });
+  crudServiceMock.getRoomMemberIds.mockImplementation(
+    async (roomId: string) => {
+      const room = findRoomById(roomId);
+      if (!room) throw new RoomNotFoundException();
+      return {
+        organizerProfileId: room.organizerId,
+        participantProfileIds: room.confirmedParticipantIds,
+      };
+    },
+  );
 
-  crudServiceMock.findRoomByEventId.mockImplementation(async (eventId: string) => {
-    const room = findRoomByEventId(eventId);
-    return room ? { roomId: room.id } : null;
-  });
+  crudServiceMock.findRoomByEventId.mockImplementation(
+    async (eventId: string) => {
+      const room = findRoomByEventId(eventId);
+      return room ? { roomId: room.id } : null;
+    },
+  );
 }
 
 /**
@@ -668,7 +687,9 @@ export function expectedRoomListDto(
   isReadOnly: boolean;
 } {
   const status =
-    role === Role.ORGANIZER ? room.readStatus.organizer : room.readStatus.participant;
+    role === Role.ORGANIZER
+      ? room.readStatus.organizer
+      : room.readStatus.participant;
   const lastReadSerialNumber = status?.lastReadSerialNumber ?? 0;
   return {
     roomId: room.id,

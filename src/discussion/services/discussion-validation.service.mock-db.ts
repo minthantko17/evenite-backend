@@ -18,7 +18,11 @@ import { RegistrationNotFoundException } from '../../registration/exceptions/reg
  */
 
 function uuidFrom(tag: string): string {
-  const hex = createHash('sha256').update(tag).digest('hex').slice(0, 32).split('');
+  const hex = createHash('sha256')
+    .update(tag)
+    .digest('hex')
+    .slice(0, 32)
+    .split('');
   hex[12] = '4';
   hex[16] = ['8', '9', 'a', 'b'][parseInt(hex[16], 16) % 4];
   const h = hex.join('');
@@ -79,10 +83,16 @@ export const EVENT_ROOM = buildEvent('room', {
 
 // validateRoomWritable fixtures — status-driven, plus fixed reference
 // timestamps for the CONCLUDED grace-period math
-export const EVENT_PUBLISHED = buildEvent('published', { status: EventStatus.PUBLISHED });
-export const EVENT_ONGOING = buildEvent('ongoing', { status: EventStatus.ONGOING });
+export const EVENT_PUBLISHED = buildEvent('published', {
+  status: EventStatus.PUBLISHED,
+});
+export const EVENT_ONGOING = buildEvent('ongoing', {
+  status: EventStatus.ONGOING,
+});
 export const EVENT_DRAFT = buildEvent('draft', { status: EventStatus.DRAFT });
-export const EVENT_CANCELLED = buildEvent('cancelled', { status: EventStatus.CANCELLED });
+export const EVENT_CANCELLED = buildEvent('cancelled', {
+  status: EventStatus.CANCELLED,
+});
 
 export const CONCLUDED_END_AT = new Date('2026-08-01T00:00:00Z');
 export const EVENT_CONCLUDED_WITH_END_AT = buildEvent('concluded-with-end-at', {
@@ -101,11 +111,14 @@ export const EVENT_CONCLUDED_NO_END_AT_WITH_START = buildEvent(
   },
 );
 
-export const EVENT_CONCLUDED_NO_END_NO_START = buildEvent('concluded-no-end-no-start', {
-  status: EventStatus.CONCLUDED,
-  endAt: null,
-  startAt: null,
-});
+export const EVENT_CONCLUDED_NO_END_NO_START = buildEvent(
+  'concluded-no-end-no-start',
+  {
+    status: EventStatus.CONCLUDED,
+    endAt: null,
+    startAt: null,
+  },
+);
 
 // ---- room fixture (validateRoomExists) -----------------------------------------
 
@@ -118,20 +131,25 @@ export function applyCentralMockImplementations(
   prismaMock: DeepMockProxy<PrismaService>,
   registrationValidationServiceMock: DeepMockProxy<RegistrationValidationService>,
 ): void {
-  (prismaMock.discussionRoom.findUnique as any).mockImplementation(async (args: any) => {
-    if (args.where.id !== ROOM_ID) return null;
-    return {
-      id: ROOM_ID,
-      eventId: EVENT_ROOM.id,
-      createdAt: new Date('2026-08-01T00:00:00Z'),
-      lastSerialNumber: 0,
-      event: EVENT_ROOM,
-    } as any;
-  });
+  (prismaMock.discussionRoom.findUnique as any).mockImplementation(
+    async (args: any) => {
+      if (args.where.id !== ROOM_ID) return null;
+      return {
+        id: ROOM_ID,
+        eventId: EVENT_ROOM.id,
+        createdAt: new Date('2026-08-01T00:00:00Z'),
+        lastSerialNumber: 0,
+        event: EVENT_ROOM,
+      } as any;
+    },
+  );
 
   registrationValidationServiceMock.validateConfirmedRegistration.mockImplementation(
     async (eventId: string, participantId: string) => {
-      if (eventId === EVENT_ROOM.id && participantId === USERS.PARTICIPANT_MAIN.id) {
+      if (
+        eventId === EVENT_ROOM.id &&
+        participantId === USERS.PARTICIPANT_MAIN.id
+      ) {
         return { message: 'Participant is confirmed for this event.' };
       }
       throw new RegistrationNotFoundException();

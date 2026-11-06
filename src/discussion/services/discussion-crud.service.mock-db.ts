@@ -22,7 +22,11 @@ import { ReturnMessageDto } from '../dto/return-message.dto';
 
 // ---- deterministic UUID v4 ids ---------------------------------------------
 function uuidFrom(tag: string): string {
-  const hex = createHash('sha256').update(tag).digest('hex').slice(0, 32).split('');
+  const hex = createHash('sha256')
+    .update(tag)
+    .digest('hex')
+    .slice(0, 32)
+    .split('');
   hex[12] = '4';
   hex[16] = ['8', '9', 'a', 'b'][parseInt(hex[16], 16) % 4];
   const h = hex.join('');
@@ -114,7 +118,9 @@ export function buildRawParticipantMessage(
   };
 }
 
-export function buildRawOrganizerMessage(overrides: Record<string, unknown> = {}) {
+export function buildRawOrganizerMessage(
+  overrides: Record<string, unknown> = {},
+) {
   return {
     id: uuidFrom(`raw-message-${Math.random()}`),
     roomId: uuidFrom('unassigned-room'),
@@ -145,7 +151,10 @@ export function mapRawToExpected(raw: Record<string, any>): ReturnMessageDto {
       : {
           id: raw.senderParticipant.id,
           role: Role.PARTICIPANT,
-          name: raw.senderParticipant.nickname || raw.senderParticipant.firstName || '',
+          name:
+            raw.senderParticipant.nickname ||
+            raw.senderParticipant.firstName ||
+            '',
           imageUrl: raw.senderParticipant.imageUrl ?? '',
         },
     createdAt: raw.createdAt,
@@ -179,7 +188,9 @@ function buildRoomMainMessages(): Record<string, any>[] {
   const messages: Record<string, any>[] = [];
   for (let i = 0; i < 9; i++) {
     const isOrganizer = i % 2 === 0;
-    const builder = isOrganizer ? buildRawOrganizerMessage : buildRawParticipantMessage;
+    const builder = isOrganizer
+      ? buildRawOrganizerMessage
+      : buildRawParticipantMessage;
     messages.push(
       builder({
         id: uuidFrom(`crud-room-main-message-${i}`),
@@ -219,7 +230,9 @@ export function buildSequentialMessages(
 ): Record<string, any>[] {
   return Array.from({ length: count }, (_, i) => {
     const isOrganizer = i % 2 === 0;
-    const builder = isOrganizer ? buildRawOrganizerMessage : buildRawParticipantMessage;
+    const builder = isOrganizer
+      ? buildRawOrganizerMessage
+      : buildRawParticipantMessage;
     return builder({
       id: uuidFrom(`seq-message-${roomId}-${i}`),
       roomId,
@@ -234,7 +247,10 @@ const ROOM_MAIN: RoomFixture = {
   id: ROOM_MAIN_ID,
   eventId: EVENT_MAIN_ID,
   organizerId: USERS.ORGANIZER_MAIN.id,
-  confirmedParticipantIds: [USERS.PARTICIPANT_MAIN.id, USERS.PARTICIPANT_NICKNAME_EMPTY.id],
+  confirmedParticipantIds: [
+    USERS.PARTICIPANT_MAIN.id,
+    USERS.PARTICIPANT_NICKNAME_EMPTY.id,
+  ],
   lastSerialNumber: 12,
   messages: ROOM_MAIN_MESSAGES,
   readStatus: {
@@ -278,7 +294,9 @@ export const NOT_FOUND_MESSAGE_ID = uuidFrom('crud-message-not-found');
 // arbitrary (upsertLastReadMessage doesn't look it up), just needs a fixed,
 // named value rather than each test minting its own.
 export const READ_STATUS_NEW_MESSAGE_ID = uuidFrom('read-status-new-message');
-export const READ_STATUS_FIRST_READ_MESSAGE_ID = uuidFrom('read-status-first-read-message');
+export const READ_STATUS_FIRST_READ_MESSAGE_ID = uuidFrom(
+  'read-status-first-read-message',
+);
 
 // ---- event / registration fixtures (getParticipantEventsWithRoom, getOrganizerEventsWithRoom) --
 
@@ -307,10 +325,22 @@ export const EVENTS = {
 };
 
 export const EVENT_REGISTRATIONS = [
-  { participantId: USERS.PARTICIPANT_MAIN.id, status: 'CONFIRMED', event: EVENTS.MAIN },
-  { participantId: USERS.PARTICIPANT_MAIN.id, status: 'CONFIRMED', event: EVENTS.ARCHIVED },
+  {
+    participantId: USERS.PARTICIPANT_MAIN.id,
+    status: 'CONFIRMED',
+    event: EVENTS.MAIN,
+  },
+  {
+    participantId: USERS.PARTICIPANT_MAIN.id,
+    status: 'CONFIRMED',
+    event: EVENTS.ARCHIVED,
+  },
   // cancelled registration for the same participant — must never be returned
-  { participantId: USERS.PARTICIPANT_MAIN.id, status: 'CANCELLED', event: EVENTS.NO_ROOM },
+  {
+    participantId: USERS.PARTICIPANT_MAIN.id,
+    status: 'CANCELLED',
+    event: EVENTS.NO_ROOM,
+  },
 ];
 
 // ---- createMessage fixtures --------------------------------------------------
@@ -380,14 +410,28 @@ const PAGINATION_ROOM_SMALL_ID = uuidFrom('pagination-room-small'); // 5 message
 const PAGINATION_ROOM_TINY_ID = uuidFrom('pagination-room-tiny'); // 3 messages
 
 export const PAGINATION_ROOMS = {
-  LARGE: { id: PAGINATION_ROOM_LARGE_ID, messages: buildSequentialMessages(26, PAGINATION_ROOM_LARGE_ID) },
-  MEDIUM: { id: PAGINATION_ROOM_MEDIUM_ID, messages: buildSequentialMessages(11, PAGINATION_ROOM_MEDIUM_ID) },
-  SMALL: { id: PAGINATION_ROOM_SMALL_ID, messages: buildSequentialMessages(5, PAGINATION_ROOM_SMALL_ID) },
-  TINY: { id: PAGINATION_ROOM_TINY_ID, messages: buildSequentialMessages(3, PAGINATION_ROOM_TINY_ID) },
+  LARGE: {
+    id: PAGINATION_ROOM_LARGE_ID,
+    messages: buildSequentialMessages(26, PAGINATION_ROOM_LARGE_ID),
+  },
+  MEDIUM: {
+    id: PAGINATION_ROOM_MEDIUM_ID,
+    messages: buildSequentialMessages(11, PAGINATION_ROOM_MEDIUM_ID),
+  },
+  SMALL: {
+    id: PAGINATION_ROOM_SMALL_ID,
+    messages: buildSequentialMessages(5, PAGINATION_ROOM_SMALL_ID),
+  },
+  TINY: {
+    id: PAGINATION_ROOM_TINY_ID,
+    messages: buildSequentialMessages(3, PAGINATION_ROOM_TINY_ID),
+  },
 };
 
 export const PAGINATION_CURSOR_ID = uuidFrom('pagination-cursor');
-export const PAGINATION_EMPTY_PAGE_CURSOR_ID = uuidFrom('pagination-empty-page-cursor');
+export const PAGINATION_EMPTY_PAGE_CURSOR_ID = uuidFrom(
+  'pagination-empty-page-cursor',
+);
 
 // ---- getLatestAnnouncements fixtures --------------------------------------------
 
@@ -446,100 +490,131 @@ export function applyCentralMockImplementations(
     return undefined;
   };
 
-  (prismaMock as any).$transaction.mockImplementation((fn: any) => fn(prismaMock));
+  (prismaMock as any).$transaction.mockImplementation((fn: any) =>
+    fn(prismaMock),
+  );
 
-  (prismaMock as any).$queryRaw.mockImplementation(async (_strings: any, roomId: string) => {
-    const room = findRoom(roomId);
-    if (!room) return [];
-    room.lastSerialNumber += 1;
-    return [{ lastSerialNumber: room.lastSerialNumber }];
-  });
+  (prismaMock as any).$queryRaw.mockImplementation(
+    async (_strings: any, roomId: string) => {
+      const room = findRoom(roomId);
+      if (!room) return [];
+      room.lastSerialNumber += 1;
+      return [{ lastSerialNumber: room.lastSerialNumber }];
+    },
+  );
 
-  prismaMock.message.create.mockResolvedValue(buildRawParticipantMessage() as any);
+  prismaMock.message.create.mockResolvedValue(buildRawParticipantMessage());
 
-  (prismaMock.message.findFirst as any).mockImplementation(async (args: any) => {
-    const room = findRoom(args.where.roomId);
-    if (!room || room.messages.length === 0) return null;
-    return room.messages[room.messages.length - 1] as any;
-  });
+  (prismaMock.message.findFirst as any).mockImplementation(
+    async (args: any) => {
+      const room = findRoom(args.where.roomId);
+      if (!room || room.messages.length === 0) return null;
+      return room.messages[room.messages.length - 1] as any;
+    },
+  );
 
-  (prismaMock.message.findUnique as any).mockImplementation(async (args: any) => {
-    const message = findMessageById(args.where.id);
-    if (!message) return null;
-    if (args.select?.serialNumber) return { serialNumber: message.serialNumber } as any;
-    if (args.select?.createdAt) return { createdAt: message.createdAt } as any;
-    return message as any;
-  });
+  (prismaMock.message.findUnique as any).mockImplementation(
+    async (args: any) => {
+      const message = findMessageById(args.where.id);
+      if (!message) return null;
+      if (args.select?.serialNumber)
+        return { serialNumber: message.serialNumber } as any;
+      if (args.select?.createdAt)
+        return { createdAt: message.createdAt } as any;
+      return message as any;
+    },
+  );
 
   (prismaMock.message.count as any).mockImplementation(async (args: any) => {
     const room = findRoom(args.where.roomId);
     if (!room) return 0;
     const gt: Date = args.where.createdAt.gt;
-    return room.messages.filter((m) => m.createdAt.getTime() > gt.getTime()).length;
+    return room.messages.filter((m) => m.createdAt.getTime() > gt.getTime())
+      .length;
   });
 
-  (prismaMock.discussionRoom.findUnique as any).mockImplementation(async (args: any) => {
-    const room = args.where.id ? findRoom(args.where.id) : findRoomByEventId(args.where.eventId);
-    if (!room) return null;
+  (prismaMock.discussionRoom.findUnique as any).mockImplementation(
+    async (args: any) => {
+      const room = args.where.id
+        ? findRoom(args.where.id)
+        : findRoomByEventId(args.where.eventId);
+      if (!room) return null;
 
-    if (args.select?.lastSerialNumber) {
-      return { lastSerialNumber: room.lastSerialNumber } as any;
-    }
-    if (args.select?.id) {
-      return { id: room.id } as any;
-    }
-    if (args.select?.event) {
-      return {
-        event: {
-          organizerId: room.organizerId,
-          eventRegistrations: room.confirmedParticipantIds.map((participantId) => ({
-            participantId,
-          })),
-        },
-      } as any;
-    }
-    return room as any;
-  });
+      if (args.select?.lastSerialNumber) {
+        return { lastSerialNumber: room.lastSerialNumber } as any;
+      }
+      if (args.select?.id) {
+        return { id: room.id } as any;
+      }
+      if (args.select?.event) {
+        return {
+          event: {
+            organizerId: room.organizerId,
+            eventRegistrations: room.confirmedParticipantIds.map(
+              (participantId) => ({
+                participantId,
+              }),
+            ),
+          },
+        } as any;
+      }
+      return room as any;
+    },
+  );
 
-  (prismaMock.roomReadStatus.findUnique as any).mockImplementation(async (args: any) => {
-    const key = args.where.roomId_readerOrganizerId ?? args.where.roomId_readerParticipantId;
-    const room = findRoom(key.roomId);
-    if (!room) return null;
-    const status = args.where.roomId_readerOrganizerId
-      ? room.readStatus.organizer
-      : room.readStatus.participant;
-    return (status as any) ?? null;
-  });
+  (prismaMock.roomReadStatus.findUnique as any).mockImplementation(
+    async (args: any) => {
+      const key =
+        args.where.roomId_readerOrganizerId ??
+        args.where.roomId_readerParticipantId;
+      const room = findRoom(key.roomId);
+      if (!room) return null;
+      const status = args.where.roomId_readerOrganizerId
+        ? room.readStatus.organizer
+        : room.readStatus.participant;
+      return (status as any) ?? null;
+    },
+  );
 
-  (prismaMock.roomReadStatus.upsert as any).mockImplementation(async (args: any) => {
-    const isOrganizer = !!args.where.roomId_readerOrganizerId;
-    const key = isOrganizer
-      ? args.where.roomId_readerOrganizerId
-      : args.where.roomId_readerParticipantId;
-    const room = findRoom(key.roomId);
-    if (!room) throw new Error('fixture room not found');
+  (prismaMock.roomReadStatus.upsert as any).mockImplementation(
+    async (args: any) => {
+      const isOrganizer = !!args.where.roomId_readerOrganizerId;
+      const key = isOrganizer
+        ? args.where.roomId_readerOrganizerId
+        : args.where.roomId_readerParticipantId;
+      const room = findRoom(key.roomId);
+      if (!room) throw new Error('fixture room not found');
 
-    const branch = isOrganizer ? 'organizer' : 'participant';
-    const existing = room.readStatus[branch];
-    const result = existing ? { ...existing, ...args.update } : { ...args.create };
-    room.readStatus[branch] = result;
-    return result as any;
-  });
+      const branch = isOrganizer ? 'organizer' : 'participant';
+      const existing = room.readStatus[branch];
+      const result = existing
+        ? { ...existing, ...args.update }
+        : { ...args.create };
+      room.readStatus[branch] = result;
+      return result;
+    },
+  );
 
-  (prismaMock.eventRegistration.findMany as any).mockImplementation(async (args: any) => {
-    const { participantId, event: eventFilter } = args.where;
-    let regs = EVENT_REGISTRATIONS.filter(
-      (r) => r.participantId === participantId && r.status === 'CONFIRMED',
-    );
-    if (eventFilter?.status?.in) {
-      regs = regs.filter((r) => eventFilter.status.in.includes(r.event.status));
-    }
-    return regs as any;
-  });
+  (prismaMock.eventRegistration.findMany as any).mockImplementation(
+    async (args: any) => {
+      const { participantId, event: eventFilter } = args.where;
+      let regs = EVENT_REGISTRATIONS.filter(
+        (r) => r.participantId === participantId && r.status === 'CONFIRMED',
+      );
+      if (eventFilter?.status?.in) {
+        regs = regs.filter((r) =>
+          eventFilter.status.in.includes(r.event.status),
+        );
+      }
+      return regs as any;
+    },
+  );
 
   (prismaMock.event.findMany as any).mockImplementation(async (args: any) => {
     const { organizerId, status } = args.where;
-    let events = Object.values(EVENTS).filter((e) => e.organizerId === organizerId);
+    let events = Object.values(EVENTS).filter(
+      (e) => e.organizerId === organizerId,
+    );
     if (status?.in) {
       events = events.filter((e) => status.in.includes(e.status));
     }

@@ -18,7 +18,11 @@ import { JwtAccessPayload } from '../auth/strategies/jwt-access.strategy';
  */
 
 function uuidFrom(tag: string): string {
-  const hex = createHash('sha256').update(tag).digest('hex').slice(0, 32).split('');
+  const hex = createHash('sha256')
+    .update(tag)
+    .digest('hex')
+    .slice(0, 32)
+    .split('');
   hex[12] = '4';
   hex[16] = ['8', '9', 'a', 'b'][parseInt(hex[16], 16) % 4];
   const h = hex.join('');
@@ -39,7 +43,9 @@ export const USER_ID = uuidFrom('gateway-user-main');
 
 // ---- JWT payload fixtures -------------------------------------------------------
 
-export function buildPayload(overrides: Partial<JwtAccessPayload> = {}): JwtAccessPayload {
+export function buildPayload(
+  overrides: Partial<JwtAccessPayload> = {},
+): JwtAccessPayload {
   return {
     sub: USER_ID,
     email: 'user@example.com',

@@ -4,7 +4,7 @@ import { Type } from 'class-transformer';
 export class GetMessagesQueryDto {
   @IsOptional()
   @IsString()
-  cursor?: string;  // message id to paginate from
+  cursor?: string; // message id to paginate from
 
   @IsOptional()
   @IsIn(['before', 'after'])

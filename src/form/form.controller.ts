@@ -143,7 +143,7 @@ export class FormController {
       eventId,
       type,
       dto,
-      user.organizerProfileId!
+      user.organizerProfileId!,
     );
   }
 

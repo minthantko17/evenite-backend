@@ -124,7 +124,6 @@ const createOrganizerDto = () => ({
   externalUrl: 'https://eng.cmu.ac.th',
 });
 
-
 const buildModule = async (): Promise<TestingModule> =>
   Test.createTestingModule({
     providers: [
@@ -272,12 +271,12 @@ describe('UserCrudService - updateUserRole', () => {
     const input = { userId: MOCK_USER_ID_1, role: Role.PARTICIPANT };
     const expected = {
       id: input.userId,
-      currentRole: Role.PARTICIPANT
+      currentRole: Role.PARTICIPANT,
     };
     mockPrisma.user.update.mockResolvedValue(expected);
 
     const result = await service.updateUserRole(input.userId, input.role);
-    
+
     expect(result).toEqual(expected);
 
     // console.log('[UT-4-012-01] Input :', input);
@@ -305,7 +304,7 @@ describe('UserCrudService - updateUserRole', () => {
     const input = { userId: MOCK_USER_ID_1, role: null as any };
     const expected = {
       id: input.userId,
-      currentRole: null
+      currentRole: null,
     };
     mockPrisma.user.update.mockResolvedValue(expected);
 
@@ -511,7 +510,7 @@ describe('UserCrudService - createParticipantProfile', () => {
 
     const result = await service.createParticipantProfile(
       input.userId,
-      input.dto as any,
+      input.dto,
     );
 
     // console.log('[UT-4-014-02] Input :', input);
@@ -595,7 +594,7 @@ describe('UserCrudService - updateParticipantProfile', () => {
 
     const result = await service.updateParticipantProfile(
       input.userId,
-      input.dto as any,
+      input.dto,
     );
 
     // console.log('[UT-4-015-01] Input :', input);
@@ -626,7 +625,7 @@ describe('UserCrudService - updateParticipantProfile', () => {
 
     const result = await service.updateParticipantProfile(
       input.userId,
-      input.dto as any,
+      input.dto,
     );
 
     // console.log('[UT-4-015-02] Input :', input);
@@ -669,7 +668,7 @@ describe('UserCrudService - updateParticipantProfile', () => {
 
     const result = await service.updateParticipantProfile(
       input.userId,
-      input.dto as any,
+      input.dto,
     );
 
     // console.log('[UT-4-015-03] Input :', input);
@@ -818,7 +817,7 @@ describe('UserCrudService - createOrganizerProfile', () => {
 
     const result = await service.createOrganizerProfile(
       input.userId,
-      input.dto as any,
+      input.dto,
     );
 
     // console.log('[UT-4-017-01] Input :', input);
@@ -869,7 +868,7 @@ describe('UserCrudService - createOrganizerProfile', () => {
 
     const result = await service.createOrganizerProfile(
       input.userId,
-      input.dto as any,
+      input.dto,
     );
 
     // console.log('[UT-4-017-02] Input :', input);
@@ -945,7 +944,7 @@ describe('UserCrudService - updateOrganizerProfile', () => {
 
     const result = await service.updateOrganizerProfile(
       input.userId,
-      input.dto as any,
+      input.dto,
     );
 
     // console.log('[UT-4-018-01] Input :', input);
@@ -976,7 +975,7 @@ describe('UserCrudService - updateOrganizerProfile', () => {
 
     const result = await service.updateOrganizerProfile(
       input.userId,
-      input.dto as any,
+      input.dto,
     );
 
     // console.log('[UT-4-018-02] Input :', input);
@@ -1016,7 +1015,7 @@ describe('UserCrudService - updateOrganizerProfile', () => {
 
     const result = await service.updateOrganizerProfile(
       input.userId,
-      input.dto as any,
+      input.dto,
     );
 
     // console.log('[UT-4-018-03] Input :', input);

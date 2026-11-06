@@ -167,7 +167,9 @@ describe('DiscussionService', () => {
 
       expect(validationServiceMock.validateRoomAccess).not.toHaveBeenCalled();
       expect(validationServiceMock.validateRoomWritable).not.toHaveBeenCalled();
-      expect(validationServiceMock.validateMessageContent).not.toHaveBeenCalled();
+      expect(
+        validationServiceMock.validateMessageContent,
+      ).not.toHaveBeenCalled();
       expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
     });
 
@@ -188,7 +190,9 @@ describe('DiscussionService', () => {
       );
 
       expect(validationServiceMock.validateRoomWritable).not.toHaveBeenCalled();
-      expect(validationServiceMock.validateMessageContent).not.toHaveBeenCalled();
+      expect(
+        validationServiceMock.validateMessageContent,
+      ).not.toHaveBeenCalled();
       expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
     });
 
@@ -208,7 +212,9 @@ describe('DiscussionService', () => {
         'This discussion room is read-only and no longer accepts new messages.',
       );
 
-      expect(validationServiceMock.validateMessageContent).not.toHaveBeenCalled();
+      expect(
+        validationServiceMock.validateMessageContent,
+      ).not.toHaveBeenCalled();
       expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
     });
 
@@ -241,13 +247,17 @@ describe('DiscussionService', () => {
       );
 
       await expect(promise).rejects.toThrow(MessageContentInvalidException);
-      await expect(promise).rejects.toThrow('Message cannot exceed 2000 characters.');
+      await expect(promise).rejects.toThrow(
+        'Message cannot exceed 2000 characters.',
+      );
 
       expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
     });
 
     it('UT-sendMessage-09 [error] [single]: createMessage fails downstream — rejects with the CRUD error', async () => {
-      crudServiceMock.createMessage.mockRejectedValueOnce(new SaveMessageException());
+      crudServiceMock.createMessage.mockRejectedValueOnce(
+        new SaveMessageException(),
+      );
       const dto: CreateMessageDto = { content: 'hello' };
 
       const promise = service.sendMessage(
@@ -259,7 +269,9 @@ describe('DiscussionService', () => {
       );
 
       await expect(promise).rejects.toThrow(SaveMessageException);
-      await expect(promise).rejects.toThrow('Failed to save message. Please try again.');
+      await expect(promise).rejects.toThrow(
+        'Failed to save message. Please try again.',
+      );
     });
   });
 
@@ -328,7 +340,9 @@ describe('DiscussionService', () => {
       );
 
       await expect(promise).rejects.toThrow(AnnouncementNotAllowedException);
-      await expect(promise).rejects.toThrow('Only the organizer can send announcements.');
+      await expect(promise).rejects.toThrow(
+        'Only the organizer can send announcements.',
+      );
 
       expect(validationServiceMock.validateRoomExists).not.toHaveBeenCalled();
       expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
@@ -388,7 +402,9 @@ describe('DiscussionService', () => {
         'This discussion room is read-only and no longer accepts new messages.',
       );
 
-      expect(validationServiceMock.validateMessageContent).not.toHaveBeenCalled();
+      expect(
+        validationServiceMock.validateMessageContent,
+      ).not.toHaveBeenCalled();
       expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
     });
 
@@ -421,13 +437,17 @@ describe('DiscussionService', () => {
       );
 
       await expect(promise).rejects.toThrow(MessageContentInvalidException);
-      await expect(promise).rejects.toThrow('Message cannot exceed 2000 characters.');
+      await expect(promise).rejects.toThrow(
+        'Message cannot exceed 2000 characters.',
+      );
 
       expect(crudServiceMock.createMessage).not.toHaveBeenCalled();
     });
 
     it('UT-sendAnnouncement-09 [error] [single]: createMessage fails downstream — rejects with the CRUD error', async () => {
-      crudServiceMock.createMessage.mockRejectedValueOnce(new SaveMessageException());
+      crudServiceMock.createMessage.mockRejectedValueOnce(
+        new SaveMessageException(),
+      );
       const dto: CreateAnnouncementDto = { content: 'hello' };
 
       const promise = service.sendAnnouncement(
@@ -439,7 +459,9 @@ describe('DiscussionService', () => {
       );
 
       await expect(promise).rejects.toThrow(SaveMessageException);
-      await expect(promise).rejects.toThrow('Failed to save message. Please try again.');
+      await expect(promise).rejects.toThrow(
+        'Failed to save message. Please try again.',
+      );
     });
   });
 
@@ -449,7 +471,11 @@ describe('DiscussionService', () => {
   describe('getMessages', () => {
     it('UT-getMessages-01: explicit cursor + direction + limit — forwarded as-is, skips the read-status lookup, resolves the CRUD page', async () => {
       const cursor = ROOMS.ROOM_ACTIVE.messages[0].id;
-      const query: GetMessagesQueryDto = { cursor, direction: 'after', limit: 10 };
+      const query: GetMessagesQueryDto = {
+        cursor,
+        direction: 'after',
+        limit: 10,
+      };
 
       const result = await service.getMessages(
         ROOMS.ROOM_ACTIVE.id,
@@ -571,7 +597,10 @@ describe('DiscussionService', () => {
     });
 
     it('UT-getMessages-07: limit at/above MAX_MESSAGE_PAGE_SIZE — capped to 25', async () => {
-      const query: GetMessagesQueryDto = { cursor: ROOMS.ROOM_ACTIVE.messages[0].id, limit: 100 };
+      const query: GetMessagesQueryDto = {
+        cursor: ROOMS.ROOM_ACTIVE.messages[0].id,
+        limit: 100,
+      };
 
       const result = await service.getMessages(
         ROOMS.ROOM_ACTIVE.id,
@@ -606,7 +635,9 @@ describe('DiscussionService', () => {
 
       expect(validationServiceMock.validateRoomAccess).not.toHaveBeenCalled();
       expect(crudServiceMock.getRoomReadStatus).not.toHaveBeenCalled();
-      expect(crudServiceMock.getPaginatedMessagesByCursor).not.toHaveBeenCalled();
+      expect(
+        crudServiceMock.getPaginatedMessagesByCursor,
+      ).not.toHaveBeenCalled();
     });
 
     it('UT-getMessages-09 [error]: caller is not authorized — throws RoomAccessDeniedException', async () => {
@@ -626,7 +657,9 @@ describe('DiscussionService', () => {
       );
 
       expect(crudServiceMock.getRoomReadStatus).not.toHaveBeenCalled();
-      expect(crudServiceMock.getPaginatedMessagesByCursor).not.toHaveBeenCalled();
+      expect(
+        crudServiceMock.getPaginatedMessagesByCursor,
+      ).not.toHaveBeenCalled();
     });
   });
 
@@ -721,7 +754,9 @@ describe('DiscussionService', () => {
         messageId,
       );
 
-      expect(crudServiceMock.getMessageSerialNumber).toHaveBeenCalledWith(messageId);
+      expect(crudServiceMock.getMessageSerialNumber).toHaveBeenCalledWith(
+        messageId,
+      );
       expect(crudServiceMock.upsertLastReadMessage).toHaveBeenCalledWith(
         ROOMS.ROOM_ACTIVE.id,
         Role.ORGANIZER,
@@ -844,7 +879,9 @@ describe('DiscussionService', () => {
       );
 
       await expect(promise).rejects.toThrow(SaveRoomReadStatusException);
-      await expect(promise).rejects.toThrow('Failed to update read status. Please try again.');
+      await expect(promise).rejects.toThrow(
+        'Failed to update read status. Please try again.',
+      );
 
       expect(eventEmitterMock.emit).not.toHaveBeenCalled();
     });
@@ -891,7 +928,9 @@ describe('DiscussionService', () => {
     });
 
     it('UT-getCreatedDiscussionRooms-03: filter omitted — forwards undefined (no status filter), resolves every owned room', async () => {
-      const result = await service.getCreatedDiscussionRooms(USERS.ORGANIZER_MAIN.id);
+      const result = await service.getCreatedDiscussionRooms(
+        USERS.ORGANIZER_MAIN.id,
+      );
 
       expect(crudServiceMock.getOrganizerEventsWithRoom).toHaveBeenCalledWith(
         USERS.ORGANIZER_MAIN.id,
@@ -908,9 +947,14 @@ describe('DiscussionService', () => {
     });
 
     it('UT-getCreatedDiscussionRooms-04 [single]: reads unread status keyed on the ORGANIZER caller identity, not the participant slot', async () => {
-      await service.getCreatedDiscussionRooms(USERS.ORGANIZER_MAIN.id, 'active');
+      await service.getCreatedDiscussionRooms(
+        USERS.ORGANIZER_MAIN.id,
+        'active',
+      );
 
-      expect(crudServiceMock.getUnreadStatusBySerialNumber).toHaveBeenCalledWith(
+      expect(
+        crudServiceMock.getUnreadStatusBySerialNumber,
+      ).toHaveBeenCalledWith(
         ROOMS.ROOM_ACTIVE.id,
         Role.ORGANIZER,
         null,
@@ -919,7 +963,9 @@ describe('DiscussionService', () => {
     });
 
     it('UT-getCreatedDiscussionRooms-05 [single]: no rooms for the caller — resolves [] without mapping', async () => {
-      const result = await service.getCreatedDiscussionRooms(USERS.ORGANIZER_OTHER.id);
+      const result = await service.getCreatedDiscussionRooms(
+        USERS.ORGANIZER_OTHER.id,
+      );
 
       expect(result).toEqual([]);
       expect(crudServiceMock.getLatestMessageForRoom).not.toHaveBeenCalled();
@@ -948,7 +994,9 @@ describe('DiscussionService', () => {
     });
 
     it('UT-getJoinedDiscussionRooms-02: filter omitted — resolves every joined room, filtering out roomless events, keyed on the PARTICIPANT caller identity', async () => {
-      const result = await service.getJoinedDiscussionRooms(USERS.PARTICIPANT_MAIN.id);
+      const result = await service.getJoinedDiscussionRooms(
+        USERS.PARTICIPANT_MAIN.id,
+      );
 
       expect(result).toEqual([
         expectedRoomListDto(ROOMS.ROOM_ACTIVE, Role.PARTICIPANT),
@@ -957,7 +1005,9 @@ describe('DiscussionService', () => {
         expectedRoomListDto(ROOMS.ROOM_CONCLUDED_GRACE, Role.PARTICIPANT),
         expectedRoomListDto(ROOMS.ROOM_CONCLUDED_EXPIRED, Role.PARTICIPANT),
       ]);
-      expect(crudServiceMock.getUnreadStatusBySerialNumber).toHaveBeenCalledWith(
+      expect(
+        crudServiceMock.getUnreadStatusBySerialNumber,
+      ).toHaveBeenCalledWith(
         ROOMS.ROOM_ACTIVE.id,
         Role.PARTICIPANT,
         USERS.PARTICIPANT_MAIN.id,
@@ -966,7 +1016,9 @@ describe('DiscussionService', () => {
     });
 
     it('UT-getJoinedDiscussionRooms-03 [single]: participant with no joined rooms — resolves []', async () => {
-      const result = await service.getJoinedDiscussionRooms(USERS.PARTICIPANT_OTHER.id);
+      const result = await service.getJoinedDiscussionRooms(
+        USERS.PARTICIPANT_OTHER.id,
+      );
 
       expect(result).toEqual([]);
     });
@@ -996,7 +1048,9 @@ describe('DiscussionService', () => {
         null,
       );
 
-      expect(result).toEqual({ message: 'Participant has access to this room.' });
+      expect(result).toEqual({
+        message: 'Participant has access to this room.',
+      });
     });
 
     it('UT-authorizeRoomJoinAccess-03 [error]: room does not exist — throws RoomNotFoundException', async () => {
@@ -1031,7 +1085,9 @@ describe('DiscussionService', () => {
   // ==========================================================================
   describe('findRoomByEventId', () => {
     it('UT-findRoomByEventId-01 [single]: room exists for the event — resolves { roomId }', async () => {
-      const result = await service.findRoomByEventId(ROOMS.ROOM_ACTIVE.event.id);
+      const result = await service.findRoomByEventId(
+        ROOMS.ROOM_ACTIVE.event.id,
+      );
 
       expect(result).toEqual({ roomId: ROOMS.ROOM_ACTIVE.id });
     });

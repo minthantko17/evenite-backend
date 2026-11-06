@@ -18,7 +18,6 @@ const mockPrisma = {
   organizerProfile: { findUnique: jest.fn() },
 };
 
-
 describe('UserValidationService - validateUserExists', () => {
   let service: UserValidationService;
 
@@ -34,7 +33,7 @@ describe('UserValidationService - validateUserExists', () => {
   });
 
   it('UT-4-001-01: should resolve without throwing when user exists', async () => {
-    const expected  = {
+    const expected = {
       id: 'u1000000-0000-0000-0000-000000000001',
       currentRole: null,
     };
@@ -43,7 +42,7 @@ describe('UserValidationService - validateUserExists', () => {
       'u1000000-0000-0000-0000-000000000001',
     );
     await expect(result).resolves.toEqual(expected);
-    await expect(()=>result).not.toThrow();
+    await expect(() => result).not.toThrow();
   });
 
   it('UT-4-001-02: should throw UserNotFoundException with message when user not found', async () => {
@@ -75,8 +74,10 @@ describe('UserValidationService - validateParticipantProfileNotExists', () => {
     const result = service.validateParticipantProfileNotExists(
       'u2000000-0000-0000-0000-000000000002',
     );
-    await expect(result).resolves.toEqual({ message: 'Participant profile does not exist yet.' });
-    await expect(()=>result).not.toThrow();
+    await expect(result).resolves.toEqual({
+      message: 'Participant profile does not exist yet.',
+    });
+    await expect(() => result).not.toThrow();
   });
 
   it('UT-4-002-02: should throw ProfileAlreadyExistsException with message when participant profile already exists', async () => {
@@ -88,9 +89,7 @@ describe('UserValidationService - validateParticipantProfileNotExists', () => {
       'u3000000-0000-0000-0000-000000000003',
     );
     await expect(result).rejects.toThrow(ProfileAlreadyExistsException);
-    await expect(result).rejects.toThrow(
-      'Participant profile already exists.',
-    );
+    await expect(result).rejects.toThrow('Participant profile already exists.');
   });
 });
 
@@ -113,8 +112,10 @@ describe('UserValidationService - validateOrganizerProfileNotExists', () => {
     const result = service.validateOrganizerProfileNotExists(
       'u4000000-0000-0000-0000-000000000004',
     );
-    await expect(result).resolves.toEqual({ message: 'Organizer profile does not exist yet.' });
-    await expect(()=>result).not.toThrow();
+    await expect(result).resolves.toEqual({
+      message: 'Organizer profile does not exist yet.',
+    });
+    await expect(() => result).not.toThrow();
   });
 
   it('UT-4-003-02: should throw ProfileAlreadyExistsException with message when organizer profile already exists', async () => {
@@ -280,9 +281,11 @@ describe('UserValidationService - validateParticipantProfileData', () => {
           event: [],
           language: [],
         },
-        });
-        expect(call).toThrow(InvalidPreferencesException);
-        expect(call).toThrow('Personal other field must not exceed 100 characters.');
+      });
+    expect(call).toThrow(InvalidPreferencesException);
+    expect(call).toThrow(
+      'Personal other field must not exceed 100 characters.',
+    );
   });
 });
 
@@ -348,15 +351,13 @@ describe('UserValidationService - validateOrganizerProfileData', () => {
   });
 
   it('UT-4-006-06: should throw NameEmptyException when name is empty string', () => {
-    const call = () =>
-      service.validateOrganizerProfileData({ name: '' });
+    const call = () => service.validateOrganizerProfileData({ name: '' });
     expect(call).toThrow(NameEmptyException);
     expect(call).toThrow('Organizer name cannot be empty.');
   });
 
   it('UT-4-006-07: should throw NameEmptyException when name is whitespace only', () => {
-    const call = () =>
-      service.validateOrganizerProfileData({ name: '   ' });
+    const call = () => service.validateOrganizerProfileData({ name: '   ' });
     expect(call).toThrow(NameEmptyException);
     expect(call).toThrow('Organizer name cannot be empty.');
   });

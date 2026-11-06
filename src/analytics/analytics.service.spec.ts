@@ -102,7 +102,7 @@ describe('AnalyticsService', () => {
       registrationCounts[22] = 1; // 10:00 bucket
       const checkInCounts = Array<number>(24).fill(0);
       checkInCounts[22] = 1; // 10:00 bucket
-      
+
       const expected = {
         generatedAt: NOW,
         range: AnalyticsRange.LAST_24_HOURS,

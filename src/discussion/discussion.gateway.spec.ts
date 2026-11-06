@@ -95,7 +95,10 @@ describe('DiscussionGateway', () => {
     it('UT-handleConnection-02: token in handshake.headers.authorization, verification succeeds — header extraction path also works', async () => {
       jwtServiceMock.verifyAsync.mockResolvedValue(PARTICIPANT_PAYLOAD);
       const client = createMockSocket({
-        handshake: { auth: {}, headers: { authorization: 'Bearer header-token' } },
+        handshake: {
+          auth: {},
+          headers: { authorization: 'Bearer header-token' },
+        },
       });
 
       await gateway.handleConnection(client);
@@ -123,7 +126,9 @@ describe('DiscussionGateway', () => {
 
       await gateway.handleConnection(client);
 
-      expect(client.emit).toHaveBeenCalledWith('error', { message: 'Unauthorized' });
+      expect(client.emit).toHaveBeenCalledWith('error', {
+        message: 'Unauthorized',
+      });
       expect(client.disconnect).toHaveBeenCalled();
       expect(jwtServiceMock.verifyAsync).not.toHaveBeenCalled();
     });
@@ -136,7 +141,9 @@ describe('DiscussionGateway', () => {
 
       await gateway.handleConnection(client);
 
-      expect(client.emit).toHaveBeenCalledWith('error', { message: 'Unauthorized' });
+      expect(client.emit).toHaveBeenCalledWith('error', {
+        message: 'Unauthorized',
+      });
       expect(client.disconnect).toHaveBeenCalled();
       expect(client.data.user).toBeUndefined();
     });
@@ -168,13 +175,19 @@ describe('DiscussionGateway', () => {
     });
 
     it('UT-getPersonalChannel-02 [single]: role is null — returns null', () => {
-      const result = (gateway as any).getPersonalChannel(null, USERS.PARTICIPANT_MAIN.id);
+      const result = (gateway as any).getPersonalChannel(
+        null,
+        USERS.PARTICIPANT_MAIN.id,
+      );
 
       expect(result).toBeNull();
     });
 
     it('UT-getPersonalChannel-03 [single]: profileId is null — returns null', () => {
-      const result = (gateway as any).getPersonalChannel(Role.PARTICIPANT, null);
+      const result = (gateway as any).getPersonalChannel(
+        Role.PARTICIPANT,
+        null,
+      );
 
       expect(result).toBeNull();
     });
@@ -199,7 +212,10 @@ describe('DiscussionGateway', () => {
 
     it('UT-extractTokenFromHandshake-02: auth.token absent, header present — returns the stripped header token', () => {
       const client = createMockSocket({
-        handshake: { auth: {}, headers: { authorization: 'Bearer header-token' } },
+        handshake: {
+          auth: {},
+          headers: { authorization: 'Bearer header-token' },
+        },
       });
 
       const result = (gateway as any).extractTokenFromHandshake(client);
@@ -234,8 +250,12 @@ describe('DiscussionGateway', () => {
     it('UT-requireUser-02 [error]: client.data.user is unset — throws UnauthorizedException', () => {
       const client = createMockSocket({ data: {} });
 
-      expect(() => (gateway as any).requireUser(client)).toThrow(UnauthorizedException);
-      expect(() => (gateway as any).requireUser(client)).toThrow('Socket not authenticated');
+      expect(() => (gateway as any).requireUser(client)).toThrow(
+        UnauthorizedException,
+      );
+      expect(() => (gateway as any).requireUser(client)).toThrow(
+        'Socket not authenticated',
+      );
     });
   });
 
@@ -251,14 +271,18 @@ describe('DiscussionGateway', () => {
 
       await gateway.handleJoinRoom(client, { roomId: ROOM_ID });
 
-      expect(discussionServiceMock.authorizeRoomJoinAccess).toHaveBeenCalledWith(
+      expect(
+        discussionServiceMock.authorizeRoomJoinAccess,
+      ).toHaveBeenCalledWith(
         ROOM_ID,
         Role.ORGANIZER,
         null,
         USERS.ORGANIZER_MAIN.id,
       );
       expect(client.join).toHaveBeenCalledWith(ROOM_ID);
-      expect(client.emit).toHaveBeenCalledWith('room:joined', { roomId: ROOM_ID });
+      expect(client.emit).toHaveBeenCalledWith('room:joined', {
+        roomId: ROOM_ID,
+      });
     });
 
     it('UT-handleJoinRoom-02: PARTICIPANT, authorization succeeds — client.join called, emits room:joined', async () => {
@@ -269,14 +293,18 @@ describe('DiscussionGateway', () => {
 
       await gateway.handleJoinRoom(client, { roomId: ROOM_ID });
 
-      expect(discussionServiceMock.authorizeRoomJoinAccess).toHaveBeenCalledWith(
+      expect(
+        discussionServiceMock.authorizeRoomJoinAccess,
+      ).toHaveBeenCalledWith(
         ROOM_ID,
         Role.PARTICIPANT,
         USERS.PARTICIPANT_MAIN.id,
         null,
       );
       expect(client.join).toHaveBeenCalledWith(ROOM_ID);
-      expect(client.emit).toHaveBeenCalledWith('room:joined', { roomId: ROOM_ID });
+      expect(client.emit).toHaveBeenCalledWith('room:joined', {
+        roomId: ROOM_ID,
+      });
     });
 
     it('UT-handleJoinRoom-03 [error]: not authenticated — emitError(room:join, UNAUTHORIZED), join skipped', async () => {
@@ -342,8 +370,13 @@ describe('DiscussionGateway', () => {
         USERS.ORGANIZER_MAIN.id,
       );
       expect(rig.toMock).toHaveBeenCalledWith(ROOM_ID);
-      expect(rig.roomEmitMock).toHaveBeenCalledWith('message:new', ORGANIZER_MESSAGE);
-      expect(discussionServiceMock.getRoomMemberIds).toHaveBeenCalledWith(ROOM_ID);
+      expect(rig.roomEmitMock).toHaveBeenCalledWith(
+        'message:new',
+        ORGANIZER_MESSAGE,
+      );
+      expect(discussionServiceMock.getRoomMemberIds).toHaveBeenCalledWith(
+        ROOM_ID,
+      );
       expect(rig.toMock).toHaveBeenCalledWith([
         `user:${Role.ORGANIZER}:${USERS.ORGANIZER_MAIN.id}`,
         `user:${Role.PARTICIPANT}:${USERS.PARTICIPANT_MAIN.id}`,
@@ -359,7 +392,10 @@ describe('DiscussionGateway', () => {
       const client = createMockSocket({ data: { user: PARTICIPANT_PAYLOAD } });
       discussionServiceMock.sendMessage.mockResolvedValue(PARTICIPANT_MESSAGE);
 
-      const result = await gateway.handleSendMessage(client, { roomId: ROOM_ID, dto });
+      const result = await gateway.handleSendMessage(client, {
+        roomId: ROOM_ID,
+        dto,
+      });
 
       expect(discussionServiceMock.sendMessage).toHaveBeenCalledWith(
         ROOM_ID,
@@ -368,7 +404,10 @@ describe('DiscussionGateway', () => {
         USERS.PARTICIPANT_MAIN.id,
         null,
       );
-      expect(rig.roomEmitMock).toHaveBeenCalledWith('message:new', PARTICIPANT_MESSAGE);
+      expect(rig.roomEmitMock).toHaveBeenCalledWith(
+        'message:new',
+        PARTICIPANT_MESSAGE,
+      );
       expect(rig.toMock).toHaveBeenCalledWith(ROOM_ID);
       expect(rig.roomEmitMock).toHaveBeenCalledWith('chatList:update', {
         roomId: ROOM_ID,
@@ -425,7 +464,9 @@ describe('DiscussionGateway', () => {
 
     it('UT-handleSendAnnouncement-01: ORGANIZER, send succeeds — emits both message:new and announcement:new, pushes the chat-list update', async () => {
       const client = createMockSocket({ data: { user: ORGANIZER_PAYLOAD } });
-      discussionServiceMock.sendAnnouncement.mockResolvedValue(ANNOUNCEMENT_MESSAGE);
+      discussionServiceMock.sendAnnouncement.mockResolvedValue(
+        ANNOUNCEMENT_MESSAGE,
+      );
 
       await gateway.handleSendAnnouncement(client, { roomId: ROOM_ID, dto });
 
@@ -437,8 +478,14 @@ describe('DiscussionGateway', () => {
         USERS.ORGANIZER_MAIN.id,
       );
       expect(rig.toMock).toHaveBeenCalledWith(ROOM_ID);
-      expect(rig.roomEmitMock).toHaveBeenCalledWith('message:new', ANNOUNCEMENT_MESSAGE);
-      expect(rig.roomEmitMock).toHaveBeenCalledWith('announcement:new', ANNOUNCEMENT_MESSAGE);
+      expect(rig.roomEmitMock).toHaveBeenCalledWith(
+        'message:new',
+        ANNOUNCEMENT_MESSAGE,
+      );
+      expect(rig.roomEmitMock).toHaveBeenCalledWith(
+        'announcement:new',
+        ANNOUNCEMENT_MESSAGE,
+      );
       expect(rig.roomEmitMock).toHaveBeenCalledWith('chatList:update', {
         roomId: ROOM_ID,
         lastMessage: ANNOUNCEMENT_MESSAGE,
@@ -508,7 +555,9 @@ describe('DiscussionGateway', () => {
         lastReadSerialNumber: 8,
       });
 
-      expect(rig.toMock).toHaveBeenCalledWith(`user:${Role.ORGANIZER}:${USERS.ORGANIZER_MAIN.id}`);
+      expect(rig.toMock).toHaveBeenCalledWith(
+        `user:${Role.ORGANIZER}:${USERS.ORGANIZER_MAIN.id}`,
+      );
       expect(rig.roomEmitMock).toHaveBeenCalledWith('chatList:read', {
         roomId: ROOM_ID,
         lastReadSerialNumber: 8,
@@ -533,7 +582,9 @@ describe('DiscussionGateway', () => {
   // ==========================================================================
   describe('handleRegistrationCancelled', () => {
     it('UT-handleRegistrationCancelled-01: room found — calls forceDisconnectParticipant with (roomId, participantProfileId)', async () => {
-      discussionServiceMock.findRoomByEventId.mockResolvedValue({ roomId: ROOM_ID });
+      discussionServiceMock.findRoomByEventId.mockResolvedValue({
+        roomId: ROOM_ID,
+      });
       rig.fetchSocketsMock.mockResolvedValue([]);
 
       await gateway.handleRegistrationCancelled({
@@ -541,7 +592,9 @@ describe('DiscussionGateway', () => {
         participantProfileId: USERS.PARTICIPANT_MAIN.id,
       });
 
-      expect(discussionServiceMock.findRoomByEventId).toHaveBeenCalledWith(EVENT_ID);
+      expect(discussionServiceMock.findRoomByEventId).toHaveBeenCalledWith(
+        EVENT_ID,
+      );
       expect(rig.inMock).toHaveBeenCalledWith(ROOM_ID);
     });
 
@@ -557,7 +610,9 @@ describe('DiscussionGateway', () => {
     });
 
     it('UT-handleRegistrationCancelled-03 [error] [single]: findRoomByEventId throws — the error is caught internally, does not propagate', async () => {
-      discussionServiceMock.findRoomByEventId.mockRejectedValue(new Error('db unavailable'));
+      discussionServiceMock.findRoomByEventId.mockRejectedValue(
+        new Error('db unavailable'),
+      );
 
       await expect(
         gateway.handleRegistrationCancelled({
@@ -587,7 +642,9 @@ describe('DiscussionGateway', () => {
         USERS.PARTICIPANT_MAIN.id,
       );
 
-      expect(remoteSocket.emit).toHaveBeenCalledWith('room:kicked', { roomId: ROOM_ID });
+      expect(remoteSocket.emit).toHaveBeenCalledWith('room:kicked', {
+        roomId: ROOM_ID,
+      });
       expect(remoteSocket.leave).toHaveBeenCalledWith(ROOM_ID);
       const expected = {
         message: `Participant ${USERS.PARTICIPANT_MAIN.id} disconnected from room ${ROOM_ID}`,
@@ -613,7 +670,9 @@ describe('DiscussionGateway', () => {
         USERS.PARTICIPANT_MAIN.id,
       );
 
-      expect(matchingSocket.emit).toHaveBeenCalledWith('room:kicked', { roomId: ROOM_ID });
+      expect(matchingSocket.emit).toHaveBeenCalledWith('room:kicked', {
+        roomId: ROOM_ID,
+      });
       expect(matchingSocket.leave).toHaveBeenCalledWith(ROOM_ID);
       expect(otherSocket.emit).not.toHaveBeenCalled();
       expect(otherSocket.leave).not.toHaveBeenCalled();
@@ -665,10 +724,19 @@ describe('DiscussionGateway', () => {
     it.each([
       [new RoomNotFoundException(), DiscussionErrorCode.ROOM_NOT_FOUND],
       [new RoomAccessDeniedException(), DiscussionErrorCode.ROOM_ACCESS_DENIED],
-      [new RegistrationNotFoundException(), DiscussionErrorCode.REGISTRATION_NOT_FOUND],
+      [
+        new RegistrationNotFoundException(),
+        DiscussionErrorCode.REGISTRATION_NOT_FOUND,
+      ],
       [new RoomReadOnlyException(), DiscussionErrorCode.ROOM_READ_ONLY],
-      [new MessageContentInvalidException(), DiscussionErrorCode.MESSAGE_CONTENT_INVALID],
-      [new AnnouncementNotAllowedException(), DiscussionErrorCode.ANNOUNCEMENT_NOT_ALLOWED],
+      [
+        new MessageContentInvalidException(),
+        DiscussionErrorCode.MESSAGE_CONTENT_INVALID,
+      ],
+      [
+        new AnnouncementNotAllowedException(),
+        DiscussionErrorCode.ANNOUNCEMENT_NOT_ALLOWED,
+      ],
       [new UnauthorizedException(), DiscussionErrorCode.UNAUTHORIZED],
       [new Error('some other error'), DiscussionErrorCode.UNKNOWN_ERROR],
       ['a plain string throw', DiscussionErrorCode.UNKNOWN_ERROR],

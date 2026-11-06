@@ -347,7 +347,7 @@ describe('EventCrudService - sanitizeEventData', () => {
       externalUrl: '',
     };
 
-    const result = service.sanitizeEventData({} as any);
+    const result = service.sanitizeEventData({});
     // console.log('[UT-2-016-02] Input dto:', '{}');
     // console.log('[UT-2-016-02] Expected result:', expected);
     // console.log('[UT-2-016-02] Actual result:', result);
@@ -358,7 +358,7 @@ describe('EventCrudService - sanitizeEventData', () => {
   it('UT-2-016-03: should call resolveBannerUrl with undefined and return DEFAULT_BANNER_URL when no bannerUrl provided', () => {
     mockStorageService.resolveBannerUrl.mockReturnValue(DEFAULT_BANNER_URL);
 
-    const result = service.sanitizeEventData({} as any);
+    const result = service.sanitizeEventData({});
     // console.log('[UT-2-016-03] Input :', {});
     // console.log('[UT-2-016-03] Expected result.bannerUrl:', DEFAULT_BANNER_URL);
     // console.log('[UT-2-016-03] Actual result.bannerUrl:', result.bannerUrl);

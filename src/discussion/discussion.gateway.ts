@@ -254,7 +254,7 @@ export class DiscussionGateway
       const room = await this.discussionService.findRoomByEventId(
         payload.eventId,
       );
-      if (!room){
+      if (!room) {
         this.logger.warn(
           `No discussion room found for event ${payload.eventId}. Cannot disconnect participant ${payload.participantProfileId}.`,
         );
@@ -265,9 +265,7 @@ export class DiscussionGateway
         room.roomId,
         payload.participantProfileId,
       );
-      this.logger.log(
-        disconnectResult.message,
-      );
+      this.logger.log(disconnectResult.message);
     } catch (error) {
       this.logger.error(
         `Failed to handle registration cancellation for participant ${payload.participantProfileId} in event ${payload.eventId}: ${error}`,
@@ -278,9 +276,9 @@ export class DiscussionGateway
   private async forceDisconnectParticipant(
     roomId: string,
     participantProfileId: string,
-  ): Promise<{message: string}> {
+  ): Promise<{ message: string }> {
     const socketsInRoom = await this.server.in(roomId).fetchSockets();
-    if(socketsInRoom.length === 0) {
+    if (socketsInRoom.length === 0) {
       return { message: `No room sockets found.` };
     }
 
@@ -290,10 +288,14 @@ export class DiscussionGateway
       ) {
         remoteSocket.emit('room:kicked', { roomId });
         remoteSocket.leave(roomId);
-        return { message: `Participant ${participantProfileId} disconnected from room ${roomId}` };
+        return {
+          message: `Participant ${participantProfileId} disconnected from room ${roomId}`,
+        };
       }
     }
-    return { message: `No participant with profile ID ${participantProfileId} found in room ${roomId}` };
+    return {
+      message: `No participant with profile ID ${participantProfileId} found in room ${roomId}`,
+    };
   }
 
   private resolveErrorCode(error: unknown): DiscussionErrorCode {

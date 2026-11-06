@@ -1,4 +1,11 @@
-import { IsEnum, IsOptional, IsString, IsArray, ValidateNested, ArrayMinSize } from 'class-validator';
+import {
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsArray,
+  ValidateNested,
+  ArrayMinSize,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { FormType, FieldType } from '@prisma/client';
 

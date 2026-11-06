@@ -227,9 +227,7 @@ export class DiscussionCrudService {
           };
 
     const result = await this.prisma.roomReadStatus.findUnique({ where });
-    return result
-      ? { lastReadMessageId: result.lastReadMessageId }
-      : null;
+    return result ? { lastReadMessageId: result.lastReadMessageId } : null;
   }
 
   async countUnreadMessages(

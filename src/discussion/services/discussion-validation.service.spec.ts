@@ -38,7 +38,8 @@ import {
 // error cases.
 
 const prismaMock = mockDeep<PrismaService>();
-const registrationValidationServiceMock = mockDeep<RegistrationValidationService>();
+const registrationValidationServiceMock =
+  mockDeep<RegistrationValidationService>();
 
 describe('DiscussionValidationService', () => {
   let service: DiscussionValidationService;
@@ -47,7 +48,10 @@ describe('DiscussionValidationService', () => {
     mockReset(prismaMock);
     mockReset(registrationValidationServiceMock);
     jest.restoreAllMocks();
-    applyCentralMockImplementations(prismaMock, registrationValidationServiceMock);
+    applyCentralMockImplementations(
+      prismaMock,
+      registrationValidationServiceMock,
+    );
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -60,7 +64,9 @@ describe('DiscussionValidationService', () => {
       ],
     }).compile();
 
-    service = module.get<DiscussionValidationService>(DiscussionValidationService);
+    service = module.get<DiscussionValidationService>(
+      DiscussionValidationService,
+    );
   });
 
   afterEach(() => {
@@ -147,7 +153,12 @@ describe('DiscussionValidationService', () => {
     });
 
     it('UT-validateRoomAccess-05 [error] [single]: ORGANIZER, organizerProfileId null — falls through to RoomAccessDeniedException', async () => {
-      const promise = service.validateRoomAccess(EVENT_ROOM, Role.ORGANIZER, null, null);
+      const promise = service.validateRoomAccess(
+        EVENT_ROOM,
+        Role.ORGANIZER,
+        null,
+        null,
+      );
 
       await expect(promise).rejects.toThrow(RoomAccessDeniedException);
       await expect(promise).rejects.toThrow(
@@ -156,7 +167,12 @@ describe('DiscussionValidationService', () => {
     });
 
     it('UT-validateRoomAccess-06 [error] [single]: PARTICIPANT, participantProfileId null — throws RoomAccessDeniedException without calling the registration check', async () => {
-      const promise = service.validateRoomAccess(EVENT_ROOM, Role.PARTICIPANT, null, null);
+      const promise = service.validateRoomAccess(
+        EVENT_ROOM,
+        Role.PARTICIPANT,
+        null,
+        null,
+      );
 
       await expect(promise).rejects.toThrow(RoomAccessDeniedException);
       await expect(promise).rejects.toThrow(
@@ -180,7 +196,9 @@ describe('DiscussionValidationService', () => {
     });
 
     it('UT-validateRoomWritable-02: CONCLUDED, endAt present, within the 72h grace period — writable', () => {
-      jest.spyOn(Date, 'now').mockReturnValue(CONCLUDED_END_AT.getTime() + 1 * HOUR_MS);
+      jest
+        .spyOn(Date, 'now')
+        .mockReturnValue(CONCLUDED_END_AT.getTime() + 1 * HOUR_MS);
 
       const result = service.validateRoomWritable(EVENT_CONCLUDED_WITH_END_AT);
 
@@ -191,9 +209,13 @@ describe('DiscussionValidationService', () => {
     it('UT-validateRoomWritable-03: CONCLUDED, no endAt, startAt present, within grace — writable (reference = startAt + 6h)', () => {
       jest
         .spyOn(Date, 'now')
-        .mockReturnValue(CONCLUDED_START_AT.getTime() + 6 * HOUR_MS + 1 * HOUR_MS);
+        .mockReturnValue(
+          CONCLUDED_START_AT.getTime() + 6 * HOUR_MS + 1 * HOUR_MS,
+        );
 
-      const result = service.validateRoomWritable(EVENT_CONCLUDED_NO_END_AT_WITH_START);
+      const result = service.validateRoomWritable(
+        EVENT_CONCLUDED_NO_END_AT_WITH_START,
+      );
 
       const expected = { message: 'Discussion room is writable.' };
       expect(result).toEqual(expected);
@@ -202,14 +224,18 @@ describe('DiscussionValidationService', () => {
     it('UT-validateRoomWritable-04 [single]: CONCLUDED, no endAt, no startAt, within grace — writable (degenerate reference = epoch + 6h)', () => {
       jest.spyOn(Date, 'now').mockReturnValue(6 * HOUR_MS + 1 * HOUR_MS);
 
-      const result = service.validateRoomWritable(EVENT_CONCLUDED_NO_END_NO_START);
+      const result = service.validateRoomWritable(
+        EVENT_CONCLUDED_NO_END_NO_START,
+      );
 
       const expected = { message: 'Discussion room is writable.' };
       expect(result).toEqual(expected);
     });
 
     it('UT-validateRoomWritable-05 [single]: CONCLUDED, endAt present, now exactly at the 72h threshold — still writable (strict > check)', () => {
-      jest.spyOn(Date, 'now').mockReturnValue(CONCLUDED_END_AT.getTime() + 72 * HOUR_MS);
+      jest
+        .spyOn(Date, 'now')
+        .mockReturnValue(CONCLUDED_END_AT.getTime() + 72 * HOUR_MS);
 
       const result = service.validateRoomWritable(EVENT_CONCLUDED_WITH_END_AT);
 
@@ -218,19 +244,25 @@ describe('DiscussionValidationService', () => {
     });
 
     it('UT-validateRoomWritable-06 [error]: CANCELLED — throws RoomReadOnlyException with the cancellation-specific message', () => {
-      expect(() => service.validateRoomWritable(EVENT_CANCELLED)).toThrow(RoomReadOnlyException);
+      expect(() => service.validateRoomWritable(EVENT_CANCELLED)).toThrow(
+        RoomReadOnlyException,
+      );
       expect(() => service.validateRoomWritable(EVENT_CANCELLED)).toThrow(
         'This event has been cancelled. The discussion room is read-only.',
       );
     });
 
     it('UT-validateRoomWritable-07 [error]: CONCLUDED, endAt present, past the 72h grace period — throws with the default read-only message', () => {
-      jest.spyOn(Date, 'now').mockReturnValue(CONCLUDED_END_AT.getTime() + 73 * HOUR_MS);
+      jest
+        .spyOn(Date, 'now')
+        .mockReturnValue(CONCLUDED_END_AT.getTime() + 73 * HOUR_MS);
 
-      expect(() => service.validateRoomWritable(EVENT_CONCLUDED_WITH_END_AT)).toThrow(
-        RoomReadOnlyException,
-      );
-      expect(() => service.validateRoomWritable(EVENT_CONCLUDED_WITH_END_AT)).toThrow(
+      expect(() =>
+        service.validateRoomWritable(EVENT_CONCLUDED_WITH_END_AT),
+      ).toThrow(RoomReadOnlyException);
+      expect(() =>
+        service.validateRoomWritable(EVENT_CONCLUDED_WITH_END_AT),
+      ).toThrow(
         'This discussion room is read-only and no longer accepts new messages.',
       );
     });
@@ -238,12 +270,16 @@ describe('DiscussionValidationService', () => {
     it('UT-validateRoomWritable-08 [error]: CONCLUDED, no endAt, startAt present, past grace — throws (reference = startAt + 6h)', () => {
       jest
         .spyOn(Date, 'now')
-        .mockReturnValue(CONCLUDED_START_AT.getTime() + 6 * HOUR_MS + 73 * HOUR_MS);
+        .mockReturnValue(
+          CONCLUDED_START_AT.getTime() + 6 * HOUR_MS + 73 * HOUR_MS,
+        );
 
-      expect(() => service.validateRoomWritable(EVENT_CONCLUDED_NO_END_AT_WITH_START)).toThrow(
-        RoomReadOnlyException,
-      );
-      expect(() => service.validateRoomWritable(EVENT_CONCLUDED_NO_END_AT_WITH_START)).toThrow(
+      expect(() =>
+        service.validateRoomWritable(EVENT_CONCLUDED_NO_END_AT_WITH_START),
+      ).toThrow(RoomReadOnlyException);
+      expect(() =>
+        service.validateRoomWritable(EVENT_CONCLUDED_NO_END_AT_WITH_START),
+      ).toThrow(
         'This discussion room is read-only and no longer accepts new messages.',
       );
     });
@@ -279,7 +315,9 @@ describe('DiscussionValidationService', () => {
       expect(() => service.validateMessageContent('   ')).toThrow(
         MessageContentInvalidException,
       );
-      expect(() => service.validateMessageContent('   ')).toThrow('Message cannot be empty.');
+      expect(() => service.validateMessageContent('   ')).toThrow(
+        'Message cannot be empty.',
+      );
     });
 
     it('UT-validateMessageContent-05 [error] [single]: exactly 2001 characters after trim (boundary) — throws', () => {
@@ -306,12 +344,12 @@ describe('DiscussionValidationService', () => {
     });
 
     it('UT-validateAnnouncementSenderRole-02 [error]: PARTICIPANT — throws AnnouncementNotAllowedException', () => {
-      expect(() => service.validateAnnouncementSenderRole(Role.PARTICIPANT)).toThrow(
-        AnnouncementNotAllowedException,
-      );
-      expect(() => service.validateAnnouncementSenderRole(Role.PARTICIPANT)).toThrow(
-        'Only the organizer can send announcements.',
-      );
+      expect(() =>
+        service.validateAnnouncementSenderRole(Role.PARTICIPANT),
+      ).toThrow(AnnouncementNotAllowedException);
+      expect(() =>
+        service.validateAnnouncementSenderRole(Role.PARTICIPANT),
+      ).toThrow('Only the organizer can send announcements.');
     });
   });
 });

@@ -174,7 +174,7 @@ describe('findRegistrationByParticipantAndEvent', () => {
 describe('findCancelledRegistration', () => {
   it('UT-5-007-01: returns registration when CANCELLED registration exists', async () => {
     prismaMock.eventRegistration.findUnique.mockResolvedValue(
-      MOCK_CANCELLED_REGISTRATION as any,
+      MOCK_CANCELLED_REGISTRATION,
     );
 
     const result = await service.findCancelledRegistration(
@@ -187,7 +187,7 @@ describe('findCancelledRegistration', () => {
 
   it('UT-5-007-02: returns registration when CANCELLED registration exists and tx is provided', async () => {
     mockTx.eventRegistration.findUnique.mockResolvedValue(
-      MOCK_CANCELLED_REGISTRATION as any,
+      MOCK_CANCELLED_REGISTRATION,
     );
 
     const result = await service.findCancelledRegistration(
@@ -212,7 +212,7 @@ describe('findCancelledRegistration', () => {
 
   it('UT-5-007-03: returns null when registration is CONFIRMED', async () => {
     prismaMock.eventRegistration.findUnique.mockResolvedValue(
-      MOCK_CONFIRMED_REGISTRATION as any,
+      MOCK_CONFIRMED_REGISTRATION,
     );
 
     const result = await service.findCancelledRegistration(
@@ -248,7 +248,7 @@ describe('deleteExistingCancelledRegistration', () => {
     prismaMock.formResponse.deleteMany.mockResolvedValue({ count: 1 });
     prismaMock.ticket.deleteMany.mockResolvedValue({ count: 1 });
     prismaMock.eventRegistration.delete.mockResolvedValue(
-      MOCK_CANCELLED_REGISTRATION as any,
+      MOCK_CANCELLED_REGISTRATION,
     );
 
     const result =
@@ -261,7 +261,7 @@ describe('deleteExistingCancelledRegistration', () => {
     mockTx.formResponse.deleteMany.mockResolvedValue({ count: 1 });
     mockTx.ticket.deleteMany.mockResolvedValue({ count: 1 });
     mockTx.eventRegistration.delete.mockResolvedValue(
-      MOCK_CANCELLED_REGISTRATION as any,
+      MOCK_CANCELLED_REGISTRATION,
     );
 
     const result = await service.deleteExistingCancelledRegistration(
@@ -334,7 +334,7 @@ describe('claimSeat', () => {
 
   it('UT-5-009-03: throws EventFullException when seat is full', async () => {
     mockTx.$queryRaw.mockResolvedValue([]);
-    mockTx.event.findUnique.mockResolvedValue(MOCK_FULL_EVENT as any);
+    mockTx.event.findUnique.mockResolvedValue(MOCK_FULL_EVENT);
 
     const error = async () => {
       await service.claimSeat(MOCK_EVENT_ID, mockTx);
@@ -370,7 +370,7 @@ describe('claimSeat', () => {
 describe('createRegistration', () => {
   it('UT-5-010-01: successfully creates registration', async () => {
     prismaMock.eventRegistration.create.mockResolvedValue(
-      MOCK_CONFIRMED_REGISTRATION as any,
+      MOCK_CONFIRMED_REGISTRATION,
     );
 
     const result = await service.createRegistration(
@@ -426,7 +426,7 @@ describe('createRegistration', () => {
 
   it('UT-5-010-04: successfully create registration with tx client when tx provided', async () => {
     mockTx.eventRegistration.create.mockResolvedValue(
-      MOCK_CONFIRMED_REGISTRATION as any,
+      MOCK_CONFIRMED_REGISTRATION,
     );
 
     const result = await service.createRegistration(
@@ -450,7 +450,7 @@ describe('createFormResponse', () => {
   };
 
   it('UT-5-011-01: creates form response with TEXT field mapping', async () => {
-    prismaMock.formResponse.create.mockResolvedValue(mockFormResponse as any);
+    prismaMock.formResponse.create.mockResolvedValue(mockFormResponse);
 
     const result = await service.createFormResponse(
       MOCK_FORM_ID,
@@ -479,7 +479,7 @@ describe('createFormResponse', () => {
   });
 
   it('UT-5-011-02: creates form response with CHOICE field (uses valueArray)', async () => {
-    prismaMock.formResponse.create.mockResolvedValue(mockFormResponse as any);
+    prismaMock.formResponse.create.mockResolvedValue(mockFormResponse);
 
     const result = await service.createFormResponse(
       MOCK_FORM_ID,
@@ -503,7 +503,7 @@ describe('createFormResponse', () => {
   });
 
   it('UT-5-011-03: creates form response with NUMBER field (uses valueNumber)', async () => {
-    prismaMock.formResponse.create.mockResolvedValue(mockFormResponse as any);
+    prismaMock.formResponse.create.mockResolvedValue(mockFormResponse);
 
     const result = await service.createFormResponse(
       MOCK_FORM_ID,
@@ -544,7 +544,7 @@ describe('createFormResponse', () => {
   });
 
   it('UT-5-011-05: create form response with Text Field mapping with tx client when tx provided', async () => {
-    mockTx.formResponse.create.mockResolvedValue(mockFormResponse as any);
+    mockTx.formResponse.create.mockResolvedValue(mockFormResponse);
 
     const result = await service.createFormResponse(
       MOCK_FORM_ID,
@@ -562,7 +562,7 @@ describe('createFormResponse', () => {
 
 describe('createTicket', () => {
   it('UT-5-012-01: successfully creates ticket', async () => {
-    prismaMock.ticket.create.mockResolvedValue(MOCK_ACTIVE_TICKET as any);
+    prismaMock.ticket.create.mockResolvedValue(MOCK_ACTIVE_TICKET);
 
     const result = await service.createTicket(
       MOCK_REGISTRATION_ID,
@@ -573,7 +573,7 @@ describe('createTicket', () => {
   });
 
   it('UT-5-012-02: successfully create ticket with tx client when tx provided', async () => {
-    mockTx.ticket.create.mockResolvedValue(MOCK_ACTIVE_TICKET as any);
+    mockTx.ticket.create.mockResolvedValue(MOCK_ACTIVE_TICKET);
 
     const result = await service.createTicket(
       MOCK_REGISTRATION_ID,
@@ -605,7 +605,7 @@ describe('createTicket', () => {
 describe('updateRegistrationStatus', () => {
   it('UT-5-013-01: successfully updates reg status to CANCELLED', async () => {
     prismaMock.eventRegistration.update.mockResolvedValue(
-      MOCK_CANCELLED_REGISTRATION as any,
+      MOCK_CANCELLED_REGISTRATION,
     );
 
     const result = await service.updateRegistrationStatus(
@@ -619,7 +619,7 @@ describe('updateRegistrationStatus', () => {
   // This scenario should not exist, but.. whatever...
   it('UT-5-013-02: successfully updates reg status to CONFIRMED', async () => {
     prismaMock.eventRegistration.update.mockResolvedValue(
-      MOCK_CONFIRMED_REGISTRATION as any,
+      MOCK_CONFIRMED_REGISTRATION,
     );
 
     const result = await service.updateRegistrationStatus(
@@ -632,7 +632,7 @@ describe('updateRegistrationStatus', () => {
 
   it('UT-5-013-03: successfully update status with tx client when tx provided', async () => {
     mockTx.eventRegistration.update.mockResolvedValue(
-      MOCK_CANCELLED_REGISTRATION as any,
+      MOCK_CANCELLED_REGISTRATION,
     );
 
     await service.updateRegistrationStatus(
@@ -665,8 +665,8 @@ describe('updateRegistrationStatus', () => {
 
 describe('updateTicketStatus', () => {
   it('UT-5-014-01: successfully updates ticket to CANCELLED', async () => {
-    prismaMock.ticket.findUnique.mockResolvedValue(MOCK_ACTIVE_TICKET as any);
-    prismaMock.ticket.update.mockResolvedValue(MOCK_CANCELLED_TICKET as any);
+    prismaMock.ticket.findUnique.mockResolvedValue(MOCK_ACTIVE_TICKET);
+    prismaMock.ticket.update.mockResolvedValue(MOCK_CANCELLED_TICKET);
 
     const result = await service.updateTicketStatus(
       MOCK_REGISTRATION_ID,
@@ -677,8 +677,8 @@ describe('updateTicketStatus', () => {
   });
 
   it('UT-5-014-02: successfully updates ticket to ACTIVE', async () => {
-    prismaMock.ticket.findUnique.mockResolvedValue(MOCK_ACTIVE_TICKET as any);
-    prismaMock.ticket.update.mockResolvedValue(MOCK_ACTIVE_TICKET as any);
+    prismaMock.ticket.findUnique.mockResolvedValue(MOCK_ACTIVE_TICKET);
+    prismaMock.ticket.update.mockResolvedValue(MOCK_ACTIVE_TICKET);
 
     const result = await service.updateTicketStatus(
       MOCK_REGISTRATION_ID,
@@ -689,8 +689,8 @@ describe('updateTicketStatus', () => {
   });
 
   it('UT-5-014-03: successfully update ticket with tx client when tx provided', async () => {
-    mockTx.ticket.findUnique.mockResolvedValue(MOCK_ACTIVE_TICKET as any);
-    mockTx.ticket.update.mockResolvedValue(MOCK_CANCELLED_TICKET as any);
+    mockTx.ticket.findUnique.mockResolvedValue(MOCK_ACTIVE_TICKET);
+    mockTx.ticket.update.mockResolvedValue(MOCK_CANCELLED_TICKET);
 
     const result = await service.updateTicketStatus(
       MOCK_REGISTRATION_ID,
@@ -718,7 +718,7 @@ describe('updateTicketStatus', () => {
   });
 
   it('UT-5-014-05: throws SaveTicketException when prisma update fails', async () => {
-    prismaMock.ticket.findUnique.mockResolvedValue(MOCK_ACTIVE_TICKET as any);
+    prismaMock.ticket.findUnique.mockResolvedValue(MOCK_ACTIVE_TICKET);
     prismaMock.ticket.update.mockRejectedValue(new Error('DB error'));
 
     const result = async () => {
@@ -812,7 +812,7 @@ describe('extractIdentitySnapshot', () => {
 
   it('UT-5-016-02: falls back to profile when participant data is not in form', async () => {
     prismaMock.participantProfile.findUnique.mockResolvedValue(
-      MOCK_PARTICIPANT_PROFILE as any,
+      MOCK_PARTICIPANT_PROFILE,
     );
 
     const result = await service.extractIdentitySnapshot(
@@ -836,7 +836,7 @@ describe('extractIdentitySnapshot', () => {
 
   it('UT-5-016-03: fallback to profile when form field answer is empty string', async () => {
     prismaMock.participantProfile.findUnique.mockResolvedValue(
-      MOCK_PARTICIPANT_PROFILE as any,
+      MOCK_PARTICIPANT_PROFILE,
     );
 
     const result = await service.extractIdentitySnapshot(
@@ -869,7 +869,7 @@ describe('extractIdentitySnapshot', () => {
 
   it('UT-5-016-04: fallback to profile when form field answer is white space', async () => {
     prismaMock.participantProfile.findUnique.mockResolvedValue(
-      MOCK_PARTICIPANT_PROFILE as any,
+      MOCK_PARTICIPANT_PROFILE,
     );
 
     const result = await service.extractIdentitySnapshot(
@@ -902,7 +902,7 @@ describe('extractIdentitySnapshot', () => {
 
   it('UT-5-016-05: fetches profile when no autoFillKey fields in form', async () => {
     prismaMock.participantProfile.findUnique.mockResolvedValue(
-      MOCK_PARTICIPANT_PROFILE as any,
+      MOCK_PARTICIPANT_PROFILE,
     );
 
     const result = await service.extractIdentitySnapshot(
@@ -924,9 +924,7 @@ describe('extractIdentitySnapshot', () => {
 
 describe('getEventWithOrganizer', () => {
   it('UT-5-017-01: returns event with organizer when found', async () => {
-    prismaMock.event.findUnique.mockResolvedValue(
-      MOCK_EVENT_WITH_ORGANIZER as any,
-    );
+    prismaMock.event.findUnique.mockResolvedValue(MOCK_EVENT_WITH_ORGANIZER);
 
     const result = await service.getEventWithOrganizer(MOCK_EVENT_ID);
 
@@ -959,9 +957,9 @@ describe('getEventWithOrganizer', () => {
 describe('getRegistrationsByEvent', () => {
   it('UT-5-018-01: returns mapped registrant DTOs for multiple registrations', async () => {
     prismaMock.eventRegistration.findMany.mockResolvedValue([
-      MOCK_REG_WITH_TICKET_PAR1 as any,
-      MOCK_REG_WITH_TICKET_PAR2 as any,
-      MOCK_REG_WITH_TICKET_PAR3 as any,
+      MOCK_REG_WITH_TICKET_PAR1,
+      MOCK_REG_WITH_TICKET_PAR2,
+      MOCK_REG_WITH_TICKET_PAR3,
     ]);
 
     const result = await service.getRegistrationsByEvent(MOCK_EVENT_ID);
@@ -1005,8 +1003,8 @@ describe('getRegistrationsByEvent', () => {
 describe('getRegisteredEvents', () => {
   it('UT-5-019-01: returns all registered events without filter', async () => {
     prismaMock.eventRegistration.findMany.mockResolvedValue([
-      MOCK_REG_WITH_EVENT_PAR1_EVT1 as any,
-      MOCK_REG_WITH_EVENT_PAR1_EVT2 as any,
+      MOCK_REG_WITH_EVENT_PAR1_EVT1,
+      MOCK_REG_WITH_EVENT_PAR1_EVT2,
     ]);
 
     const result = await service.getRegisteredEvents(
@@ -1048,7 +1046,7 @@ describe('getRegisteredEvents', () => {
 
   it('UT-5-019-02: returns filtered results for PUBLISHED status only', async () => {
     prismaMock.eventRegistration.findMany.mockResolvedValue([
-      MOCK_REG_WITH_EVENT_PAR1_EVT1 as any,
+      MOCK_REG_WITH_EVENT_PAR1_EVT1,
     ]);
 
     const result = await service.getRegisteredEvents(
@@ -1088,10 +1086,10 @@ describe('getRegisteredEvents', () => {
 describe('getTicketsByParticipant', () => {
   it('UT-5-020-01: returns all tickets without filter', async () => {
     prismaMock.ticket.findMany.mockResolvedValue([
-      MOCK_TICKET_WITH_REG_ACTIVE as any,
-      MOCK_TICKET_WITH_REG_ACTIVE_2 as any,
-      MOCK_TICKET_WITH_REG_EXPIRED as any,
-      MOCK_TICKET_WITH_REG_CANCELLED as any,
+      MOCK_TICKET_WITH_REG_ACTIVE,
+      MOCK_TICKET_WITH_REG_ACTIVE_2,
+      MOCK_TICKET_WITH_REG_EXPIRED,
+      MOCK_TICKET_WITH_REG_CANCELLED,
     ]);
 
     const result = await service.getTicketsByParticipant(
@@ -1159,8 +1157,8 @@ describe('getTicketsByParticipant', () => {
 
   it('UT-5-020-02: returns only ACTIVE tickets when ticketStatus is ACTIVE', async () => {
     prismaMock.ticket.findMany.mockResolvedValue([
-      MOCK_TICKET_WITH_REG_ACTIVE as any,
-      MOCK_TICKET_WITH_REG_ACTIVE_2 as any,
+      MOCK_TICKET_WITH_REG_ACTIVE,
+      MOCK_TICKET_WITH_REG_ACTIVE_2,
     ]);
 
     const result = await service.getTicketsByParticipant(
@@ -1209,7 +1207,7 @@ describe('getTicketsByParticipant', () => {
 
   it('UT-5-020-03: returns only CANCELLED tickets when ticketStatus is CANCELLED', async () => {
     prismaMock.ticket.findMany.mockResolvedValue([
-      MOCK_TICKET_WITH_REG_CANCELLED as any,
+      MOCK_TICKET_WITH_REG_CANCELLED,
     ]);
 
     const result = await service.getTicketsByParticipant(
@@ -1248,7 +1246,7 @@ describe('getTicketsByParticipant', () => {
 describe('getTicketByEventIdAndParticipantId', () => {
   it('UT-5-021-01: returns full ticket detail when registration and ticket exist', async () => {
     prismaMock.eventRegistration.findUnique.mockResolvedValue(
-      MOCK_REG_WITH_TICKET_AND_EVENT as any,
+      MOCK_REG_WITH_TICKET_AND_EVENT,
     );
 
     const result = await service.getTicketByEventIdAndParticipantId(
@@ -1316,7 +1314,7 @@ describe('getTicketByEventIdAndParticipantId', () => {
 
 describe('getTicketById', () => {
   it('UT-5-022-01: returns full ticket detail when ticketId exists', async () => {
-    prismaMock.ticket.findUnique.mockResolvedValue(MOCK_TICKET_WITH_ALL as any);
+    prismaMock.ticket.findUnique.mockResolvedValue(MOCK_TICKET_WITH_ALL);
 
     const result = await service.getTicketById(MOCK_TICKET_ID);
 

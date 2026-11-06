@@ -10,12 +10,7 @@ import { EventModule } from '../event/event.module';
 import { RegistrationModule } from '../registration/registration.module';
 
 @Module({
-  imports: [
-    PrismaModule,
-    AuthModule,
-    EventModule,
-    RegistrationModule,
-  ],
+  imports: [PrismaModule, AuthModule, EventModule, RegistrationModule],
   controllers: [UserController],
   providers: [
     UserService,
@@ -23,10 +18,6 @@ import { RegistrationModule } from '../registration/registration.module';
     UserValidationService,
     UserStorageService,
   ],
-  exports: [
-    UserService,
-    UserCrudService,
-    UserValidationService,
-  ],
+  exports: [UserService, UserCrudService, UserValidationService],
 })
 export class UserModule {}

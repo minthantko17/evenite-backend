@@ -1,6 +1,6 @@
-import type { BilingualField } from "./bilingual-field.dto";
-import type { AgendaItem } from "./agenda-item.dto";
-import { EventCategory } from "../constants/event-category.constant";
+import type { BilingualField } from './bilingual-field.dto';
+import type { AgendaItem } from './agenda-item.dto';
+import { EventCategory } from '../constants/event-category.constant';
 
 export interface GeneratedEventDto {
   title: BilingualField;

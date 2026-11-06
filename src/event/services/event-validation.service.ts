@@ -41,7 +41,7 @@ export class EventValidationService {
   async validateEventOwnership(
     eventId: string,
     organizerProfileId: string,
-  ): Promise< { organizerProfileId: string } > {
+  ): Promise<{ organizerProfileId: string }> {
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },
       select: { organizerId: true },

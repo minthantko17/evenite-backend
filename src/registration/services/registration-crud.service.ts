@@ -79,7 +79,7 @@ export class RegistrationCrudService {
           participantId: participantProfileId,
           eventId,
         },
-      }
+      },
     });
     if (!registration) {
       throw new RegistrationNotFoundException();
@@ -232,16 +232,14 @@ export class RegistrationCrudService {
   }
 
   // fetches event with organizer for post-transaction response building
-  async getEventWithOrganizer(
-    eventId: string,
-  ): Promise<EventWithOrganizer> {
+  async getEventWithOrganizer(eventId: string): Promise<EventWithOrganizer> {
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },
       include: {
         organizer: { select: { name: true, imageUrl: true } },
       },
     });
-    if(!event) {
+    if (!event) {
       throw new EventNotFoundException();
     }
     return event;
@@ -489,7 +487,7 @@ export class RegistrationCrudService {
           : null;
     }
 
-    // fallback for empty names. 
+    // fallback for empty names.
     const nameKeys: ParticipantSnapshotKey[] = [
       'firstName',
       'lastName',
@@ -529,20 +527,14 @@ export class RegistrationCrudService {
         participantNameFromProfile?.firstName ??
         '',
       lastName:
-        snapshotFromForm.lastName ??
-        participantNameFromProfile?.lastName ??
-        '',
+        snapshotFromForm.lastName ?? participantNameFromProfile?.lastName ?? '',
       nickname:
-        snapshotFromForm.nickname ??
-        participantNameFromProfile?.nickname ??
-        '',
+        snapshotFromForm.nickname ?? participantNameFromProfile?.nickname ?? '',
       studentId:
         snapshotFromForm.studentId ??
         participantNameFromProfile?.studentId ??
         '',
-      major: snapshotFromForm.major ?? 
-        participantNameFromProfile?.major ??
-        '',
+      major: snapshotFromForm.major ?? participantNameFromProfile?.major ?? '',
     };
   }
 

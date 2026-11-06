@@ -19,8 +19,8 @@ export class AuthController {
 
   // Token comes from the link in the verification email
   @Post('verify-email')
-  verifyEmail(@Query('token') token: string): Promise<{ 
-    message: string
+  verifyEmail(@Query('token') token: string): Promise<{
+    message: string;
   }> {
     return this.authService.verifyEmail(token);
   }

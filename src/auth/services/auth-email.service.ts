@@ -8,7 +8,7 @@ export class AuthEmailService {
   private readonly resend: Resend;
 
   constructor(private readonly authCrudService: AuthCrudService) {
-    this.resend = new Resend(process.env.RESEND_API_KEY!);
+    this.resend = new Resend(process.env.RESEND_API_KEY);
   }
 
   async sendVerificationEmail(userId: string, email: string): Promise<void> {

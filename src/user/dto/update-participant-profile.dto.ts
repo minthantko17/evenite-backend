@@ -39,7 +39,7 @@ export class UpdateParticipantProfileDto {
   major?: string;
 
   @IsOptional()
-  @ValidateIf((o) => o.contactEmail !== "")
+  @ValidateIf((o) => o.contactEmail !== '')
   @IsEmail()
   contactEmail?: string;
 

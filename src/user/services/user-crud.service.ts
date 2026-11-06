@@ -42,7 +42,10 @@ export class UserCrudService {
     return this.mapToReturnUserDto(result);
   }
 
-  async updateUserRole(userId: string, role: Role | null): Promise<{ id: string; currentRole: Role | null }> {
+  async updateUserRole(
+    userId: string,
+    role: Role | null,
+  ): Promise<{ id: string; currentRole: Role | null }> {
     try {
       const result = await this.prisma.user.update({
         where: { id: userId },

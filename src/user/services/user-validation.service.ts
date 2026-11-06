@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { User, ParticipantProfile, OrganizerProfile, Role } from '@prisma/client';
+import {
+  User,
+  ParticipantProfile,
+  OrganizerProfile,
+  Role,
+} from '@prisma/client';
 import { UserNotFoundException } from '../exceptions/user-not-found.exception';
 import { ProfileAlreadyExistsException } from '../exceptions/profile-already-exists.exception';
 import { InvalidRoleTransitionException } from '../exceptions/invalid-role-transition.exception';
@@ -25,9 +30,11 @@ import { ReturnUserDto } from '../dto/return-user.dto';
 export class UserValidationService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async validateUserExists(userId: string): Promise<{ id: string; currentRole: Role | null }> {
+  async validateUserExists(
+    userId: string,
+  ): Promise<{ id: string; currentRole: Role | null }> {
     const user = await this.prisma.user.findUnique({
-      where: { id: userId }
+      where: { id: userId },
     });
     if (!user) {
       throw new UserNotFoundException();
@@ -35,7 +42,9 @@ export class UserValidationService {
     return { id: user.id, currentRole: user.currentRole };
   }
 
-  async validateParticipantProfileNotExists(userId: string): Promise<{ message: string }> {
+  async validateParticipantProfileNotExists(
+    userId: string,
+  ): Promise<{ message: string }> {
     const participantProfile = await this.prisma.participantProfile.findUnique({
       where: { userId },
     });
@@ -47,7 +56,9 @@ export class UserValidationService {
     return { message: 'Participant profile does not exist yet.' };
   }
 
-  async validateOrganizerProfileNotExists(userId: string): Promise<{ message: string }> {
+  async validateOrganizerProfileNotExists(
+    userId: string,
+  ): Promise<{ message: string }> {
     const organizerProfile = await this.prisma.organizerProfile.findUnique({
       where: { userId },
     });
@@ -69,7 +80,11 @@ export class UserValidationService {
   validateParticipantProfileData(
     dto: CreateParticipantProfileDto | UpdateParticipantProfileDto,
   ): void {
-    if (dto.firstName === undefined || dto.firstName === null || dto.firstName.trim().length === 0) {
+    if (
+      dto.firstName === undefined ||
+      dto.firstName === null ||
+      dto.firstName.trim().length === 0
+    ) {
       throw new NameEmptyException('First name cannot be empty.');
     }
 
@@ -93,7 +108,11 @@ export class UserValidationService {
   validateOrganizerProfileData(
     dto: CreateOrganizerProfileDto | UpdateOrganizerProfileDto,
   ): void {
-    if (dto.name === undefined || dto.name === null || dto.name.trim().length === 0) {
+    if (
+      dto.name === undefined ||
+      dto.name === null ||
+      dto.name.trim().length === 0
+    ) {
       throw new NameEmptyException('Organizer name cannot be empty.');
     }
 
