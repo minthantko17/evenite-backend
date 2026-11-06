@@ -1,0 +1,486 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { createClient } from '@supabase/supabase-js';
+import { UserStorageService } from './user-storage.service';
+import { ImageUploadException } from '../exceptions/image-upload.exception';
+import {
+  DEFAULT_PARTICIPANT_IMAGE_URL,
+  DEFAULT_ORGANIZER_IMAGE_URL,
+} from '../constants/user-images.constant';
+import * as fs from 'fs';
+import * as path from 'path';
+import { v4 as uuidv4 } from 'uuid';
+
+jest.mock('@supabase/supabase-js', () => ({
+  createClient: jest.fn(),
+}));
+
+const mockStorageFrom = {
+  upload: jest.fn(),
+  getPublicUrl: jest.fn(),
+  remove: jest.fn(),
+};
+
+beforeAll(() => {
+  (createClient as jest.Mock).mockReturnValue({
+    storage: {
+      from: jest.fn().mockReturnValue(mockStorageFrom),
+    },
+  });
+});
+
+const MOCK_SUPABASE_BASE_URL =
+  'https://mockproject.supabase.co/storage/v1/object/public/evenite-images';
+
+const fixturesPath = path.join(__dirname, '../../../test/fixtures/images');
+
+const createMockFile = (
+  buffer: Buffer,
+  mimetype: string,
+  originalname: string,
+  size?: number,
+): Express.Multer.File => ({
+  buffer,
+  mimetype,
+  originalname,
+  size: size ?? buffer.length,
+  fieldname: 'image',
+  encoding: '7bit',
+  destination: '',
+  filename: '',
+  path: '',
+  stream: null as any,
+});
+
+const small_jpg_file = createMockFile(
+  fs.readFileSync(path.join(fixturesPath, 'small_image_jpg.jpg')),
+  'image/jpeg',
+  'profile_photo.jpg',
+);
+
+const small_png_file = createMockFile(
+  fs.readFileSync(path.join(fixturesPath, 'small_image_png.png')),
+  'image/png',
+  'avatar.png',
+);
+
+const small_webp_file = createMockFile(
+  fs.readFileSync(path.join(fixturesPath, 'small_image_webp.webp')),
+  'image/webp',
+  'organizer_logo.webp',
+);
+
+const buildModule = async (): Promise<TestingModule> =>
+  Test.createTestingModule({
+    providers: [UserStorageService],
+  }).compile();
+
+describe('UserStorageService - uploadImageToStorage', () => {
+  let service: UserStorageService;
+
+  beforeEach(async () => {
+    const module = await buildModule();
+    service = module.get<UserStorageService>(UserStorageService);
+    jest.clearAllMocks();
+  });
+
+  it('UT-4-007-01: should return public URL with .jpg extension when JPEG file uploaded to participant folder', async () => {
+    const input = { file: small_jpg_file, type: 'participant' as const };
+    const mockPublicUrl = `${MOCK_SUPABASE_BASE_URL}/participant/${uuidv4()}.jpg`;
+    mockStorageFrom.upload.mockResolvedValueOnce({ error: null });
+    mockStorageFrom.getPublicUrl.mockReturnValueOnce({
+      data: { publicUrl: mockPublicUrl },
+    });
+
+    const result = await service.uploadImageToStorage(input.file, input.type);
+
+    // console.log('[UT-4-007-01] Input :', { mimetype: input.file.mimetype, type: input.type });
+    // console.log('[UT-4-007-01] Expected :', mockPublicUrl);
+    // console.log('[UT-4-007-01] Actual :', result);
+
+    expect(result).toBe(mockPublicUrl);
+    const uploadedPath: string = mockStorageFrom.upload.mock.calls[0][0];
+    expect(uploadedPath).toMatch(/^participant\/.+\.jpg$/);
+    expect(mockStorageFrom.upload).toHaveBeenCalledTimes(1);
+    expect(mockStorageFrom.getPublicUrl).toHaveBeenCalledTimes(1);
+  });
+
+  it('UT-4-007-02: should return public URL with .png extension when PNG file uploaded to organizer folder', async () => {
+    const input = { file: small_png_file, type: 'organizer' as const };
+    const mockPublicUrl = `${MOCK_SUPABASE_BASE_URL}/organizer/${uuidv4()}.png`;
+    mockStorageFrom.upload.mockResolvedValueOnce({ error: null });
+    mockStorageFrom.getPublicUrl.mockReturnValueOnce({
+      data: { publicUrl: mockPublicUrl },
+    });
+
+    const result = await service.uploadImageToStorage(input.file, input.type);
+
+    // console.log('[UT-4-007-02] Input :', { mimetype: input.file.mimetype, type: input.type });
+    // console.log('[UT-4-007-02] Expected :', mockPublicUrl);
+    // console.log('[UT-4-007-02] Actual :', result);
+
+    expect(result).toBe(mockPublicUrl);
+    const uploadedPath: string = mockStorageFrom.upload.mock.calls[0][0];
+    expect(uploadedPath).toMatch(/^organizer\/.+\.png$/);
+  });
+
+  it('UT-4-007-03: should return public URL with .webp extension when WEBP file uploaded to participant folder', async () => {
+    const input = { file: small_webp_file, type: 'participant' as const };
+    const mockPublicUrl = `${MOCK_SUPABASE_BASE_URL}/participant/${uuidv4()}.webp`;
+    mockStorageFrom.upload.mockResolvedValueOnce({ error: null });
+    mockStorageFrom.getPublicUrl.mockReturnValueOnce({
+      data: { publicUrl: mockPublicUrl },
+    });
+
+    const result = await service.uploadImageToStorage(input.file, input.type);
+
+    // console.log('[UT-4-007-03] Input :', { mimetype: input.file.mimetype, type: input.type });
+    // console.log('[UT-4-007-03] Expected :', mockPublicUrl);
+    // console.log('[UT-4-007-03] Actual :', result);
+
+    expect(result).toBe(mockPublicUrl);
+    const uploadedPath: string = mockStorageFrom.upload.mock.calls[0][0];
+    expect(uploadedPath).toMatch(/^participant\/.+\.webp$/);
+  });
+
+  it('UT-4-007-04: should throw ImageUploadException and not call getPublicUrl when Supabase upload returns error', async () => {
+    const input = { file: small_jpg_file, type: 'participant' as const };
+    const mockSupabaseError = { message: 'Bucket not found' };
+    mockStorageFrom.upload.mockResolvedValueOnce({ error: mockSupabaseError });
+    mockStorageFrom.upload.mockResolvedValueOnce({ error: mockSupabaseError });
+
+    await expect(
+      service.uploadImageToStorage(input.file, input.type),
+    ).rejects.toThrow(ImageUploadException);
+    await expect(
+      service.uploadImageToStorage(input.file, input.type),
+    ).rejects.toThrow('Failed to upload image. Please try again.');
+    expect(mockStorageFrom.getPublicUrl).not.toHaveBeenCalled();
+  });
+
+  it('UT-4-007-05: should throw ImageUploadException when uploading to organizer folder fails', async () => {
+    const input = { file: small_png_file, type: 'organizer' as const };
+    mockStorageFrom.upload.mockResolvedValueOnce({
+      error: { message: 'Permission denied' },
+    });
+
+    await expect(
+      service.uploadImageToStorage(input.file, input.type),
+    ).rejects.toThrow(ImageUploadException);
+  });
+});
+
+describe('UserStorageService - resolveImageUrl', () => {
+  let service: UserStorageService;
+
+  beforeEach(async () => {
+    const module = await buildModule();
+    service = module.get<UserStorageService>(UserStorageService);
+    jest.clearAllMocks();
+  });
+
+  it('UT-4-008-01: should return provided URL when valid participant image URL is given', () => {
+    const input = {
+      imageUrl: `${MOCK_SUPABASE_BASE_URL}/participant/mock-uuid.jpg`,
+      defaultUrl: DEFAULT_PARTICIPANT_IMAGE_URL,
+    };
+    const expected = input.imageUrl;
+
+    const result = service.resolveImageUrl(input.imageUrl, input.defaultUrl);
+
+    // console.log('[UT-4-008-01] Input :', input);
+    // console.log('[UT-4-008-01] Expected :', expected);
+    // console.log('[UT-4-008-01] Actual :', result);
+
+    expect(result).toBe(expected);
+  });
+
+  it('UT-4-008-02: should return provided URL when valid organizer image URL is given', () => {
+    const input = {
+      imageUrl: `${MOCK_SUPABASE_BASE_URL}/organizer/mock-uuid.png`,
+      defaultUrl: DEFAULT_ORGANIZER_IMAGE_URL,
+    };
+    const expected = input.imageUrl;
+
+    const result = service.resolveImageUrl(input.imageUrl, input.defaultUrl);
+
+    // console.log('[UT-4-008-02] Input :', input);
+    // console.log('[UT-4-008-02] Expected :', expected);
+    // console.log('[UT-4-008-02] Actual :', result);
+
+    expect(result).toBe(expected);
+  });
+
+  it('UT-4-008-03: should return DEFAULT_PARTICIPANT_IMAGE_URL when input is undefined', () => {
+    const input = {
+      imageUrl: undefined,
+      defaultUrl: DEFAULT_PARTICIPANT_IMAGE_URL,
+    };
+    const expected = DEFAULT_PARTICIPANT_IMAGE_URL;
+
+    const result = service.resolveImageUrl(input.imageUrl, input.defaultUrl);
+
+    // console.log('[UT-4-008-03] Input :', input);
+    // console.log('[UT-4-008-03] Expected :', expected);
+    // console.log('[UT-4-008-03] Actual :', result);
+
+    expect(result).toBe(expected);
+  });
+
+  it('UT-4-008-04: should return DEFAULT_ORGANIZER_IMAGE_URL when input is undefined', () => {
+    const input = {
+      imageUrl: undefined,
+      defaultUrl: DEFAULT_ORGANIZER_IMAGE_URL,
+    };
+    const expected = DEFAULT_ORGANIZER_IMAGE_URL;
+
+    const result = service.resolveImageUrl(input.imageUrl, input.defaultUrl);
+
+    // console.log('[UT-4-008-04] Input :', input);
+    // console.log('[UT-4-008-04] Expected :', expected);
+    // console.log('[UT-4-008-04] Actual :', result);
+
+    expect(result).toBe(expected);
+  });
+
+  it('UT-4-008-05: should return DEFAULT_PARTICIPANT_IMAGE_URL when input is empty string', () => {
+    const input = { imageUrl: '', defaultUrl: DEFAULT_PARTICIPANT_IMAGE_URL };
+    const expected = DEFAULT_PARTICIPANT_IMAGE_URL;
+
+    const result = service.resolveImageUrl(input.imageUrl, input.defaultUrl);
+
+    // console.log('[UT-4-008-05] Input :', input);
+    // console.log('[UT-4-008-05] Expected :', expected);
+    // console.log('[UT-4-008-05] Actual :', result);
+
+    expect(result).toBe(expected);
+  });
+
+  it('UT-4-008-06: should return DEFAULT_ORGANIZER_IMAGE_URL when input is whitespace only', () => {
+    const input = { imageUrl: '   ', defaultUrl: DEFAULT_ORGANIZER_IMAGE_URL };
+    const expected = DEFAULT_ORGANIZER_IMAGE_URL;
+
+    const result = service.resolveImageUrl(input.imageUrl, input.defaultUrl);
+
+    // console.log('[UT-4-008-06] Input :', input);
+    // console.log('[UT-4-008-06] Expected :', expected);
+    // console.log('[UT-4-008-06] Actual :', result);
+
+    expect(result).toBe(expected);
+  });
+
+  it('UT-4-008-07: should return DEFAULT_PARTICIPANT_IMAGE_URL when input is null', () => {
+    const input = {
+      imageUrl: null as any,
+      defaultUrl: DEFAULT_PARTICIPANT_IMAGE_URL,
+    };
+    const expected = DEFAULT_PARTICIPANT_IMAGE_URL;
+
+    const result = service.resolveImageUrl(input.imageUrl, input.defaultUrl);
+
+    // console.log('[UT-4-008-07] Input :', input);
+    // console.log('[UT-4-008-07] Expected :', expected);
+    // console.log('[UT-4-008-07] Actual :', result);
+
+    expect(result).toBe(expected);
+  });
+});
+
+describe('UserStorageService - deleteOrphanImageIfReplaced', () => {
+  let service: UserStorageService;
+
+  beforeEach(async () => {
+    const module = await buildModule();
+    service = module.get<UserStorageService>(UserStorageService);
+    jest.clearAllMocks();
+  });
+
+  it('UT-4-009-01: should return success message when old and new participant URLs differ and old is not default', async () => {
+    const input = {
+      oldImageUrl: `${MOCK_SUPABASE_BASE_URL}/participant/old-uuid.jpg`,
+      newImageUrl: `${MOCK_SUPABASE_BASE_URL}/participant/new-uuid.jpg`,
+      defaultUrl: DEFAULT_PARTICIPANT_IMAGE_URL,
+    };
+    const deleteSpy = jest
+      .spyOn(service, 'deleteImageFromStorage')
+      .mockResolvedValueOnce({ message: 'Orphan image deleted successfully' });
+
+    const result = await service.deleteOrphanImageIfReplaced(
+      input.oldImageUrl,
+      input.newImageUrl,
+      input.defaultUrl,
+    );
+
+    expect(result).toEqual({ message: 'Orphan image deleted successfully' });
+    expect(deleteSpy).toHaveBeenCalledWith(input.oldImageUrl);
+    expect(deleteSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('UT-4-009-02: should return success message when old and new organizer URLs differ and old is not default', async () => {
+    const input = {
+      oldImageUrl: `${MOCK_SUPABASE_BASE_URL}/organizer/old-uuid.png`,
+      newImageUrl: `${MOCK_SUPABASE_BASE_URL}/organizer/new-uuid.png`,
+      defaultUrl: DEFAULT_ORGANIZER_IMAGE_URL,
+    };
+    const deleteSpy = jest
+      .spyOn(service, 'deleteImageFromStorage')
+      .mockResolvedValueOnce({ message: 'Orphan image deleted successfully' });
+
+    const result = await service.deleteOrphanImageIfReplaced(
+      input.oldImageUrl,
+      input.newImageUrl,
+      input.defaultUrl,
+    );
+
+    expect(result).toEqual({ message: 'Orphan image deleted successfully' });
+    expect(deleteSpy).toHaveBeenCalledWith(input.oldImageUrl);
+    expect(deleteSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('UT-4-009-03: should return no orphan image message when old and new URLs are the same', async () => {
+    const sameUrl = `${MOCK_SUPABASE_BASE_URL}/participant/same-uuid.jpg`;
+    const input = {
+      oldImageUrl: sameUrl,
+      newImageUrl: sameUrl,
+      defaultUrl: DEFAULT_PARTICIPANT_IMAGE_URL,
+    };
+    const deleteSpy = jest
+      .spyOn(service, 'deleteImageFromStorage')
+      .mockResolvedValueOnce({
+        message: 'Failed to delete image from storage',
+      });
+
+    const result = await service.deleteOrphanImageIfReplaced(
+      input.oldImageUrl,
+      input.newImageUrl,
+      input.defaultUrl,
+    );
+
+    expect(result).toEqual({ message: 'No orphan image to delete' });
+    expect(deleteSpy).not.toHaveBeenCalled();
+  });
+
+  it('UT-4-009-04: should return no orphan image message when old URL is DEFAULT_PARTICIPANT_IMAGE_URL', async () => {
+    const input = {
+      oldImageUrl: DEFAULT_PARTICIPANT_IMAGE_URL,
+      newImageUrl: `${MOCK_SUPABASE_BASE_URL}/participant/new-uuid.jpg`,
+      defaultUrl: DEFAULT_PARTICIPANT_IMAGE_URL,
+    };
+    const deleteSpy = jest
+      .spyOn(service, 'deleteImageFromStorage')
+      .mockResolvedValueOnce({
+        message: 'Failed to delete image from storage',
+      });
+
+    const result = await service.deleteOrphanImageIfReplaced(
+      input.oldImageUrl,
+      input.newImageUrl,
+      input.defaultUrl,
+    );
+
+    expect(result).toEqual({ message: 'No orphan image to delete' });
+    expect(deleteSpy).not.toHaveBeenCalled();
+  });
+
+  it('UT-4-009-05: should return no orphan image message when old URL is DEFAULT_ORGANIZER_IMAGE_URL', async () => {
+    const input = {
+      oldImageUrl: DEFAULT_ORGANIZER_IMAGE_URL,
+      newImageUrl: `${MOCK_SUPABASE_BASE_URL}/organizer/new-uuid.png`,
+      defaultUrl: DEFAULT_ORGANIZER_IMAGE_URL,
+    };
+    const deleteSpy = jest
+      .spyOn(service, 'deleteImageFromStorage')
+      .mockResolvedValueOnce({
+        message: 'Failed to delete image from storage',
+      });
+
+    const result = await service.deleteOrphanImageIfReplaced(
+      input.oldImageUrl,
+      input.newImageUrl,
+      input.defaultUrl,
+    );
+
+    expect(result).toEqual({ message: 'No orphan image to delete' });
+    expect(deleteSpy).not.toHaveBeenCalled();
+  });
+
+  it('UT-4-009-06: should return no orphan image message when old URL is null', async () => {
+    const input = {
+      oldImageUrl: null,
+      newImageUrl: `${MOCK_SUPABASE_BASE_URL}/participant/new-uuid.jpg`,
+      defaultUrl: DEFAULT_PARTICIPANT_IMAGE_URL,
+    };
+    const deleteSpy = jest
+      .spyOn(service, 'deleteImageFromStorage')
+      .mockResolvedValueOnce({
+        message: 'Failed to delete image from storage',
+      });
+
+    const result = await service.deleteOrphanImageIfReplaced(
+      input.oldImageUrl,
+      input.newImageUrl,
+      input.defaultUrl,
+    );
+
+    expect(result).toEqual({ message: 'No orphan image to delete' });
+    expect(deleteSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('UserStorageService - deleteImageFromStorage', () => {
+  let service: UserStorageService;
+
+  beforeEach(async () => {
+    const module = await buildModule();
+    service = module.get<UserStorageService>(UserStorageService);
+    jest.clearAllMocks();
+  });
+
+  it('UT-4-010-01: should return success message when valid participant Supabase URL is given', async () => {
+    const filePath = 'participant/mock-participant-uuid.jpg';
+    const input = { imageUrl: `${MOCK_SUPABASE_BASE_URL}/${filePath}` };
+    mockStorageFrom.remove.mockResolvedValueOnce({ error: null });
+
+    const result = await service.deleteImageFromStorage(input.imageUrl);
+
+    expect(result).toEqual({ message: 'Orphan image deleted successfully' });
+    expect(mockStorageFrom.remove).toHaveBeenCalledWith([filePath]);
+    expect(mockStorageFrom.remove).toHaveBeenCalledTimes(1);
+  });
+
+  it('UT-4-010-02: should return success message when valid organizer Supabase URL is given', async () => {
+    const filePath = 'organizer/mock-organizer-uuid.png';
+    const input = { imageUrl: `${MOCK_SUPABASE_BASE_URL}/${filePath}` };
+    mockStorageFrom.remove.mockResolvedValueOnce({ error: null });
+
+    const result = await service.deleteImageFromStorage(input.imageUrl);
+
+    expect(result).toEqual({ message: 'Orphan image deleted successfully' });
+    expect(mockStorageFrom.remove).toHaveBeenCalledWith([filePath]);
+    expect(mockStorageFrom.remove).toHaveBeenCalledTimes(1);
+  });
+
+  it('UT-4-010-03: should return fail to extract file path message when input is not a valid URL', async () => {
+    const input = { imageUrl: 'not-a-valid-url' };
+    jest.spyOn(service as any, 'extractPathFromUrl').mockReturnValueOnce(null);
+    mockStorageFrom.remove.mockResolvedValueOnce({ error: 'Invalid URL' });
+
+    const result = await service.deleteImageFromStorage(input.imageUrl);
+
+    expect(result).toEqual({ message: 'Failed to extract file path from URL' });
+    expect(mockStorageFrom.remove).not.toHaveBeenCalled();
+  });
+
+  it('UT-4-010-04: should return fail to delete image message when supabase remove fails', async () => {
+    const input = { imageUrl: 'https://www.cmu.ac.th/profile/image.jpg' };
+    jest
+      .spyOn(service as any, 'extractPathFromUrl')
+      .mockReturnValueOnce(input.imageUrl);
+    mockStorageFrom.remove.mockResolvedValueOnce({
+      error: 'Failed to delete image from storage',
+    });
+
+    const result = await service.deleteImageFromStorage(input.imageUrl);
+
+    expect(result).toEqual({ message: 'Failed to delete image from storage' });
+  });
+});

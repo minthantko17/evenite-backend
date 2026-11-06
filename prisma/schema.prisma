@@ -1,0 +1,328 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+
+enum Role {
+  PARTICIPANT
+  ORGANIZER
+}
+
+enum RegistrationStatus {
+  CONFIRMED
+  CANCELLED
+}
+
+enum TicketStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  USED
+}
+
+enum CheckInMethod {
+  QR_SCAN
+  MANUAL
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  ONGOING
+  CONCLUDED
+  CANCELLED
+}
+
+enum FormType {
+  REGISTRATION
+  FEEDBACK
+}
+
+enum FieldType {
+  TEXT
+  TEXTAREA
+  CHOICE
+  NUMBER
+  RATING
+  DATE
+  CHECKBOX
+}
+
+
+// -----Models-----
+
+model University {
+  id        String   @id @default(uuid())
+  name      String
+  domain    String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  users  User[]
+  events Event[]
+}
+
+model User {
+  id           String    @id @default(uuid())
+  universityId String
+  email        String    @unique
+  passwordHash String
+  currentRole  Role?
+  isVerified   Boolean   @default(false)
+  refreshToken String?
+  createdAt    DateTime  @default(now())
+
+  university          University          @relation(fields: [universityId], references: [id])
+  emailVerification   EmailVerification?
+  participantProfile  ParticipantProfile?
+  organizerProfile    OrganizerProfile?
+}
+
+model ParticipantProfile {
+  id          String   @id @default(uuid())
+  firstName   String
+  lastName    String?
+  nickname    String?
+  studentId   String?
+  major       String?
+  contactEmail       String?
+  contactPhone       String?
+  contactLineId      String?
+  imageUrl    String?
+  preferences Json?
+  createdAt   DateTime @default(now())
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  eventRegistrations EventRegistration[]
+  sentMessages       Message[]
+  roomReadStatuses   RoomReadStatus[]
+}
+
+model OrganizerProfile {
+  id                String   @id @default(uuid())
+  name              String
+  bio               String?
+  contactEmail      String?
+  contactPhone      String?
+  contactLineId     String?
+  imageUrl          String?
+  externalUrl       String?
+  createdAt         DateTime @default(now())
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  events Event[]
+  sentMessages      Message[]
+  roomReadStatuses  RoomReadStatus[]
+  checkedInAttendances Attendance[]
+}
+
+model EmailVerification {
+  id       String   @id @default(uuid())
+  token    String   @unique
+  expireAt DateTime
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Event {
+  id                  String      @id @default(uuid())
+  organizerId         String
+  universityId        String
+  title               Json?
+  description         Json?
+  category            String[]
+  bannerUrl           String?
+  location            Json?
+  mapLink             String?
+  isOnline            Boolean     @default(false)
+  startAt             DateTime?
+  endAt               DateTime?
+  seatLimit           Int?
+  seatsTaken          Int         @default(0)
+  status              EventStatus @default(DRAFT)
+  hasCatering         Boolean     @default(false)
+  isCateringFree      Boolean     @default(false)
+  cateringDescription Json?
+  agenda              Json?
+  contactName         String?
+  contactEmail        String?
+  contactPhone        String?
+  contactLineId       String?
+  externalUrl         String?
+  remarks             Json?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  publishedAt         DateTime?
+
+  organizer  OrganizerProfile @relation(fields: [organizerId], references: [id])
+  university University       @relation(fields: [universityId], references: [id])
+  forms      Form[]
+  eventRegistrations EventRegistration[]
+  attendances        Attendance[]
+  discussionRoom      DiscussionRoom?
+}
+
+model EventRegistration {
+  id        String             @id @default(uuid())
+  status    RegistrationStatus @default(CONFIRMED)
+  createdAt DateTime           @default(now())
+
+  participantId String
+  eventId       String
+
+  participant ParticipantProfile @relation(fields: [participantId], references: [id])
+  event       Event              @relation(fields: [eventId], references: [id])
+  formResponses FormResponse[]
+  ticket     Ticket?
+
+  @@unique([participantId, eventId])
+  @@index([eventId, status])
+}
+
+model Ticket {
+  id                  String       @id @default(uuid())
+  eventRegistrationId String       @unique
+  qrToken             String       @unique
+  status              TicketStatus @default(ACTIVE)
+  participantSnapshot Json
+  issuedAt            DateTime     @default(now())
+
+  eventRegistration EventRegistration @relation(fields: [eventRegistrationId], references: [id], onDelete: Cascade)
+  attendance Attendance?
+}
+
+model Attendance {
+  id            String        @id @default(uuid())
+  ticketId      String        @unique
+  eventId       String
+  checkedInById String
+  method        CheckInMethod
+  checkedInAt   DateTime      @default(now())
+
+  ticket      Ticket           @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  event       Event            @relation(fields: [eventId], references: [id])
+  checkedInBy OrganizerProfile @relation(fields: [checkedInById], references: [id])
+
+  @@index([eventId, checkedInAt])
+}
+
+model Form {
+  id          String         @id @default(uuid())
+  eventId     String
+  type        FormType
+  title       String?
+  description String?
+
+  event       Event          @relation(fields: [eventId], references: [id])
+  fields      FormField[]
+  responses   FormResponse[]
+
+  @@unique([eventId, type])
+}
+
+model FormField {
+  id          String    @id @default(uuid())
+  formId      String
+  type        FieldType
+  label       String
+  isRequired  Boolean   @default(false)
+  order       Int
+  options     String[]
+  autoFillKey String?
+
+  form      Form        @relation(fields: [formId], references: [id], onDelete: Cascade)
+  responses FormFieldResponse[]
+
+  @@unique([formId, order])
+  @@unique([id, formId])
+}
+
+model FormResponse {
+  id             String     @id @default(uuid())
+  formId         String
+  eventRegistrationId String
+  createdAt      DateTime   @default(now())
+
+  form           Form                @relation(fields: [formId], references: [id], onDelete: Cascade)
+  fieldResponses FormFieldResponse[]
+  eventRegistration EventRegistration @relation(fields: [eventRegistrationId], references: [id])
+
+  @@unique([id, formId])
+  @@unique([eventRegistrationId, formId]) 
+  @@index([formId])
+}
+
+model FormFieldResponse {
+  id             String   @id @default(uuid())
+  formResponseId String
+  formFieldId    String
+  formId         String
+  valueText      String?
+  valueNumber    Decimal?
+  valueDate      DateTime?
+  valueArray     String[]
+
+  formResponse FormResponse @relation(fields: [formResponseId, formId], references: [id, formId], onDelete: Cascade)
+  formField    FormField    @relation(fields: [formFieldId, formId], references: [id, formId], onDelete: Cascade)
+
+  @@unique([formResponseId, formFieldId])
+  @@index([formId])
+}
+
+model DiscussionRoom {
+  id               String   @id @default(uuid())
+  eventId          String   @unique
+  createdAt        DateTime @default(now())
+  lastSerialNumber Int      @default(0)
+
+  event     Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  messages  Message[]
+  roomReadStatuses  RoomReadStatus[]
+}
+
+model Message {
+  id             String   @id @default(uuid())
+  roomId         String
+  content        String
+  isAnnouncement Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  serialNumber   Int
+
+  senderParticipantId String?
+  senderOrganizerId   String?
+
+  room              DiscussionRoom      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  senderParticipant ParticipantProfile? @relation(fields: [senderParticipantId], references: [id])
+  senderOrganizer   OrganizerProfile?   @relation(fields: [senderOrganizerId], references: [id])
+}
+
+model RoomReadStatus {
+  id                   String  @id @default(uuid())
+  roomId               String
+  lastReadMessageId    String?
+  lastReadSerialNumber Int     @default(0)
+
+  readerParticipantId String?
+  readerOrganizerId   String?
+
+  room              DiscussionRoom      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  readerParticipant ParticipantProfile? @relation(fields: [readerParticipantId], references: [id])
+  readerOrganizer   OrganizerProfile?   @relation(fields: [readerOrganizerId], references: [id])
+
+  @@unique([roomId, readerParticipantId])
+  @@unique([roomId, readerOrganizerId])
+}
